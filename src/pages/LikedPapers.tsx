@@ -14,19 +14,19 @@ interface SavedPaper {
   created_at: string
   paper_id: string
   user_id: string
-  is_liked: boolean | null
+  is_liked: boolean
 }
 
-export default function Lists() {
-  const [savedPapers, setSavedPapers] = useState<SavedPaper[]>([])
+export default function LikedPapers() {
+  const [likedPapers, setLikedPapers] = useState<SavedPaper[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
 
   useEffect(() => {
-    fetchSavedPapers()
+    fetchLikedPapers()
   }, [])
 
-  const fetchSavedPapers = async () => {
+  const fetchLikedPapers = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
@@ -34,19 +34,44 @@ export default function Lists() {
       const { data, error } = await supabase
         .from("saved_papers")
         .select("*")
+        .eq("is_liked", true)
         .order("created_at", { ascending: false })
 
       if (error) throw error
-      setSavedPapers(data || [])
+      setLikedPapers(data || [])
     } catch (error) {
-      console.error("Error fetching saved papers:", error)
+      console.error("Error fetching liked papers:", error)
       toast({
         title: "Error",
-        description: "Failed to load saved papers",
+        description: "Failed to load liked papers",
         variant: "destructive",
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleUnlike = async (paperId: string) => {
+    try {
+      const { error } = await supabase
+        .from("saved_papers")
+        .update({ is_liked: false })
+        .eq("id", paperId)
+
+      if (error) throw error
+
+      setLikedPapers((prev) => prev.filter((paper) => paper.id !== paperId))
+      toast({
+        title: "Success",
+        description: "Paper removed from likes",
+      })
+    } catch (error) {
+      console.error("Error unliking paper:", error)
+      toast({
+        title: "Error",
+        description: "Failed to unlike paper",
+        variant: "destructive",
+      })
     }
   }
 
@@ -59,7 +84,7 @@ export default function Lists() {
 
       if (error) throw error
 
-      setSavedPapers((prev) => prev.filter((paper) => paper.id !== paperId))
+      setLikedPapers((prev) => prev.filter((paper) => paper.id !== paperId))
       toast({
         title: "Success",
         description: "Paper removed from your list",
@@ -74,40 +99,10 @@ export default function Lists() {
     }
   }
 
-  const handleToggleLike = async (paper: SavedPaper) => {
-    try {
-      const { error } = await supabase
-        .from("saved_papers")
-        .update({ is_liked: !paper.is_liked })
-        .eq("id", paper.id)
-
-      if (error) throw error
-
-      setSavedPapers((prev) =>
-        prev.map((p) =>
-          p.id === paper.id ? { ...p, is_liked: !p.is_liked } : p
-        )
-      )
-      toast({
-        title: "Success",
-        description: paper.is_liked
-          ? "Paper removed from likes"
-          : "Paper added to likes",
-      })
-    } catch (error) {
-      console.error("Error toggling like:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update paper",
-        variant: "destructive",
-      })
-    }
-  }
-
   if (loading) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">My Lists</h1>
+        <h1 className="text-2xl font-bold mb-6">Liked Papers</h1>
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="p-6">
@@ -124,14 +119,14 @@ export default function Lists() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">My Lists</h1>
-      {savedPapers.length === 0 ? (
+      <h1 className="text-2xl font-bold mb-6">Liked Papers</h1>
+      {likedPapers.length === 0 ? (
         <Card className="p-6 text-center text-gray-500">
-          No papers saved yet
+          No liked papers yet
         </Card>
       ) : (
         <div className="space-y-4">
-          {savedPapers.map((paper) => (
+          {likedPapers.map((paper) => (
             <Card key={paper.id} className="p-6">
               <div className="flex justify-between items-start">
                 <div className="space-y-2">
@@ -144,17 +139,11 @@ export default function Lists() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`hover:bg-yellow-100 active:bg-yellow-200 transition-colors ${
-                      paper.is_liked ? "text-yellow-500" : ""
-                    }`}
-                    onClick={() => handleToggleLike(paper)}
-                    title={paper.is_liked ? "Unlike" : "Like"}
+                    className="hover:bg-yellow-100 active:bg-yellow-200 transition-colors"
+                    onClick={() => handleUnlike(paper.id)}
+                    title="Unlike"
                   >
-                    <Star
-                      className={`h-4 w-4 ${
-                        paper.is_liked ? "fill-yellow-400" : ""
-                      }`}
-                    />
+                    <Star className="h-4 w-4 fill-yellow-400" />
                   </Button>
                   <Button
                     variant="ghost"
