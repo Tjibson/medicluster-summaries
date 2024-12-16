@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { type SavedPaper } from "@/types/papers"
 import { PapersList } from "@/components/papers/PapersList"
+import { Button } from "@/components/ui/button"
+import { Download } from "lucide-react"
 
 export default function Lists() {
   const [savedPapers, setSavedPapers] = useState<SavedPaper[]>([])
@@ -98,9 +100,41 @@ export default function Lists() {
     console.log("Downloading paper:", paperId)
   }
 
+  const handleDownloadSummary = () => {
+    // Create a text summary of all saved papers
+    const summary = savedPapers.map(paper => (
+      `Title: ${paper.title}\nAuthors: ${paper.authors.join(", ")}\nJournal: ${paper.journal} (${paper.year})\n\n`
+    )).join("---\n\n")
+
+    // Create and download the file
+    const blob = new Blob([summary], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "papers-summary.txt"
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    toast({
+      title: "Success",
+      description: "Summary downloaded successfully",
+    })
+  }
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">My Lists</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">My Lists</h1>
+        <Button
+          onClick={handleDownloadSummary}
+          className="shadow-soft hover:shadow-card transition-shadow duration-200"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Download Summary
+        </Button>
+      </div>
       <PapersList
         papers={savedPapers}
         isLoading={loading}
