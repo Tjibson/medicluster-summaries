@@ -6,11 +6,13 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { useEffect, useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
 import { SidebarProvider } from "@/components/ui/sidebar"
+import { TopNav } from "@/components/TopNav"
 import Index from "./pages/Index"
 import Login from "./pages/Login"
 import Dashboard from "./pages/Dashboard"
 import Downloads from "./pages/Downloads"
-import { AppSidebar } from "./components/AppSidebar"
+import Lists from "./pages/Lists"
+import Settings from "./pages/Settings"
 
 const queryClient = new QueryClient()
 
@@ -36,11 +38,14 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   return isAuthenticated ? (
-    <div className="flex min-h-screen w-full">
-      <AppSidebar />
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
+    <div className="flex flex-col min-h-screen w-full">
+      <TopNav />
+      <div className="flex flex-1">
+        <AppSidebar />
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
+      </div>
     </div>
   ) : (
     <Navigate to="/login" replace />
@@ -77,6 +82,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Downloads />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/lists"
+              element={
+                <ProtectedRoute>
+                  <Lists />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
                 </ProtectedRoute>
               }
             />

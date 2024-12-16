@@ -36,7 +36,7 @@ export const PapersList = ({
     )
   }
 
-  if (papers.length === 0) {
+  if (!papers || papers.length === 0) {
     return (
       <Card className="p-6 text-center text-gray-500">
         {emptyMessage}

@@ -33,7 +33,11 @@ export const PaperCard = ({
               variant="ghost"
               size="icon"
               className="hover:bg-yellow-100 active:bg-yellow-200 transition-colors"
-              onClick={onUnlike}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onUnlike()
+              }}
               title="Unlike"
             >
               <Heart className="h-4 w-4 fill-yellow-400" />
@@ -43,7 +47,11 @@ export const PaperCard = ({
             variant="ghost"
             size="icon"
             className="hover:bg-blue-100 active:bg-blue-200 transition-colors"
-            onClick={onDownload}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onDownload()
+            }}
             title="Download"
           >
             <Download className="h-4 w-4" />
@@ -52,7 +60,11 @@ export const PaperCard = ({
             variant="ghost"
             size="icon"
             className="hover:bg-red-100 active:bg-red-200 transition-colors"
-            onClick={onRemove}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onRemove()
+            }}
             title="Remove from list"
           >
             <Trash2 className="h-4 w-4" />
