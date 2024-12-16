@@ -1,4 +1,4 @@
-import { Select } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface RegionSelectProps {
   continent: string
@@ -60,16 +60,18 @@ export function RegionSelect({ continent, value, onChange }: RegionSelectProps) 
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium">Region</label>
-      <Select
-        value={value}
-        onValueChange={onChange}
-      >
-        <option value="">Select Region</option>
-        {getRegionOptions().map((region) => (
-          <option key={region} value={region}>
-            {region}
-          </option>
-        ))}
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger>
+          <SelectValue placeholder="Select Region" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">Select All</SelectItem>
+          {getRegionOptions().map((region) => (
+            <SelectItem key={region} value={region}>
+              {region}
+            </SelectItem>
+          ))}
+        </SelectContent>
       </Select>
     </div>
   )
