@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/integrations/supabase/client"
 
 export default function Settings() {
@@ -18,6 +18,15 @@ export default function Settings() {
       toast({
         title: "Error",
         description: "Passwords do not match",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long",
         variant: "destructive",
       })
       return
@@ -56,32 +65,32 @@ export default function Settings() {
       <Card className="p-6">
         <form onSubmit={handlePasswordChange} className="space-y-4">
           <div>
-            <label htmlFor="newPassword" className="block text-sm font-medium mb-1">
+            <label htmlFor="new-password" className="block text-sm font-medium mb-1">
               New Password
             </label>
             <Input
-              id="newPassword"
+              id="new-password"
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              required
-              minLength={6}
+              placeholder="Enter new password"
+              className="w-full"
             />
           </div>
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1">
+            <label htmlFor="confirm-password" className="block text-sm font-medium mb-1">
               Confirm New Password
             </label>
             <Input
-              id="confirmPassword"
+              id="confirm-password"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              minLength={6}
+              placeholder="Confirm new password"
+              className="w-full"
             />
           </div>
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading} className="w-full">
             {isLoading ? "Updating..." : "Update Password"}
           </Button>
         </form>

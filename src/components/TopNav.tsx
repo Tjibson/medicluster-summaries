@@ -1,31 +1,30 @@
-import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { UserCircle } from "lucide-react"
+import { SidebarTrigger } from "@/components/ui/sidebar"
+import { User } from "lucide-react"
+import { Link } from "react-router-dom"
 
 export function TopNav() {
   return (
-    <div className="border-b bg-background">
-      <div className="flex h-16 items-center px-4">
-        <Link to="/" className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
-            <span className="text-primary-foreground font-bold">M</span>
-          </div>
-          <span className="font-semibold">MediCluster</span>
-        </Link>
-        <div className="ml-auto">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="hover:bg-accent hover:text-accent-foreground transition-colors"
-            asChild
-          >
-            <Link to="/settings">
-              <UserCircle className="mr-2 h-4 w-4" />
-              My Profile
-            </Link>
-          </Button>
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 items-center">
+        <SidebarTrigger />
+        <div className="mr-4 hidden md:flex">
+          <Link to="/" className="mr-6 flex items-center space-x-2">
+            <div className="h-6 w-6 bg-primary rounded-sm" />
+            <span className="hidden font-bold sm:inline-block">
+              PaperSearch
+            </span>
+          </Link>
+        </div>
+        <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+          <Link to="/settings">
+            <Button variant="ghost" size="icon" className="hover:bg-accent">
+              <User className="h-5 w-5" />
+              <span className="sr-only">Profile Settings</span>
+            </Button>
+          </Link>
         </div>
       </div>
-    </div>
+    </header>
   )
 }
