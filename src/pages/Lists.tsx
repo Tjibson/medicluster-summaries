@@ -3,8 +3,7 @@ import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { type SavedPaper } from "@/types/papers"
 import { PapersList } from "@/components/papers/PapersList"
-import { Button } from "@/components/ui/button"
-import { Download } from "lucide-react"
+import { ListsHeader } from "@/components/papers/ListsHeader"
 
 export default function Lists() {
   const [savedPapers, setSavedPapers] = useState<SavedPaper[]>([])
@@ -64,10 +63,10 @@ export default function Lists() {
   }
 
   const handleToggleLike = async (paperId: string) => {
-    const paper = savedPapers.find((p) => p.id === paperId)
-    if (!paper) return
-
     try {
+      const paper = savedPapers.find((p) => p.id === paperId)
+      if (!paper) return
+
       const { error } = await supabase
         .from("saved_papers")
         .update({ is_liked: !paper.is_liked })
@@ -80,6 +79,7 @@ export default function Lists() {
           p.id === paperId ? { ...p, is_liked: !p.is_liked } : p
         )
       )
+
       toast({
         title: "Success",
         description: paper.is_liked
@@ -97,16 +97,17 @@ export default function Lists() {
   }
 
   const handleDownload = (paperId: string) => {
-    console.log("Downloading paper:", paperId)
+    const paper = savedPapers.find((p) => p.id === paperId)
+    if (paper?.pdfUrl) {
+      window.open(paper.pdfUrl, '_blank')
+    }
   }
 
   const handleDownloadSummary = () => {
-    // Create a text summary of all saved papers
     const summary = savedPapers.map(paper => (
       `Title: ${paper.title}\nAuthors: ${paper.authors.join(", ")}\nJournal: ${paper.journal} (${paper.year})\n\n`
     )).join("---\n\n")
 
-    // Create and download the file
     const blob = new Blob([summary], { type: "text/plain" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -125,16 +126,7 @@ export default function Lists() {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">My Lists</h1>
-        <Button
-          onClick={handleDownloadSummary}
-          className="shadow-soft hover:shadow-card transition-shadow duration-200"
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Download Summary
-        </Button>
-      </div>
+      <ListsHeader onDownloadSummary={handleDownloadSummary} />
       <PapersList
         papers={savedPapers}
         isLoading={loading}
