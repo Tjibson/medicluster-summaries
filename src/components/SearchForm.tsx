@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface SearchCriteria {
   population: string;
+  continent: string;
+  region: string;
   disease: string;
   medicine: string;
   working_mechanism: string;
@@ -30,9 +32,41 @@ interface TrialType {
   name: string;
 }
 
+const CONTINENTS = [
+  "Africa",
+  "Asia",
+  "Europe",
+  "North America",
+  "South America",
+  "Oceania",
+];
+
+const REGIONS = {
+  Africa: ["North Africa", "West Africa", "East Africa", "Southern Africa"],
+  Asia: ["East Asia", "South Asia", "Southeast Asia", "Central Asia", "Middle East"],
+  Europe: ["Western Europe", "Eastern Europe", "Northern Europe", "Southern Europe"],
+  "North America": ["Northern America", "Central America", "Caribbean"],
+  "South America": ["Northern South America", "Southern South America"],
+  Oceania: ["Australia and New Zealand", "Melanesia", "Micronesia", "Polynesia"],
+};
+
+const DISEASES_MEDICINE_MAP = {
+  "Type 2 Diabetes": {
+    medicines: ["Metformin", "Sulfonylureas", "DPP-4 inhibitors"],
+    mechanisms: ["Insulin Sensitizer", "Insulin Secretagogue", "Incretin Enhancer"],
+  },
+  Hypertension: {
+    medicines: ["ACE inhibitors", "Beta blockers", "Calcium channel blockers"],
+    mechanisms: ["ACE inhibition", "Beta-adrenergic blocking", "Calcium channel blocking"],
+  },
+  // Add more disease-medicine mappings as needed
+};
+
 export function SearchForm({ onSearch }: SearchFormProps) {
   const [criteria, setCriteria] = useState<SearchCriteria>({
     population: "",
+    continent: "",
+    region: "",
     disease: "",
     medicine: "",
     working_mechanism: "",
@@ -43,6 +77,7 @@ export function SearchForm({ onSearch }: SearchFormProps) {
 
   const [journals, setJournals] = useState<Journal[]>([]);
   const [trialTypes, setTrialTypes] = useState<TrialType[]>([]);
+  const [availableRegions, setAvailableRegions] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -63,6 +98,24 @@ export function SearchForm({ onSearch }: SearchFormProps) {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (criteria.continent) {
+      setAvailableRegions(REGIONS[criteria.continent as keyof typeof REGIONS] || []);
+    }
+  }, [criteria.continent]);
+
+  useEffect(() => {
+    if (criteria.disease && DISEASES_MEDICINE_MAP[criteria.disease as keyof typeof DISEASES_MEDICINE_MAP]) {
+      const diseaseInfo = DISEASES_MEDICINE_MAP[criteria.disease as keyof typeof DISEASES_MEDICINE_MAP];
+      if (!criteria.medicine) {
+        setCriteria(prev => ({
+          ...prev,
+          working_mechanism: diseaseInfo.mechanisms[0],
+        }));
+      }
+    }
+  }, [criteria.disease]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSearch(criteria);
@@ -73,49 +126,119 @@ export function SearchForm({ onSearch }: SearchFormProps) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="population">Demographic Characteristics</Label>
-            <Input
-              id="population"
-              placeholder="e.g., Adults 18-65"
-              value={criteria.population}
-              onChange={(e) =>
-                setCriteria({ ...criteria, population: e.target.value })
+            <Label htmlFor="continent">Continent</Label>
+            <Select
+              value={criteria.continent}
+              onValueChange={(value) =>
+                setCriteria({ ...criteria, continent: value, region: "" })
               }
-            />
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select continent" />
+              </SelectTrigger>
+              <SelectContent>
+                {CONTINENTS.map((continent) => (
+                  <SelectItem key={continent} value={continent}>
+                    {continent}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="region">Region</Label>
+            <Select
+              value={criteria.region}
+              onValueChange={(value) =>
+                setCriteria({ ...criteria, region: value })
+              }
+              disabled={!criteria.continent}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select region" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableRegions.map((region) => (
+                  <SelectItem key={region} value={region}>
+                    {region}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="disease">Disease</Label>
-            <Input
-              id="disease"
-              placeholder="e.g., Type 2 Diabetes"
+            <Select
               value={criteria.disease}
-              onChange={(e) =>
-                setCriteria({ ...criteria, disease: e.target.value })
+              onValueChange={(value) =>
+                setCriteria({ ...criteria, disease: value })
               }
-            />
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select disease" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.keys(DISEASES_MEDICINE_MAP).map((disease) => (
+                  <SelectItem key={disease} value={disease}>
+                    {disease}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="medicine">Medicine</Label>
-            <Input
-              id="medicine"
-              placeholder="e.g., Metformin"
+            <Select
               value={criteria.medicine}
-              onChange={(e) =>
-                setCriteria({ ...criteria, medicine: e.target.value })
+              onValueChange={(value) =>
+                setCriteria({ ...criteria, medicine: value })
               }
-            />
+              disabled={!criteria.disease}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select medicine" />
+              </SelectTrigger>
+              <SelectContent>
+                {criteria.disease &&
+                  DISEASES_MEDICINE_MAP[criteria.disease as keyof typeof DISEASES_MEDICINE_MAP]?.medicines.map(
+                    (medicine) => (
+                      <SelectItem key={medicine} value={medicine}>
+                        {medicine}
+                      </SelectItem>
+                    )
+                  )}
+              </SelectContent>
+            </Select>
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="mechanism">Working Mechanism</Label>
-            <Input
-              id="mechanism"
-              placeholder="e.g., Insulin Sensitizer"
+            <Select
               value={criteria.working_mechanism}
-              onChange={(e) =>
-                setCriteria({ ...criteria, working_mechanism: e.target.value })
+              onValueChange={(value) =>
+                setCriteria({ ...criteria, working_mechanism: value })
               }
-            />
+              disabled={!criteria.disease}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select mechanism" />
+              </SelectTrigger>
+              <SelectContent>
+                {criteria.disease &&
+                  DISEASES_MEDICINE_MAP[criteria.disease as keyof typeof DISEASES_MEDICINE_MAP]?.mechanisms.map(
+                    (mechanism) => (
+                      <SelectItem key={mechanism} value={mechanism}>
+                        {mechanism}
+                      </SelectItem>
+                    )
+                  )}
+              </SelectContent>
+            </Select>
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="patientCount">Minimum Patient Count</Label>
             <Input

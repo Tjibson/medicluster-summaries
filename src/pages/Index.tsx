@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { SearchForm, type SearchCriteria } from "@/components/SearchForm";
-import { ResultsList, type Paper } from "@/components/ResultsList";
+import { ResultsList } from "@/components/ResultsList";
+import { type Paper } from "@/types/papers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { AppLayout } from "@/components/AppLayout";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -41,22 +43,19 @@ const Index = () => {
       }
 
       // This will be replaced with actual API call once backend is connected
-      setTimeout(() => {
-        setPapers([
-          {
-            id: "1",
-            title: "Example Medical Research Paper",
-            authors: ["John Doe", "Jane Smith"],
-            journal: "Medical Journal",
-            year: 2023,
-            citations: 150,
-            abstract:
-              "This is a placeholder abstract for demonstration purposes. It will be replaced with real PubMed data once the backend is connected.",
-            pdfUrl: "#",
-          },
-        ]);
-        setIsLoading(false);
-      }, 1500);
+      setPapers([
+        {
+          id: "1",
+          title: "Example Medical Research Paper",
+          authors: ["John Doe", "Jane Smith"],
+          journal: "Medical Journal",
+          year: 2023,
+          citations: 150,
+          abstract:
+            "This is a placeholder abstract for demonstration purposes. It will be replaced with real PubMed data once the backend is connected.",
+          pdfUrl: "#",
+        },
+      ]);
     } catch (error) {
       console.error("Search error:", error);
       toast({
@@ -64,12 +63,13 @@ const Index = () => {
         description: "An error occurred while processing your search",
         variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AppLayout>
       <div className="container py-8">
         <div className="max-w-4xl mx-auto space-y-8">
           <div className="text-center space-y-4">
@@ -88,7 +88,7 @@ const Index = () => {
           />
         </div>
       </div>
-    </div>
+    </AppLayout>
   );
 };
 
