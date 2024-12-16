@@ -8,7 +8,7 @@ export interface SearchCriteria {
   population: string;
   disease: string;
   medicine: string;
-  mechanism: string;
+  working_mechanism: string;
   patientCount: string;
   trialType: string;
 }
@@ -22,7 +22,7 @@ export function SearchForm({ onSearch }: SearchFormProps) {
     population: "",
     disease: "",
     medicine: "",
-    mechanism: "",
+    working_mechanism: "",
     patientCount: "",
     trialType: "",
   });
@@ -74,9 +74,9 @@ export function SearchForm({ onSearch }: SearchFormProps) {
             <Input
               id="mechanism"
               placeholder="e.g., Insulin Sensitizer"
-              value={criteria.mechanism}
+              value={criteria.working_mechanism}
               onChange={(e) =>
-                setCriteria({ ...criteria, mechanism: e.target.value })
+                setCriteria({ ...criteria, working_mechanism: e.target.value })
               }
             />
           </div>

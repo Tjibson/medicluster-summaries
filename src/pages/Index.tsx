@@ -20,16 +20,23 @@ const Index = () => {
 
       // Save search to history
       const { error } = await supabase.from("search_history").insert({
+        user_id: session.user.id,
         population: criteria.population || null,
         disease: criteria.disease || null,
         medicine: criteria.medicine || null,
         working_mechanism: criteria.working_mechanism || null,
         patient_count: criteria.patientCount ? parseInt(criteria.patientCount) : null,
-        trial_type: criteria.trialType || null,
-        user_id: session.user.id
+        trial_type: criteria.trialType || null
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error saving search:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save search history",
+          variant: "destructive",
+        });
+      }
 
       // This will be replaced with actual API call once backend is connected
       setTimeout(() => {
@@ -49,9 +56,10 @@ const Index = () => {
         setIsLoading(false);
       }, 1500);
     } catch (error) {
+      console.error("Search error:", error);
       toast({
         title: "Error",
-        description: "Failed to save search history",
+        description: "An error occurred while processing your search",
         variant: "destructive",
       });
       setIsLoading(false);
