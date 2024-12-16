@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Star, List } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { useEffect, useState } from "react";
 
 export interface Paper {
   id: string;
@@ -31,10 +32,31 @@ interface ResultsListProps {
 
 export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListProps) {
   const { toast } = useToast();
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const getUserId = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUserId(session.user.id);
+      }
+    };
+    getUserId();
+  }, []);
 
   const handleSavePaper = async (paper: Paper) => {
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to save papers",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase.from("saved_papers").insert({
+        user_id: userId,
         paper_id: paper.id,
         title: paper.title,
         authors: paper.authors,
@@ -58,8 +80,18 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
   };
 
   const handleLikePaper = async (paper: Paper) => {
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to like papers",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase.from("saved_papers").insert({
+        user_id: userId,
         paper_id: paper.id,
         title: paper.title,
         authors: paper.authors,
