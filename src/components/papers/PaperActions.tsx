@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button"
-import { Download, Star, List } from "lucide-react"
+import { Download, Heart } from "lucide-react"
 import { type Paper } from "@/types/papers"
 
 interface PaperActionsProps {
@@ -17,12 +17,12 @@ export function PaperActions({ paper, onSave, onLike }: PaperActionsProps) {
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          onSave(paper)
+          onLike(paper)
         }}
-        title="Add to List"
+        title="Like Paper"
         className="shadow-soft hover:shadow-card transition-shadow duration-200"
       >
-        <List className="h-4 w-4" />
+        <Heart className="h-4 w-4" />
       </Button>
       {paper.pdfUrl && (
         <Button
@@ -39,19 +39,6 @@ export function PaperActions({ paper, onSave, onLike }: PaperActionsProps) {
           <Download className="h-4 w-4" />
         </Button>
       )}
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          onLike(paper)
-        }}
-        title="Like Paper"
-        className="shadow-soft hover:shadow-card transition-shadow duration-200"
-      >
-        <Star className="h-4 w-4" />
-      </Button>
     </div>
   )
 }

@@ -1,301 +1,216 @@
-import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Select } from "@/components/ui/select"
+import { supabase } from "@/integrations/supabase/client"
+import { useToast } from "@/hooks/use-toast"
+import { Heart } from "lucide-react"
 
-export interface SearchCriteria {
-  population: string;
-  continent: string;
-  region: string;
-  disease: string;
-  medicine: string;
-  working_mechanism: string;
-  patientCount: string;
-  trialType: string;
-  journal: string;
-}
-
-interface SearchFormProps {
-  onSearch: (criteria: SearchCriteria) => void;
-}
-
-interface Journal {
-  id: string;
-  name: string;
-}
-
-interface TrialType {
-  id: string;
-  name: string;
-}
-
-const CONTINENTS = [
-  "Africa",
-  "Asia",
-  "Europe",
-  "North America",
-  "South America",
-  "Oceania",
-];
-
-const REGIONS = {
-  Africa: ["North Africa", "West Africa", "East Africa", "Southern Africa"],
-  Asia: ["East Asia", "South Asia", "Southeast Asia", "Central Asia", "Middle East"],
-  Europe: ["Western Europe", "Eastern Europe", "Northern Europe", "Southern Europe"],
-  "North America": ["Northern America", "Central America", "Caribbean"],
-  "South America": ["Northern South America", "Southern South America"],
-  Oceania: ["Australia and New Zealand", "Melanesia", "Micronesia", "Polynesia"],
-};
-
-const DISEASES_MEDICINE_MAP = {
-  "Type 2 Diabetes": {
-    medicines: ["Metformin", "Sulfonylureas", "DPP-4 inhibitors"],
-    mechanisms: ["Insulin Sensitizer", "Insulin Secretagogue", "Incretin Enhancer"],
-  },
-  Hypertension: {
-    medicines: ["ACE inhibitors", "Beta blockers", "Calcium channel blockers"],
-    mechanisms: ["ACE inhibition", "Beta-adrenergic blocking", "Calcium channel blocking"],
-  },
-  // Add more disease-medicine mappings as needed
-};
-
-export function SearchForm({ onSearch }: SearchFormProps) {
-  const [criteria, setCriteria] = useState<SearchCriteria>({
-    population: "",
-    continent: "",
-    region: "",
-    disease: "",
-    medicine: "",
-    working_mechanism: "",
-    patientCount: "",
-    trialType: "",
-    journal: "",
-  });
-
-  const [journals, setJournals] = useState<Journal[]>([]);
-  const [trialTypes, setTrialTypes] = useState<TrialType[]>([]);
-  const [availableRegions, setAvailableRegions] = useState<string[]>([]);
+export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) {
+  const [searchHistory, setSearchHistory] = useState([])
+  const [selectedContinent, setSelectedContinent] = useState("")
+  const [selectedRegion, setSelectedRegion] = useState("")
+  const [disease, setDisease] = useState("")
+  const [medicine, setMedicine] = useState("")
+  const [workingMechanism, setWorkingMechanism] = useState("")
+  const [patientCount, setPatientCount] = useState("")
+  const [trialType, setTrialType] = useState("")
+  const { toast } = useToast()
 
   useEffect(() => {
-    const fetchData = async () => {
-      const { data: journalData } = await supabase
-        .from("medical_journals")
+    fetchSearchHistory()
+  }, [])
+
+  const fetchSearchHistory = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const { data, error } = await supabase
+        .from("search_history")
         .select("*")
-        .order("name");
-      
-      const { data: trialTypeData } = await supabase
-        .from("trial_types")
-        .select("*")
-        .order("name");
+        .order("created_at", { ascending: false })
+        .limit(5)
 
-      if (journalData) setJournals(journalData);
-      if (trialTypeData) setTrialTypes(trialTypeData);
-    };
-
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    if (criteria.continent) {
-      setAvailableRegions(REGIONS[criteria.continent as keyof typeof REGIONS] || []);
+      if (error) throw error
+      setSearchHistory(data || [])
+    } catch (error) {
+      console.error("Error fetching search history:", error)
     }
-  }, [criteria.continent]);
+  }
 
-  useEffect(() => {
-    if (criteria.disease && DISEASES_MEDICINE_MAP[criteria.disease as keyof typeof DISEASES_MEDICINE_MAP]) {
-      const diseaseInfo = DISEASES_MEDICINE_MAP[criteria.disease as keyof typeof DISEASES_MEDICINE_MAP];
-      if (!criteria.medicine) {
-        setCriteria(prev => ({
-          ...prev,
-          working_mechanism: diseaseInfo.mechanisms[0],
-        }));
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    const searchCriteria = {
+      population: `${selectedContinent}${selectedRegion ? ` - ${selectedRegion}` : ''}`,
+      disease,
+      medicine,
+      working_mechanism: workingMechanism,
+      patient_count: patientCount ? parseInt(patientCount) : null,
+      trial_type: trialType,
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to search",
+          variant: "destructive",
+        })
+        return
       }
-    }
-  }, [criteria.disease]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSearch(criteria);
-  };
+      const { error } = await supabase
+        .from("search_history")
+        .insert([searchCriteria])
+
+      if (error) throw error
+
+      onSearch(searchCriteria)
+      fetchSearchHistory() // Refresh history after new search
+    } catch (error) {
+      console.error("Error saving search:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save search",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleHistoryClick = (historicalSearch: any) => {
+    setSelectedContinent(historicalSearch.population?.split(" - ")[0] || "")
+    setSelectedRegion(historicalSearch.population?.split(" - ")[1] || "")
+    setDisease(historicalSearch.disease || "")
+    setMedicine(historicalSearch.medicine || "")
+    setWorkingMechanism(historicalSearch.working_mechanism || "")
+    setPatientCount(historicalSearch.patient_count?.toString() || "")
+    setTrialType(historicalSearch.trial_type || "")
+    onSearch(historicalSearch)
+  }
 
   return (
-    <Card className="p-6">
+    <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="continent">Continent</Label>
+            <label className="text-sm font-medium">Continent</label>
             <Select
-              value={criteria.continent}
-              onValueChange={(value) =>
-                setCriteria({ ...criteria, continent: value, region: "" })
-              }
+              value={selectedContinent}
+              onValueChange={setSelectedContinent}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Select continent" />
-              </SelectTrigger>
-              <SelectContent>
-                {CONTINENTS.map((continent) => (
-                  <SelectItem key={continent} value={continent}>
-                    {continent}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="region">Region</Label>
-            <Select
-              value={criteria.region}
-              onValueChange={(value) =>
-                setCriteria({ ...criteria, region: value })
-              }
-              disabled={!criteria.continent}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select region" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableRegions.map((region) => (
-                  <SelectItem key={region} value={region}>
-                    {region}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+              <option value="">Select Continent</option>
+              <option value="Africa">Africa</option>
+              <option value="Asia">Asia</option>
+              <option value="Europe">Europe</option>
+              <option value="North America">North America</option>
+              <option value="South America">South America</option>
+              <option value="Oceania">Oceania</option>
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="disease">Disease</Label>
-            <Select
-              value={criteria.disease}
-              onValueChange={(value) =>
-                setCriteria({ ...criteria, disease: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select disease" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.keys(DISEASES_MEDICINE_MAP).map((disease) => (
-                  <SelectItem key={disease} value={disease}>
-                    {disease}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {selectedContinent && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Region</label>
+              <Select
+                value={selectedRegion}
+                onValueChange={setSelectedRegion}
+              >
+                <option value="">Select Region</option>
+                {selectedContinent === "Africa" && (
+                  <>
+                    <option value="North Africa">North Africa</option>
+                    <option value="West Africa">West Africa</option>
+                    <option value="East Africa">East Africa</option>
+                    <option value="Central Africa">Central Africa</option>
+                    <option value="Southern Africa">Southern Africa</option>
+                  </>
+                )}
+                {selectedContinent === "Asia" && (
+                  <>
+                    <option value="East Asia">East Asia</option>
+                    <option value="South Asia">South Asia</option>
+                    <option value="Southeast Asia">Southeast Asia</option>
+                    <option value="Central Asia">Central Asia</option>
+                    <option value="West Asia">West Asia</option>
+                  </>
+                )}
+                {/* Add similar options for other continents */}
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
-            <Label htmlFor="medicine">Medicine</Label>
-            <Select
-              value={criteria.medicine}
-              onValueChange={(value) =>
-                setCriteria({ ...criteria, medicine: value })
-              }
-              disabled={!criteria.disease}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select medicine" />
-              </SelectTrigger>
-              <SelectContent>
-                {criteria.disease &&
-                  DISEASES_MEDICINE_MAP[criteria.disease as keyof typeof DISEASES_MEDICINE_MAP]?.medicines.map(
-                    (medicine) => (
-                      <SelectItem key={medicine} value={medicine}>
-                        {medicine}
-                      </SelectItem>
-                    )
-                  )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="mechanism">Working Mechanism</Label>
-            <Select
-              value={criteria.working_mechanism}
-              onValueChange={(value) =>
-                setCriteria({ ...criteria, working_mechanism: value })
-              }
-              disabled={!criteria.disease}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select mechanism" />
-              </SelectTrigger>
-              <SelectContent>
-                {criteria.disease &&
-                  DISEASES_MEDICINE_MAP[criteria.disease as keyof typeof DISEASES_MEDICINE_MAP]?.mechanisms.map(
-                    (mechanism) => (
-                      <SelectItem key={mechanism} value={mechanism}>
-                        {mechanism}
-                      </SelectItem>
-                    )
-                  )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="patientCount">Minimum Patient Count</Label>
+            <label className="text-sm font-medium">Disease</label>
             <Input
-              id="patientCount"
-              type="number"
-              placeholder="e.g., 100"
-              value={criteria.patientCount}
-              onChange={(e) =>
-                setCriteria({ ...criteria, patientCount: e.target.value })
-              }
+              value={disease}
+              onChange={(e) => setDisease(e.target.value)}
+              placeholder="Enter disease"
             />
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="trialType">Trial Type</Label>
-            <Select
-              value={criteria.trialType}
-              onValueChange={(value) =>
-                setCriteria({ ...criteria, trialType: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select trial type" />
-              </SelectTrigger>
-              <SelectContent>
-                {trialTypes.map((type) => (
-                  <SelectItem key={type.id} value={type.name}>
-                    {type.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <label className="text-sm font-medium">Medicine</label>
+            <Input
+              value={medicine}
+              onChange={(e) => setMedicine(e.target.value)}
+              placeholder="Enter medicine"
+            />
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="journal">Medical Journal</Label>
-            <Select
-              value={criteria.journal}
-              onValueChange={(value) =>
-                setCriteria({ ...criteria, journal: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select journal" />
-              </SelectTrigger>
-              <SelectContent>
-                {journals.map((journal) => (
-                  <SelectItem key={journal.id} value={journal.name}>
-                    {journal.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <label className="text-sm font-medium">Working Mechanism</label>
+            <Input
+              value={workingMechanism}
+              onChange={(e) => setWorkingMechanism(e.target.value)}
+              placeholder="Enter working mechanism"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Minimum Patient Count</label>
+            <Input
+              type="number"
+              value={patientCount}
+              onChange={(e) => setPatientCount(e.target.value)}
+              placeholder="Enter minimum patient count"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Trial Type</label>
+            <Input
+              value={trialType}
+              onChange={(e) => setTrialType(e.target.value)}
+              placeholder="Enter trial type"
+            />
           </div>
         </div>
+
         <Button type="submit" className="w-full">
-          Search Papers
+          Search
         </Button>
       </form>
-    </Card>
-  );
+
+      {searchHistory.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="font-semibold">Recent Searches</h3>
+          <div className="space-y-2">
+            {searchHistory.map((search: any) => (
+              <Button
+                key={search.id}
+                variant="outline"
+                className="w-full text-left justify-start"
+                onClick={() => handleHistoryClick(search)}
+              >
+                {search.disease} - {search.medicine} ({search.population})
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
