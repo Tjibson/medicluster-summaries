@@ -1,35 +1,22 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 
 interface SearchHistory {
   id: string;
+  created_at: string;
   population: string | null;
   disease: string | null;
   medicine: string | null;
   working_mechanism: string | null;
   patient_count: number | null;
   trial_type: string | null;
-  created_at: string;
 }
 
 const Dashboard = () => {
-  const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
+  const [searches, setSearches] = useState<SearchHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
   const { toast } = useToast();
-
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/login");
-      }
-    };
-    checkUser();
-  }, [navigate]);
 
   useEffect(() => {
     const fetchSearchHistory = async () => {
@@ -40,7 +27,7 @@ const Dashboard = () => {
           .order("created_at", { ascending: false });
 
         if (error) throw error;
-        setSearchHistory(data || []);
+        setSearches(data || []);
       } catch (error) {
         toast({
           title: "Error",
@@ -56,72 +43,68 @@ const Dashboard = () => {
   }, [toast]);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Search History</h1>
-          <button
-            onClick={() => navigate("/")}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-          >
-            New Search
-          </button>
-        </div>
-        
-        {isLoading ? (
-          <div className="text-center py-8">Loading...</div>
-        ) : searchHistory.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">No search history found</div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {searchHistory.map((search) => (
-              <Card key={search.id}>
-                <CardHeader>
-                  <CardTitle className="text-lg">
-                    {search.disease || "General Search"}
-                  </CardTitle>
-                  <div className="text-sm text-gray-500">
-                    {new Date(search.created_at).toLocaleDateString()}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <dl className="space-y-2 text-sm">
+    <div className="min-h-screen bg-gray-50">
+      <div className="container py-8">
+        <div className="max-w-4xl mx-auto space-y-8">
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-bold text-primary">Search History</h1>
+            <p className="text-gray-600">View your past medical research searches</p>
+          </div>
+
+          {isLoading ? (
+            <div className="text-center">Loading...</div>
+          ) : searches.length === 0 ? (
+            <div className="text-center text-gray-500">No search history found</div>
+          ) : (
+            <div className="space-y-4">
+              {searches.map((search) => (
+                <div
+                  key={search.id}
+                  className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+                >
+                  <div className="grid grid-cols-2 gap-4">
                     {search.population && (
                       <div>
-                        <dt className="font-medium">Population:</dt>
-                        <dd>{search.population}</dd>
+                        <span className="font-medium">Population:</span> {search.population}
+                      </div>
+                    )}
+                    {search.disease && (
+                      <div>
+                        <span className="font-medium">Disease:</span> {search.disease}
                       </div>
                     )}
                     {search.medicine && (
                       <div>
-                        <dt className="font-medium">Medicine:</dt>
-                        <dd>{search.medicine}</dd>
+                        <span className="font-medium">Medicine:</span> {search.medicine}
                       </div>
                     )}
                     {search.working_mechanism && (
                       <div>
-                        <dt className="font-medium">Working Mechanism:</dt>
-                        <dd>{search.working_mechanism}</dd>
+                        <span className="font-medium">Working Mechanism:</span>{" "}
+                        {search.working_mechanism}
                       </div>
                     )}
                     {search.patient_count && (
                       <div>
-                        <dt className="font-medium">Patient Count:</dt>
-                        <dd>{search.patient_count}</dd>
+                        <span className="font-medium">Patient Count:</span>{" "}
+                        {search.patient_count}
                       </div>
                     )}
                     {search.trial_type && (
                       <div>
-                        <dt className="font-medium">Trial Type:</dt>
-                        <dd>{search.trial_type}</dd>
+                        <span className="font-medium">Trial Type:</span>{" "}
+                        {search.trial_type}
                       </div>
                     )}
-                  </dl>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                  </div>
+                  <div className="mt-2 text-sm text-gray-500">
+                    Searched on: {new Date(search.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

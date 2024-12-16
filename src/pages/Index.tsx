@@ -12,17 +12,22 @@ const Index = () => {
   const handleSearch = async (criteria: SearchCriteria) => {
     setIsLoading(true);
     try {
+      // Get current user
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        throw new Error("User not authenticated");
+      }
+
       // Save search to history
-      const { error } = await supabase.from("search_history").insert([
-        {
-          population: criteria.population || null,
-          disease: criteria.disease || null,
-          medicine: criteria.medicine || null,
-          working_mechanism: criteria.workingMechanism || null,
-          patient_count: criteria.patientCount ? parseInt(criteria.patientCount) : null,
-          trial_type: criteria.trialType || null,
-        },
-      ]);
+      const { error } = await supabase.from("search_history").insert({
+        population: criteria.population || null,
+        disease: criteria.disease || null,
+        medicine: criteria.medicine || null,
+        working_mechanism: criteria.working_mechanism || null,
+        patient_count: criteria.patientCount ? parseInt(criteria.patientCount) : null,
+        trial_type: criteria.trialType || null,
+        user_id: session.user.id
+      });
 
       if (error) throw error;
 
