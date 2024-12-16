@@ -1,15 +1,12 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select } from "@/components/ui/select"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { ContinentSelect } from "./search/ContinentSelect"
 import { RegionSelect } from "./search/RegionSelect"
-import { SearchHistory } from "./search/SearchHistory"
 
 export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) {
-  const [searchHistory, setSearchHistory] = useState([])
   const [selectedContinent, setSelectedContinent] = useState("")
   const [selectedRegion, setSelectedRegion] = useState("")
   const [disease, setDisease] = useState("")
@@ -18,29 +15,6 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
   const [patientCount, setPatientCount] = useState("")
   const [trialType, setTrialType] = useState("")
   const { toast } = useToast()
-
-  useEffect(() => {
-    fetchSearchHistory()
-  }, [])
-
-  const fetchSearchHistory = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      const { data, error } = await supabase
-        .from("search_history")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: false })
-        .limit(5)
-
-      if (error) throw error
-      setSearchHistory(data || [])
-    } catch (error) {
-      console.error("Error fetching search history:", error)
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,7 +47,6 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
       if (error) throw error
 
       onSearch(searchCriteria)
-      fetchSearchHistory()
     } catch (error) {
       console.error("Error saving search:", error)
       toast({
@@ -82,17 +55,6 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
         variant: "destructive",
       })
     }
-  }
-
-  const handleHistoryClick = (historicalSearch: any) => {
-    setSelectedContinent(historicalSearch.population?.split(" - ")[0] || "")
-    setSelectedRegion(historicalSearch.population?.split(" - ")[1] || "")
-    setDisease(historicalSearch.disease || "")
-    setMedicine(historicalSearch.medicine || "")
-    setWorkingMechanism(historicalSearch.working_mechanism || "")
-    setPatientCount(historicalSearch.patient_count?.toString() || "")
-    setTrialType(historicalSearch.trial_type || "")
-    onSearch(historicalSearch)
   }
 
   return (
@@ -163,11 +125,6 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
           Search
         </Button>
       </form>
-
-      <SearchHistory
-        searchHistory={searchHistory}
-        onHistoryClick={handleHistoryClick}
-      />
     </div>
   )
 }
