@@ -1,3 +1,14 @@
+export interface Paper {
+  id: string
+  title: string
+  authors: string[]
+  journal: string
+  year: number
+  citations: number
+  abstract: string
+  pdfUrl?: string
+}
+
 export interface SavedPaper {
   id: string
   title: string
