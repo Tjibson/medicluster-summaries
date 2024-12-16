@@ -1,40 +1,66 @@
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
+import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/integrations/supabase/client"
-import { useToast } from "@/hooks/use-toast"
-import { type SavedPaper } from "@/types/papers"
 import { PapersList } from "@/components/papers/PapersList"
-import { ListsHeader } from "@/components/papers/ListsHeader"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Download } from "lucide-react"
+import { type SavedPaper } from "@/types/papers"
+
+interface List {
+  id: string
+  name: string
+  papers: SavedPaper[]
+}
 
 export default function Lists() {
-  const [savedPapers, setSavedPapers] = useState<SavedPaper[]>([])
-  const [loading, setLoading] = useState(true)
+  const [lists, setLists] = useState<List[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
 
   useEffect(() => {
-    fetchSavedPapers()
+    fetchLists()
   }, [])
 
-  const fetchSavedPapers = async () => {
+  const fetchLists = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      const { data, error } = await supabase
-        .from("saved_papers")
+      const { data: listsData, error: listsError } = await supabase
+        .from("lists")
         .select("*")
+        .eq("user_id", session.user.id)
         .order("created_at", { ascending: false })
 
-      if (error) throw error
-      setSavedPapers(data || [])
+      if (listsError) throw listsError
+
+      const listsWithPapers = await Promise.all(
+        (listsData || []).map(async (list) => {
+          const { data: papers, error: papersError } = await supabase
+            .from("saved_papers")
+            .select("*")
+            .eq("list_id", list.id)
+            .order("created_at", { ascending: false })
+
+          if (papersError) throw papersError
+
+          return {
+            ...list,
+            papers: papers || [],
+          }
+        })
+      )
+
+      setLists(listsWithPapers)
     } catch (error) {
-      console.error("Error fetching saved papers:", error)
       toast({
         title: "Error",
-        description: "Failed to load saved papers",
+        description: "Failed to fetch lists",
         variant: "destructive",
       })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
@@ -47,13 +73,16 @@ export default function Lists() {
 
       if (error) throw error
 
-      setSavedPapers((prev) => prev.filter((paper) => paper.id !== paperId))
+      setLists(lists.map(list => ({
+        ...list,
+        papers: list.papers.filter(paper => paper.id !== paperId)
+      })))
+
       toast({
         title: "Success",
-        description: "Paper removed from your list",
+        description: "Paper removed from list",
       })
     } catch (error) {
-      console.error("Error removing paper:", error)
       toast({
         title: "Error",
         description: "Failed to remove paper",
@@ -62,80 +91,113 @@ export default function Lists() {
     }
   }
 
-  const handleToggleLike = async (paperId: string) => {
+  const handleDownload = async (paperId: string) => {
+    const paper = lists
+      .flatMap(list => list.papers)
+      .find(p => p.id === paperId)
+    
+    if (!paper?.pdfUrl) {
+      toast({
+        title: "Error",
+        description: "PDF not available for this paper",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    window.open(paper.pdfUrl, '_blank')
+  }
+
+  const handleDownloadListSummary = async (listId: string) => {
+    const list = lists.find(l => l.id === listId)
+    if (!list) return
+
     try {
-      const paper = savedPapers.find((p) => p.id === paperId)
-      if (!paper) return
+      const summary = list.papers.map(paper => ({
+        title: paper.title,
+        authors: paper.authors.join(", "),
+        journal: paper.journal,
+        year: paper.year,
+      }))
 
-      const { error } = await supabase
-        .from("saved_papers")
-        .update({ is_liked: !paper.is_liked })
-        .eq("id", paperId)
-
-      if (error) throw error
-
-      setSavedPapers((prev) =>
-        prev.map((p) =>
-          p.id === paperId ? { ...p, is_liked: !p.is_liked } : p
-        )
-      )
+      const blob = new Blob([JSON.stringify(summary, null, 2)], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${list.name}-summary.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
 
       toast({
         title: "Success",
-        description: paper.is_liked
-          ? "Paper removed from likes"
-          : "Paper added to likes",
+        description: "List summary downloaded",
       })
     } catch (error) {
-      console.error("Error toggling like:", error)
       toast({
         title: "Error",
-        description: "Failed to update paper",
+        description: "Failed to download list summary",
         variant: "destructive",
       })
     }
   }
 
-  const handleDownload = (paperId: string) => {
-    const paper = savedPapers.find((p) => p.id === paperId)
-    if (paper?.pdfUrl) {
-      window.open(paper.pdfUrl, '_blank')
-    }
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <h1 className="text-2xl font-bold mb-6">My Lists</h1>
+        <div className="space-y-8">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="p-6">
+              <div className="animate-pulse space-y-4">
+                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
   }
 
-  const handleDownloadSummary = () => {
-    const summary = savedPapers.map(paper => (
-      `Title: ${paper.title}\nAuthors: ${paper.authors.join(", ")}\nJournal: ${paper.journal} (${paper.year})\n\n`
-    )).join("---\n\n")
-
-    const blob = new Blob([summary], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "papers-summary.txt"
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-
-    toast({
-      title: "Success",
-      description: "Summary downloaded successfully",
-    })
+  if (lists.length === 0) {
+    return (
+      <div className="container mx-auto p-6">
+        <h1 className="text-2xl font-bold mb-6">My Lists</h1>
+        <Card className="p-6 text-center text-gray-500">
+          No lists created yet
+        </Card>
+      </div>
+    )
   }
 
   return (
-    <div className="p-6">
-      <ListsHeader onDownloadSummary={handleDownloadSummary} />
-      <PapersList
-        papers={savedPapers}
-        isLoading={loading}
-        emptyMessage="No papers saved yet"
-        onUnlike={handleToggleLike}
-        onRemove={handleRemove}
-        onDownload={handleDownload}
-        showLikeButton={true}
-      />
+    <div className="container mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">My Lists</h1>
+      <div className="space-y-8">
+        {lists.map((list) => (
+          <div key={list.id} className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">{list.name}</h2>
+              <Button
+                onClick={() => handleDownloadListSummary(list.id)}
+                className="shadow-soft hover:shadow-card transition-shadow duration-200"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Summary
+              </Button>
+            </div>
+            <PapersList
+              papers={list.papers}
+              isLoading={false}
+              emptyMessage={`No papers in ${list.name}`}
+              onRemove={handleRemove}
+              onDownload={handleDownload}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

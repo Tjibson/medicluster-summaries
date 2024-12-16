@@ -9,16 +9,10 @@ export interface Paper {
   pdfUrl?: string
 }
 
-export interface SavedPaper {
-  id: string
-  title: string
-  authors: string[]
-  journal: string
-  year: number
-  created_at: string
-  paper_id: string
+export interface SavedPaper extends Paper {
   user_id: string
-  is_liked: boolean | null
-  pdfUrl?: string
-  list_id?: string | null
+  paper_id: string
+  is_liked?: boolean
+  list_id?: string
+  created_at: string
 }
