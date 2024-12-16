@@ -9,7 +9,68 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      search_history: {
+        Row: {
+          created_at: string
+          disease: string | null
+          id: string
+          medicine: string | null
+          patient_count: number | null
+          population: string | null
+          trial_type: string | null
+          user_id: string
+          working_mechanism: string | null
+        }
+        Insert: {
+          created_at?: string
+          disease?: string | null
+          id?: string
+          medicine?: string | null
+          patient_count?: number | null
+          population?: string | null
+          trial_type?: string | null
+          user_id: string
+          working_mechanism?: string | null
+        }
+        Update: {
+          created_at?: string
+          disease?: string | null
+          id?: string
+          medicine?: string | null
+          patient_count?: number | null
+          population?: string | null
+          trial_type?: string | null
+          user_id?: string
+          working_mechanism?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "search_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

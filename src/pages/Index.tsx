@@ -1,30 +1,56 @@
 import { useState } from "react";
 import { SearchForm, type SearchCriteria } from "@/components/SearchForm";
 import { ResultsList, type Paper } from "@/components/ResultsList";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [papers, setPapers] = useState<Paper[]>([]);
+  const { toast } = useToast();
 
   const handleSearch = async (criteria: SearchCriteria) => {
     setIsLoading(true);
-    // This will be replaced with actual API call once backend is connected
-    setTimeout(() => {
-      setPapers([
+    try {
+      // Save search to history
+      const { error } = await supabase.from("search_history").insert([
         {
-          id: "1",
-          title: "Example Medical Research Paper",
-          authors: ["John Doe", "Jane Smith"],
-          journal: "Medical Journal",
-          year: 2023,
-          citations: 150,
-          abstract:
-            "This is a placeholder abstract for demonstration purposes. It will be replaced with real PubMed data once the backend is connected.",
-          pdfUrl: "#",
+          population: criteria.population || null,
+          disease: criteria.disease || null,
+          medicine: criteria.medicine || null,
+          working_mechanism: criteria.workingMechanism || null,
+          patient_count: criteria.patientCount ? parseInt(criteria.patientCount) : null,
+          trial_type: criteria.trialType || null,
         },
       ]);
+
+      if (error) throw error;
+
+      // This will be replaced with actual API call once backend is connected
+      setTimeout(() => {
+        setPapers([
+          {
+            id: "1",
+            title: "Example Medical Research Paper",
+            authors: ["John Doe", "Jane Smith"],
+            journal: "Medical Journal",
+            year: 2023,
+            citations: 150,
+            abstract:
+              "This is a placeholder abstract for demonstration purposes. It will be replaced with real PubMed data once the backend is connected.",
+            pdfUrl: "#",
+          },
+        ]);
+        setIsLoading(false);
+      }, 1500);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save search history",
+        variant: "destructive",
+      });
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -45,6 +71,6 @@ const Index = () => {
       </div>
     </div>
   );
-}
+};
 
 export default Index;
