@@ -9,6 +9,7 @@ import { SidebarProvider } from "@/components/ui/sidebar"
 import Index from "./pages/Index"
 import Login from "./pages/Login"
 import Dashboard from "./pages/Dashboard"
+import Downloads from "./pages/Downloads"
 import { AppSidebar } from "./components/AppSidebar"
 
 const queryClient = new QueryClient()
@@ -68,6 +69,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/downloads"
+              element={
+                <ProtectedRoute>
+                  <Downloads />
                 </ProtectedRoute>
               }
             />
