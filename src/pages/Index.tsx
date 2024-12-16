@@ -7,10 +7,12 @@ import { useToast } from "@/components/ui/use-toast";
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [papers, setPapers] = useState<Paper[]>([]);
+  const [currentSearch, setCurrentSearch] = useState<SearchCriteria | undefined>();
   const { toast } = useToast();
 
   const handleSearch = async (criteria: SearchCriteria) => {
     setIsLoading(true);
+    setCurrentSearch(criteria);
     try {
       // Get current user
       const { data: { session } } = await supabase.auth.getSession();
@@ -79,7 +81,11 @@ const Index = () => {
             </p>
           </div>
           <SearchForm onSearch={handleSearch} />
-          <ResultsList papers={papers} isLoading={isLoading} />
+          <ResultsList 
+            papers={papers} 
+            isLoading={isLoading} 
+            searchCriteria={currentSearch}
+          />
         </div>
       </div>
     </div>
