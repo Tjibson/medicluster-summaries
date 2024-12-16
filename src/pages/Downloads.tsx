@@ -5,17 +5,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-interface DownloadedPaper {
+interface SavedPaper {
   id: string
   title: string
   authors: string[]
   journal: string
   year: number
-  downloaded_at: string
+  created_at: string
+  paper_id: string
+  user_id: string
+  is_liked: boolean
 }
 
 export default function Downloads() {
-  const [downloads, setDownloads] = useState<DownloadedPaper[]>([])
+  const [downloads, setDownloads] = useState<SavedPaper[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -78,6 +81,7 @@ export default function Downloads() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="hover:bg-primary/90 active:bg-primary/70"
                         onClick={() => {
                           // Re-download functionality would go here
                           console.log("Re-downloading paper:", paper.id)
