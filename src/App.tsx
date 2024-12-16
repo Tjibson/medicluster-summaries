@@ -2,12 +2,12 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
 import { Toaster } from "@/components/ui/toaster"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import { SidebarProvider } from "@/components/ui/sidebar"
-import Dashboard from "@/pages/Dashboard"
+import Index from "@/pages/Index"
 import Lists from "@/pages/Lists"
 import LikedPapers from "@/pages/LikedPapers"
-import Login from "@/pages/Login"
-import Settings from "@/pages/Settings"
 import Downloads from "@/pages/Downloads"
+import Settings from "@/pages/Settings"
+import Login from "@/pages/Login"
 
 export default function App() {
   return (
@@ -20,7 +20,7 @@ export default function App() {
               path="/"
               element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <Index />
                 </ProtectedRoute>
               }
             />
