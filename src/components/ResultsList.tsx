@@ -46,16 +46,43 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
     }
 
     try {
-      const { error } = await supabase.from("saved_papers").insert({
-        user_id: userId,
-        paper_id: paper.id,
-        title: paper.title,
-        authors: paper.authors,
-        journal: paper.journal,
-        year: paper.year,
-      })
+      // Check if paper is already saved
+      const { data: existingPaper } = await supabase
+        .from("saved_papers")
+        .select()
+        .eq("user_id", userId)
+        .eq("paper_id", paper.id)
+        .single()
 
-      if (error) throw error
+      if (existingPaper) {
+        // Paper already exists, update it
+        const { error } = await supabase
+          .from("saved_papers")
+          .update({
+            title: paper.title,
+            authors: paper.authors,
+            journal: paper.journal,
+            year: paper.year,
+          })
+          .eq("user_id", userId)
+          .eq("paper_id", paper.id)
+
+        if (error) throw error
+      } else {
+        // Paper doesn't exist, insert it
+        const { error } = await supabase
+          .from("saved_papers")
+          .insert({
+            user_id: userId,
+            paper_id: paper.id,
+            title: paper.title,
+            authors: paper.authors,
+            journal: paper.journal,
+            year: paper.year,
+          })
+
+        if (error) throw error
+      }
 
       toast({
         title: "Success",
@@ -81,17 +108,41 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
     }
 
     try {
-      const { error } = await supabase.from("saved_papers").insert({
-        user_id: userId,
-        paper_id: paper.id,
-        title: paper.title,
-        authors: paper.authors,
-        journal: paper.journal,
-        year: paper.year,
-        is_liked: true,
-      })
+      // Check if paper is already saved
+      const { data: existingPaper } = await supabase
+        .from("saved_papers")
+        .select()
+        .eq("user_id", userId)
+        .eq("paper_id", paper.id)
+        .single()
 
-      if (error) throw error
+      if (existingPaper) {
+        // Paper exists, update it
+        const { error } = await supabase
+          .from("saved_papers")
+          .update({
+            is_liked: true,
+          })
+          .eq("user_id", userId)
+          .eq("paper_id", paper.id)
+
+        if (error) throw error
+      } else {
+        // Paper doesn't exist, insert it
+        const { error } = await supabase
+          .from("saved_papers")
+          .insert({
+            user_id: userId,
+            paper_id: paper.id,
+            title: paper.title,
+            authors: paper.authors,
+            journal: paper.journal,
+            year: paper.year,
+            is_liked: true,
+          })
+
+        if (error) throw error
+      }
 
       toast({
         title: "Success",
