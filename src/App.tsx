@@ -39,11 +39,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   return isAuthenticated ? (
-    <div className="flex flex-col min-h-screen w-full">
+    <div className="flex flex-col min-h-screen w-full bg-background">
       <TopNav />
-      <div className="flex flex-1">
+      <div className="flex flex-1 pt-14">
         <AppSidebar />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto p-6">
           {children}
         </main>
       </div>

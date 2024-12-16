@@ -19,7 +19,7 @@ export const PaperCard = ({
   showLikeButton = false,
 }: PaperCardProps) => {
   return (
-    <Card className="p-6">
+    <Card className="p-6 shadow-card hover:shadow-lg transition-shadow duration-200">
       <div className="flex justify-between items-start">
         <div className="space-y-2">
           <h3 className="font-semibold text-lg">{paper.title}</h3>
@@ -32,7 +32,7 @@ export const PaperCard = ({
             <Button
               variant="ghost"
               size="icon"
-              className="hover:bg-yellow-100 active:bg-yellow-200 transition-colors"
+              className="hover:bg-yellow-100 active:bg-yellow-200 transition-colors duration-200 shadow-soft"
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
@@ -46,7 +46,7 @@ export const PaperCard = ({
           <Button
             variant="ghost"
             size="icon"
-            className="hover:bg-blue-100 active:bg-blue-200 transition-colors"
+            className="hover:bg-blue-100 active:bg-blue-200 transition-colors duration-200 shadow-soft"
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
@@ -59,7 +59,7 @@ export const PaperCard = ({
           <Button
             variant="ghost"
             size="icon"
-            className="hover:bg-red-100 active:bg-red-200 transition-colors"
+            className="hover:bg-red-100 active:bg-red-200 transition-colors duration-200 shadow-soft"
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
