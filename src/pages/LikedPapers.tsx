@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/integrations/supabase/client"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 import { type SavedPaper } from "@/types/papers"
 import { PapersList } from "@/components/papers/PapersList"
 
@@ -87,7 +87,10 @@ export default function LikedPapers() {
   }
 
   const handleDownload = (paperId: string) => {
-    console.log("Downloading paper:", paperId)
+    const paper = likedPapers.find((p) => p.id === paperId)
+    if (paper?.pdfUrl) {
+      window.open(paper.pdfUrl, '_blank')
+    }
   }
 
   return (

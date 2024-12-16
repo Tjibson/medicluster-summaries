@@ -19,4 +19,6 @@ export interface SavedPaper {
   paper_id: string
   user_id: string
   is_liked: boolean | null
+  pdfUrl?: string
+  list_id?: string | null
 }
