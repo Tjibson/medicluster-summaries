@@ -9,6 +9,24 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      medical_journals: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -26,6 +44,50 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      saved_papers: {
+        Row: {
+          authors: string[]
+          created_at: string
+          id: string
+          is_liked: boolean | null
+          journal: string
+          paper_id: string
+          title: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          authors: string[]
+          created_at?: string
+          id?: string
+          is_liked?: boolean | null
+          journal: string
+          paper_id: string
+          title: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          authors?: string[]
+          created_at?: string
+          id?: string
+          is_liked?: boolean | null
+          journal?: string
+          paper_id?: string
+          title?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_papers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       search_history: {
         Row: {
@@ -70,6 +132,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      trial_types: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
     }
     Views: {
