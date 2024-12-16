@@ -9,6 +9,35 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      lists: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lists_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medical_journals: {
         Row: {
           created_at: string
@@ -52,6 +81,7 @@ export type Database = {
           id: string
           is_liked: boolean | null
           journal: string
+          list_id: string | null
           paper_id: string
           title: string
           user_id: string
@@ -63,6 +93,7 @@ export type Database = {
           id?: string
           is_liked?: boolean | null
           journal: string
+          list_id?: string | null
           paper_id: string
           title: string
           user_id: string
@@ -74,12 +105,20 @@ export type Database = {
           id?: string
           is_liked?: boolean | null
           journal?: string
+          list_id?: string | null
           paper_id?: string
           title?: string
           user_id?: string
           year?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "saved_papers_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "lists"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "saved_papers_user_id_fkey"
             columns: ["user_id"]
