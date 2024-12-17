@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/ui/use-toast"
 
 interface SavedPaper {
   id: string
@@ -20,6 +21,7 @@ interface SavedPaper {
 export default function Downloads() {
   const [downloads, setDownloads] = useState<SavedPaper[]>([])
   const [loading, setLoading] = useState(true)
+  const { toast } = useToast()
 
   useEffect(() => {
     const fetchDownloads = async () => {
@@ -43,6 +45,28 @@ export default function Downloads() {
 
     fetchDownloads()
   }, [])
+
+  const handleDownload = async (paper: SavedPaper) => {
+    try {
+      // Here you would typically make an API call to get the download URL
+      // For now, we'll just show a toast
+      toast({
+        title: "Download started",
+        description: `Downloading ${paper.title}`,
+      })
+      
+      // If you have a PDF URL, you can use this:
+      if (paper.pdfUrl) {
+        window.open(paper.pdfUrl, '_blank')
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download paper",
+        variant: "destructive",
+      })
+    }
+  }
 
   if (loading) {
     return <div className="p-8">Loading...</div>
@@ -82,10 +106,7 @@ export default function Downloads() {
                         variant="ghost"
                         size="icon"
                         className="hover:bg-primary/90 active:bg-primary/70"
-                        onClick={() => {
-                          // Re-download functionality would go here
-                          console.log("Re-downloading paper:", paper.id)
-                        }}
+                        onClick={() => handleDownload(paper)}
                       >
                         <Download className="h-4 w-4" />
                       </Button>

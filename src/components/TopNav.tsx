@@ -7,8 +7,8 @@ import { ThemeToggle } from "./ThemeToggle"
 
 export function TopNav() {
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-nav">
-      <div className="container flex h-14 items-center gap-4">
+    <header className="fixed top-0 left-0 right-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-nav">
+      <div className="container flex h-14 items-center gap-4 px-4">
         <SidebarTrigger />
         <div className="mr-4 hidden md:flex">
           <Link to="/" className="mr-6 flex items-center space-x-2">
@@ -20,12 +20,12 @@ export function TopNav() {
         </div>
         
         {/* Search Bar */}
-        <div className="flex-1 max-w-xl">
+        <div className="flex-1 max-w-2xl">
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search papers..."
-              className="pl-8 bg-background"
+              className="pl-8 bg-background w-full"
             />
           </div>
         </div>

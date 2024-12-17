@@ -6,6 +6,7 @@ import { LoadingState } from "@/components/papers/LoadingState"
 import { SearchCriteria } from "@/components/papers/SearchCriteria"
 import { PaperActions } from "@/components/papers/PaperActions"
 import { type Paper } from "@/types/papers"
+import { AddToListDialog } from "./AddToListDialog"
 
 interface ResultsListProps {
   papers: Paper[]
@@ -24,6 +25,8 @@ interface ResultsListProps {
 export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListProps) {
   const { toast } = useToast()
   const [userId, setUserId] = useState<string | null>(null)
+  const [isAddToListDialogOpen, setIsAddToListDialogOpen] = useState(false)
+  const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
 
   useEffect(() => {
     const getUserId = async () => {
@@ -45,6 +48,11 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
       return
     }
 
+    setSelectedPaper(paper)
+    setIsAddToListDialogOpen(true)
+  }
+
+  const handleAddToList = async (paper: Paper, listName: string) => {
     try {
       // Check if paper is already saved
       const { data: existingPaper } = await supabase
@@ -55,7 +63,7 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
         .single()
 
       if (existingPaper) {
-        // Paper already exists, update it
+        // Paper exists, update it
         const { error } = await supabase
           .from("saved_papers")
           .update({
@@ -193,6 +201,12 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
           </div>
         </Card>
       ))}
+      <AddToListDialog
+        paper={selectedPaper}
+        isOpen={isAddToListDialogOpen}
+        onClose={() => setIsAddToListDialogOpen(false)}
+        onSave={handleAddToList}
+      />
     </div>
   )
 }
