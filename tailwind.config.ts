@@ -18,11 +18,6 @@ export default {
       },
     },
     extend: {
-      boxShadow: {
-        'soft': '0 2px 8px rgba(0, 0, 0, 0.05)',
-        'card': '0 4px 12px rgba(0, 0, 0, 0.05)',
-        'nav': '0 2px 4px rgba(0, 0, 0, 0.02)',
-      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -30,12 +25,12 @@ export default {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "#0284c7",
-          foreground: "#ffffff",
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
         },
         secondary: {
-          DEFAULT: "#f0f9ff",
-          foreground: "#0284c7",
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
@@ -57,6 +52,11 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        velvet: {
+          DEFAULT: "#1a472a", // Velvet dark green
+          light: "#2d5a3c",
+          dark: "#0d2415",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -72,16 +72,10 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        shimmer: {
-          "100%": {
-            transform: "translateX(100%)",
-          },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        shimmer: "shimmer 2s infinite",
       },
     },
   },

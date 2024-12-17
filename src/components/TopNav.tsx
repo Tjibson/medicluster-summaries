@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { User } from "lucide-react"
 import { Link } from "react-router-dom"
+import { ThemeToggle } from "./ThemeToggle"
 
 export function TopNav() {
   return (
@@ -17,6 +18,7 @@ export function TopNav() {
           </Link>
         </div>
         <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+          <ThemeToggle />
           <Link to="/settings">
             <Button 
               variant="ghost" 
