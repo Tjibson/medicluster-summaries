@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { Search, User } from "lucide-react"
+import { Search, User, Pill } from "lucide-react"
 import { Link } from "react-router-dom"
 import { ThemeToggle } from "./ThemeToggle"
 
@@ -12,7 +12,7 @@ export function TopNav() {
         <SidebarTrigger />
         <div className="mr-4 hidden md:flex">
           <Link to="/" className="mr-6 flex items-center space-x-2">
-            <div className="h-6 w-6 bg-velvet rounded-sm shadow-soft" />
+            <Pill className="h-6 w-6 text-primary" />
             <span className="hidden font-bold sm:inline-block">
               PaperSearch
             </span>

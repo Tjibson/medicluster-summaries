@@ -48,17 +48,13 @@ export default function Downloads() {
 
   const handleDownload = async (paper: SavedPaper) => {
     try {
-      // Here you would typically make an API call to get the download URL
-      // For now, we'll just show a toast
       toast({
         title: "Download started",
         description: `Downloading ${paper.title}`,
       })
       
-      // If you have a PDF URL, you can use this:
-      if (paper.pdfUrl) {
-        window.open(paper.pdfUrl, '_blank')
-      }
+      // In a real application, you would implement the actual download logic here
+      // For now, we just show a toast notification
     } catch (error) {
       toast({
         title: "Error",
