@@ -1,4 +1,5 @@
 import { AppSidebar } from "./AppSidebar"
+import { TopNav } from "./TopNav"
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -6,11 +7,14 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   return (
-    <div className="flex min-h-screen">
-      <AppSidebar />
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
+    <div className="flex min-h-screen flex-col">
+      <TopNav />
+      <div className="flex flex-1">
+        <AppSidebar />
+        <main className="flex-1 overflow-y-auto p-6">
+          {children}
+        </main>
+      </div>
     </div>
   )
 }
