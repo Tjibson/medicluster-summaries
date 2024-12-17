@@ -1,4 +1,4 @@
-import { Home, Search, History, List, Download, Star, Settings, LogOut } from "lucide-react"
+import { Search, List, Download, Star, Settings, LogOut } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "@/integrations/supabase/client"
 import {
@@ -25,11 +25,6 @@ export function AppSidebar() {
       title: "New Search",
       icon: Search,
       onClick: () => navigate("/"),
-    },
-    {
-      title: "Past Searches",
-      icon: History,
-      onClick: () => navigate("/dashboard"),
     },
     {
       title: "My Lists",
