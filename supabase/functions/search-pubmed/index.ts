@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { BeautifulSoup } from "https://deno.land/x/beautiful_soup@v0.1.0/mod.ts";
+import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,72 +36,6 @@ function makeHeader() {
   }
 }
 
-async function getPMIDs(page: number, keyword: string, baseUrl: string) {
-  const pageUrl = `${baseUrl}+${keyword}+&page=${page}`
-  console.log('Fetching PMIDs from:', pageUrl)
-  
-  const response = await fetch(pageUrl, { 
-    headers: makeHeader(),
-    redirect: 'follow'
-  })
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch PMIDs: ${response.status}`)
-  }
-
-  const html = await response.text()
-  const soup = new BeautifulSoup(html)
-  
-  const pmidsElem = soup.find('meta', { name: 'log_displayeduids' })
-  const pmids = pmidsElem?.getAttribute('content')?.split(',') || []
-  
-  return pmids
-}
-
-async function extractArticleData(pmid: string, baseUrl: string) {
-  const articleUrl = `${baseUrl}/${pmid}`
-  console.log('Fetching article:', articleUrl)
-  
-  const response = await fetch(articleUrl, {
-    headers: makeHeader(),
-    redirect: 'follow'
-  })
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch article ${pmid}: ${response.status}`)
-  }
-
-  const html = await response.text()
-  const soup = new BeautifulSoup(html)
-  
-  try {
-    const abstractRaw = soup.find('div', { class: 'abstract-content selected' })?.findAll('p')
-    const abstract = abstractRaw ? abstractRaw.map(p => p.text().trim()).join(' ') : ''
-    
-    const title = soup.find('meta', { name: 'citation_title' })?.getAttribute('content')?.trim() || ''
-    
-    const authors = soup.find('div', { class: 'authors-list' })
-      ?.findAll('a', { class: 'full-name' })
-      ?.map(author => author.text().trim()) || []
-    
-    const journal = soup.find('meta', { name: 'citation_journal_title' })?.getAttribute('content') || ''
-    const year = soup.find('time', { class: 'citation-year' })?.text()?.trim() || ''
-
-    return {
-      id: pmid,
-      title,
-      abstract,
-      authors,
-      journal,
-      year: parseInt(year) || new Date().getFullYear(),
-      citations: 0
-    }
-  } catch (error) {
-    console.error(`Error extracting data from article ${pmid}:`, error)
-    return null
-  }
-}
-
 async function searchPubMed(criteria: any) {
   console.log('Searching PubMed with criteria:', criteria)
   
@@ -119,30 +53,64 @@ async function searchPubMed(criteria: any) {
   }
 
   const baseUrl = 'https://pubmed.ncbi.nlm.nih.gov'
-  const searchUrl = `${baseUrl}/?term=${encodeURIComponent(searchQuery)}`
+  const searchUrl = `${baseUrl}/?term=${encodeURIComponent(searchQuery)}&size=10`
   
-  console.log('Base search URL:', searchUrl)
+  console.log('Search URL:', searchUrl)
   
   try {
-    // Get PMIDs from first page
-    const pmids = await getPMIDs(1, searchQuery, baseUrl)
-    console.log(`Found ${pmids.length} PMIDs`)
+    const headers = makeHeader()
+    const response = await fetch(searchUrl, { headers })
+    const html = await response.text()
     
-    // Get article data for each PMID
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
+    
+    if (!doc) {
+      throw new Error('Failed to parse HTML')
+    }
+
     const articles = []
-    for (const pmid of pmids) {
+    const articleElements = doc.querySelectorAll('.docsum-content')
+    
+    for (const element of articleElements) {
       try {
-        const article = await extractArticleData(pmid, baseUrl)
-        if (article) {
-          articles.push(article)
-        }
+        const titleElement = element.querySelector('.docsum-title')
+        const title = titleElement?.textContent?.trim() || 'No title'
+        
+        const authorElement = element.querySelector('.docsum-authors')
+        const authors = authorElement?.textContent?.split(',').map(a => a.trim()) || []
+        
+        const journalElement = element.querySelector('.docsum-journal-citation')
+        const journalText = journalElement?.textContent || ''
+        const journal = journalText.split('.')[0] || 'No journal'
+        
+        const yearMatch = journalText.match(/\d{4}/)
+        const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear()
+        
+        const abstractElement = element.querySelector('.full-view-snippet')
+        const abstract = abstractElement?.textContent?.trim() || ''
+
+        const idElement = element.querySelector('a')
+        const id = idElement?.getAttribute('href')?.replace('/', '') || ''
+
+        articles.push({
+          id,
+          title,
+          authors,
+          journal,
+          year,
+          abstract,
+          citations: 0 // Default value as citations require additional API calls
+        })
       } catch (error) {
-        console.error(`Error processing article ${pmid}:`, error)
+        console.error('Error processing article:', error)
         continue
       }
     }
     
+    console.log(`Found ${articles.length} articles`)
     return articles
+    
   } catch (error) {
     console.error('Error searching PubMed:', error)
     throw error
