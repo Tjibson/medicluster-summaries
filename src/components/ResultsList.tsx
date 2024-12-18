@@ -7,6 +7,8 @@ import { SearchCriteria } from "@/components/papers/SearchCriteria"
 import { PaperActions } from "@/components/papers/PaperActions"
 import { type Paper } from "@/types/papers"
 import { AddToListDialog } from "./papers/AddToListDialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 
 interface ResultsListProps {
   papers: Paper[]
@@ -22,11 +24,16 @@ interface ResultsListProps {
   }
 }
 
+type SortOption = "citations" | "date" | "relevance"
+
 export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListProps) {
   const { toast } = useToast()
   const [userId, setUserId] = useState<string | null>(null)
   const [isAddToListDialogOpen, setIsAddToListDialogOpen] = useState(false)
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
+  const [sortBy, setSortBy] = useState<SortOption>("relevance")
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 25
 
   useEffect(() => {
     const getUserId = async () => {
@@ -92,7 +99,6 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
     }
 
     try {
-      // Check if paper is already saved
       const { data: existingPaper } = await supabase
         .from("saved_papers")
         .select()
@@ -101,7 +107,6 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
         .single()
 
       if (existingPaper) {
-        // Paper exists, update it
         const { error } = await supabase
           .from("saved_papers")
           .update({
@@ -112,7 +117,6 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
 
         if (error) throw error
       } else {
-        // Paper doesn't exist, insert it
         const { error } = await supabase
           .from("saved_papers")
           .insert({
@@ -141,6 +145,22 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
     }
   }
 
+  const sortedPapers = [...papers].sort((a, b) => {
+    switch (sortBy) {
+      case "citations":
+        return (b.citations || 0) - (a.citations || 0)
+      case "date":
+        return b.year - a.year
+      default:
+        return 0
+    }
+  })
+
+  // Pagination
+  const totalPages = Math.ceil(sortedPapers.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedPapers = sortedPapers.slice(startIndex, startIndex + itemsPerPage)
+
   if (isLoading) {
     return <LoadingState />
   }
@@ -156,7 +176,21 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
   return (
     <div className="space-y-4">
       {searchCriteria && <SearchCriteria criteria={searchCriteria} />}
-      {papers.map((paper) => (
+      
+      <div className="flex justify-end mb-4">
+        <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Sort by..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="relevance">Relevance</SelectItem>
+            <SelectItem value="citations">Citations</SelectItem>
+            <SelectItem value="date">Date Published</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {paginatedPapers.map((paper) => (
         <Card key={paper.id} className="p-6 shadow-card hover:shadow-lg transition-shadow duration-200">
           <div className="flex justify-between items-start">
             <div className="space-y-2">
@@ -165,7 +199,7 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
                 {paper.authors.join(", ")} • {paper.journal} • {paper.year}
               </p>
               <p className="text-sm text-gray-500">
-                Citations: {paper.citations}
+                Citations: {paper.citations || 0}
               </p>
               <p className="mt-2 text-gray-700">{paper.abstract}</p>
             </div>
@@ -177,6 +211,36 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
           </div>
         </Card>
       ))}
+
+      {totalPages > 1 && (
+        <Pagination className="mt-4">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious 
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+              />
+            </PaginationItem>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <PaginationItem key={page}>
+                <PaginationLink
+                  onClick={() => setCurrentPage(page)}
+                  isActive={currentPage === page}
+                >
+                  {page}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+
       <AddToListDialog
         paper={selectedPaper}
         isOpen={isAddToListDialogOpen}
