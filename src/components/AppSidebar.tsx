@@ -1,4 +1,4 @@
-import { Search, List, Download, Star, Settings, LogOut } from "lucide-react"
+import { Search, List, Download, Star, Settings, LogOut, Presentation } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "@/integrations/supabase/client"
 import {
@@ -58,6 +58,12 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => navigate("/presentation")} tooltip="Create Presentation">
+                  <Presentation className="h-4 w-4" />
+                  <span>Create Presentation</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton onClick={() => navigate("/settings")} tooltip="Settings">
                   <Settings className="h-4 w-4" />
