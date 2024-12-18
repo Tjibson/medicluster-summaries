@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Card } from "@/components/ui/card"
+import { Loader2 } from "lucide-react"
 
 export function ConnectGithubRepo() {
   const [repoUrl, setRepoUrl] = useState("")
@@ -26,7 +27,16 @@ export function ConnectGithubRepo() {
         return
       }
 
-      const { error } = await supabase
+      // Verify repository with Edge Function
+      const { data: verificationData, error: verificationError } = await supabase.functions
+        .invoke('github-operations', {
+          body: { repo_url: repoUrl, branch }
+        })
+
+      if (verificationError) throw verificationError
+
+      // Save repository to database
+      const { error: saveError } = await supabase
         .from("github_repos")
         .insert({
           user_id: session.user.id,
@@ -34,7 +44,7 @@ export function ConnectGithubRepo() {
           branch,
         })
 
-      if (error) throw error
+      if (saveError) throw saveError
 
       toast({
         title: "Success",
@@ -48,7 +58,7 @@ export function ConnectGithubRepo() {
       console.error("Error connecting repository:", error)
       toast({
         title: "Error",
-        description: "Failed to connect repository",
+        description: error.message || "Failed to connect repository",
         variant: "destructive",
       })
     } finally {
@@ -59,6 +69,9 @@ export function ConnectGithubRepo() {
   return (
     <Card className="p-6">
       <h2 className="text-2xl font-semibold mb-4">Connect GitHub Repository</h2>
+      <p className="text-muted-foreground mb-4">
+        Connect your PubMed scraping repository to enable automatic data collection.
+      </p>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Repository URL</label>
@@ -79,8 +92,15 @@ export function ConnectGithubRepo() {
           />
         </div>
 
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? "Connecting..." : "Connect Repository"}
+        <Button type="submit" disabled={isLoading} className="w-full">
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Connecting...
+            </>
+          ) : (
+            "Connect Repository"
+          )}
         </Button>
       </form>
     </Card>
