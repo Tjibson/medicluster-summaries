@@ -12,6 +12,7 @@ interface AddToListDialogProps {
   isOpen: boolean
   onClose: () => void
   onSave: (paper: Paper, listId: string) => void
+  existingLists?: string[]
 }
 
 export function AddToListDialog({ paper, isOpen, onClose, onSave }: AddToListDialogProps) {

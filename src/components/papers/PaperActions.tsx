@@ -8,10 +8,9 @@ interface PaperActionsProps {
   paper: Paper
   onSave: (paper: Paper, listName: string) => void
   onLike: (paper: Paper) => void
-  existingLists?: string[]
 }
 
-export function PaperActions({ paper, onSave, onLike, existingLists = [] }: PaperActionsProps) {
+export function PaperActions({ paper, onSave, onLike }: PaperActionsProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   return (
@@ -67,7 +66,6 @@ export function PaperActions({ paper, onSave, onLike, existingLists = [] }: Pape
           onSave(paper, listName)
           setIsDialogOpen(false)
         }}
-        existingLists={existingLists}
       />
     </>
   )
