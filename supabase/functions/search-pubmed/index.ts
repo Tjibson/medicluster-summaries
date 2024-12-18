@@ -45,13 +45,28 @@ async function searchPubMed(criteria: any) {
   if (criteria.population) searchQuery += `AND ${criteria.population}[Title/Abstract] `
   if (criteria.trial_type) searchQuery += `AND ${criteria.trial_type}[Publication Type] `
   
+  // Remove leading AND if present
+  searchQuery = searchQuery.trim().replace(/^AND\s+/, '')
+  
+  if (!searchQuery) {
+    throw new Error('No search criteria provided')
+  }
+
   const baseUrl = 'https://pubmed.ncbi.nlm.nih.gov'
-  const searchUrl = `${baseUrl}/?term=${encodeURIComponent(searchQuery.trim())}&size=10`
+  const searchUrl = `${baseUrl}/?term=${encodeURIComponent(searchQuery)}&size=10`
   
   console.log('Fetching from URL:', searchUrl)
   
   try {
-    const response = await fetch(searchUrl, { headers: makeHeader() })
+    const response = await fetch(searchUrl, { 
+      headers: makeHeader(),
+      redirect: 'follow'
+    })
+
+    if (!response.ok) {
+      throw new Error(`PubMed request failed with status ${response.status}`)
+    }
+
     const html = await response.text()
     const soup = new BeautifulSoup(html)
     
@@ -61,32 +76,46 @@ async function searchPubMed(criteria: any) {
     console.log(`Found ${articles.length} articles`)
     
     for (const article of articles) {
-      const titleElem = article.find('a', { class: 'docsum-title' })
-      const title = titleElem?.text()?.trim() || ''
-      const pmid = article.getAttribute('data-article-id') || ''
-      
-      // Get full article details
-      const articleUrl = `${baseUrl}/${pmid}`
-      const articleResponse = await fetch(articleUrl, { headers: makeHeader() })
-      const articleHtml = await articleResponse.text()
-      const articleSoup = new BeautifulSoup(articleHtml)
-      
-      const abstract = articleSoup.find('div', { class: 'abstract-content' })?.text()?.trim() || ''
-      const authors = articleSoup.findAll('a', { class: 'full-name' })
-        ?.map(author => author.text()?.trim())
-        ?.filter(Boolean) || []
-      const journal = articleSoup.find('button', { id: 'journal-citation-trigger' })?.text()?.trim() || ''
-      const year = articleSoup.find('span', { class: 'citation-year' })?.text()?.trim() || ''
-      
-      results.push({
-        id: pmid,
-        title,
-        abstract,
-        authors,
-        journal,
-        year: parseInt(year) || new Date().getFullYear(),
-        citations: 0,
-      })
+      try {
+        const titleElem = article.find('a', { class: 'docsum-title' })
+        const title = titleElem?.text()?.trim() || ''
+        const pmid = article.getAttribute('data-article-id') || ''
+        
+        // Get full article details
+        const articleUrl = `${baseUrl}/${pmid}`
+        const articleResponse = await fetch(articleUrl, { 
+          headers: makeHeader(),
+          redirect: 'follow'
+        })
+        
+        if (!articleResponse.ok) {
+          console.error(`Failed to fetch article ${pmid}:`, articleResponse.status)
+          continue
+        }
+
+        const articleHtml = await articleResponse.text()
+        const articleSoup = new BeautifulSoup(articleHtml)
+        
+        const abstract = articleSoup.find('div', { class: 'abstract-content' })?.text()?.trim() || ''
+        const authors = articleSoup.findAll('a', { class: 'full-name' })
+          ?.map(author => author.text()?.trim())
+          ?.filter(Boolean) || []
+        const journal = articleSoup.find('button', { id: 'journal-citation-trigger' })?.text()?.trim() || ''
+        const year = articleSoup.find('span', { class: 'citation-year' })?.text()?.trim() || ''
+        
+        results.push({
+          id: pmid,
+          title,
+          abstract,
+          authors,
+          journal,
+          year: parseInt(year) || new Date().getFullYear(),
+          citations: 0,
+        })
+      } catch (error) {
+        console.error('Error processing article:', error)
+        continue
+      }
     }
     
     return results
@@ -97,6 +126,7 @@ async function searchPubMed(criteria: any) {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
