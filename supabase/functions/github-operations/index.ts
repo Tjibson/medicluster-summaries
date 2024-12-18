@@ -26,15 +26,38 @@ serve(async (req) => {
     }
 
     // Extract owner and repo name from URL
-    const urlParts = repo_url.split('/')
-    const owner = urlParts[urlParts.length - 2]
-    const repo = urlParts[urlParts.length - 1]
+    const urlMatch = repo_url.match(/github\.com\/([^\/]+)\/([^\/]+)/)
+    if (!urlMatch) {
+      throw new Error('Invalid GitHub repository URL format')
+    }
+
+    const [, owner, repo] = urlMatch
+    console.log(`Verifying repository: ${owner}/${repo}`)
+
+    // Get GitHub token
+    const githubToken = Deno.env.get('GITHUB_ACCESS_TOKEN')
+    if (!githubToken) {
+      throw new Error('GitHub access token not configured')
+    }
 
     // Verify repository exists and is accessible
-    const githubResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`)
+    const githubResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers: {
+        'Authorization': `token ${githubToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'Supabase-Edge-Function'
+      }
+    })
     
     if (!githubResponse.ok) {
-      throw new Error('Repository not found or not accessible')
+      console.error('GitHub API Error:', await githubResponse.text())
+      throw new Error(
+        githubResponse.status === 404 
+          ? 'Repository not found' 
+          : githubResponse.status === 401 
+            ? 'Invalid GitHub token' 
+            : 'Error accessing repository'
+      )
     }
 
     const repoData = await githubResponse.json()
