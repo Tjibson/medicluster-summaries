@@ -30,14 +30,81 @@ const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/535.24 (KHTML, like Gecko) Chrome/19.0.1055.1 Safari/535.24"
 ]
 
+function makeHeader() {
+  return {
+    'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]
+  }
+}
+
+async function getPMIDs(page: number, keyword: string, baseUrl: string) {
+  const pageUrl = `${baseUrl}+${keyword}+&page=${page}`
+  console.log('Fetching PMIDs from:', pageUrl)
+  
+  const response = await fetch(pageUrl, { 
+    headers: makeHeader(),
+    redirect: 'follow'
+  })
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch PMIDs: ${response.status}`)
+  }
+
+  const html = await response.text()
+  const soup = new BeautifulSoup(html)
+  
+  const pmidsElem = soup.find('meta', { name: 'log_displayeduids' })
+  const pmids = pmidsElem?.getAttribute('content')?.split(',') || []
+  
+  return pmids
+}
+
+async function extractArticleData(pmid: string, baseUrl: string) {
+  const articleUrl = `${baseUrl}/${pmid}`
+  console.log('Fetching article:', articleUrl)
+  
+  const response = await fetch(articleUrl, {
+    headers: makeHeader(),
+    redirect: 'follow'
+  })
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch article ${pmid}: ${response.status}`)
+  }
+
+  const html = await response.text()
+  const soup = new BeautifulSoup(html)
+  
+  try {
+    const abstractRaw = soup.find('div', { class: 'abstract-content selected' })?.findAll('p')
+    const abstract = abstractRaw ? abstractRaw.map(p => p.text().trim()).join(' ') : ''
+    
+    const title = soup.find('meta', { name: 'citation_title' })?.getAttribute('content')?.trim() || ''
+    
+    const authors = soup.find('div', { class: 'authors-list' })
+      ?.findAll('a', { class: 'full-name' })
+      ?.map(author => author.text().trim()) || []
+    
+    const journal = soup.find('meta', { name: 'citation_journal_title' })?.getAttribute('content') || ''
+    const year = soup.find('time', { class: 'citation-year' })?.text()?.trim() || ''
+
+    return {
+      id: pmid,
+      title,
+      abstract,
+      authors,
+      journal,
+      year: parseInt(year) || new Date().getFullYear(),
+      citations: 0
+    }
+  } catch (error) {
+    console.error(`Error extracting data from article ${pmid}:`, error)
+    return null
+  }
+}
+
 async function searchPubMed(criteria: any) {
   console.log('Searching PubMed with criteria:', criteria)
   
-  const makeHeader = () => ({
-    'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
-  })
-
-  // Build search query based on criteria
   let searchQuery = ''
   if (criteria.disease) searchQuery += `${criteria.disease}[Title/Abstract] `
   if (criteria.medicine) searchQuery += `AND ${criteria.medicine}[Title/Abstract] `
@@ -45,7 +112,6 @@ async function searchPubMed(criteria: any) {
   if (criteria.population) searchQuery += `AND ${criteria.population}[Title/Abstract] `
   if (criteria.trial_type) searchQuery += `AND ${criteria.trial_type}[Publication Type] `
   
-  // Remove leading AND if present
   searchQuery = searchQuery.trim().replace(/^AND\s+/, '')
   
   if (!searchQuery) {
@@ -53,72 +119,30 @@ async function searchPubMed(criteria: any) {
   }
 
   const baseUrl = 'https://pubmed.ncbi.nlm.nih.gov'
-  const searchUrl = `${baseUrl}/?term=${encodeURIComponent(searchQuery)}&size=10`
+  const searchUrl = `${baseUrl}/?term=${encodeURIComponent(searchQuery)}`
   
-  console.log('Fetching from URL:', searchUrl)
+  console.log('Base search URL:', searchUrl)
   
   try {
-    const response = await fetch(searchUrl, { 
-      headers: makeHeader(),
-      redirect: 'follow'
-    })
-
-    if (!response.ok) {
-      throw new Error(`PubMed request failed with status ${response.status}`)
-    }
-
-    const html = await response.text()
-    const soup = new BeautifulSoup(html)
+    // Get PMIDs from first page
+    const pmids = await getPMIDs(1, searchQuery, baseUrl)
+    console.log(`Found ${pmids.length} PMIDs`)
     
-    const results = []
-    const articles = soup.findAll('article', { class: 'full-docsum' })
-    
-    console.log(`Found ${articles.length} articles`)
-    
-    for (const article of articles) {
+    // Get article data for each PMID
+    const articles = []
+    for (const pmid of pmids) {
       try {
-        const titleElem = article.find('a', { class: 'docsum-title' })
-        const title = titleElem?.text()?.trim() || ''
-        const pmid = article.getAttribute('data-article-id') || ''
-        
-        // Get full article details
-        const articleUrl = `${baseUrl}/${pmid}`
-        const articleResponse = await fetch(articleUrl, { 
-          headers: makeHeader(),
-          redirect: 'follow'
-        })
-        
-        if (!articleResponse.ok) {
-          console.error(`Failed to fetch article ${pmid}:`, articleResponse.status)
-          continue
+        const article = await extractArticleData(pmid, baseUrl)
+        if (article) {
+          articles.push(article)
         }
-
-        const articleHtml = await articleResponse.text()
-        const articleSoup = new BeautifulSoup(articleHtml)
-        
-        const abstract = articleSoup.find('div', { class: 'abstract-content' })?.text()?.trim() || ''
-        const authors = articleSoup.findAll('a', { class: 'full-name' })
-          ?.map(author => author.text()?.trim())
-          ?.filter(Boolean) || []
-        const journal = articleSoup.find('button', { id: 'journal-citation-trigger' })?.text()?.trim() || ''
-        const year = articleSoup.find('span', { class: 'citation-year' })?.text()?.trim() || ''
-        
-        results.push({
-          id: pmid,
-          title,
-          abstract,
-          authors,
-          journal,
-          year: parseInt(year) || new Date().getFullYear(),
-          citations: 0,
-        })
       } catch (error) {
-        console.error('Error processing article:', error)
+        console.error(`Error processing article ${pmid}:`, error)
         continue
       }
     }
     
-    return results
+    return articles
   } catch (error) {
     console.error('Error searching PubMed:', error)
     throw error
