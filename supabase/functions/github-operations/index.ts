@@ -13,6 +13,13 @@ serve(async (req) => {
   }
 
   try {
+    // Get GitHub token first thing
+    const githubToken = Deno.env.get('GITHUB_ACCESS_TOKEN')
+    if (!githubToken) {
+      console.error('GitHub token not found in environment variables')
+      throw new Error('GitHub access token not configured. Please add your GitHub token in the Supabase Edge Function secrets.')
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
@@ -32,13 +39,13 @@ serve(async (req) => {
     if (repo_url.startsWith('https://')) {
       const urlMatch = repo_url.match(/github\.com\/([^\/]+)\/([^\/\.]+)(\.git)?$/)
       if (!urlMatch) {
-        throw new Error('Invalid GitHub repository URL format')
+        throw new Error('Invalid GitHub repository URL format. Expected format: https://github.com/username/repository')
       }
       [, owner, repo] = urlMatch
     } else if (repo_url.startsWith('git@')) {
       const sshMatch = repo_url.match(/git@github\.com:([^\/]+)\/([^\/\.]+)(\.git)?$/)
       if (!sshMatch) {
-        throw new Error('Invalid GitHub SSH URL format')
+        throw new Error('Invalid GitHub SSH URL format. Expected format: git@github.com:username/repository')
       }
       [, owner, repo] = sshMatch
     } else {
@@ -49,13 +56,6 @@ serve(async (req) => {
     repo = repo.replace(/\.git$/, '')
 
     console.log(`Verifying repository: ${owner}/${repo}`)
-
-    // Get GitHub token
-    const githubToken = Deno.env.get('GITHUB_ACCESS_TOKEN')
-    if (!githubToken) {
-      console.error('GitHub token not configured')
-      throw new Error('GitHub access token not configured in Supabase')
-    }
 
     // Verify repository exists and is accessible
     const githubResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
@@ -71,7 +71,7 @@ serve(async (req) => {
       if (githubResponse.status === 404) {
         throw new Error('Repository not found. Please check the URL and ensure the repository exists.')
       } else if (githubResponse.status === 401) {
-        throw new Error('GitHub authentication failed. Please check the access token.')
+        throw new Error('GitHub authentication failed. Please check if your token has the required permissions.')
       } else {
         throw new Error(`GitHub API error: ${githubResponse.status}`)
       }
@@ -80,7 +80,7 @@ serve(async (req) => {
     const repoData = await githubResponse.json()
     console.log('Repository verified:', repoData.full_name)
 
-    // Check if repository contains PubMed scraping code
+    // Check if repository contains Python files
     const contentsResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents`, {
       headers: {
         'Authorization': `token ${githubToken}`,
@@ -97,7 +97,7 @@ serve(async (req) => {
     console.log('Repository contents:', contents)
 
     // Look for Python files that might contain PubMed scraping code
-    const pythonFiles = contents.filter(file => file.name.endsWith('.py'))
+    const pythonFiles = contents.filter((file: any) => file.name.endsWith('.py'))
     if (pythonFiles.length === 0) {
       console.warn('No Python files found in repository')
     }
@@ -110,7 +110,7 @@ serve(async (req) => {
           owner,
           repo,
           full_name: repoData.full_name,
-          python_files: pythonFiles.map(f => f.name)
+          python_files: pythonFiles.map((f: any) => f.name)
         }
       }),
       { 
