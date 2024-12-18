@@ -1,33 +1,29 @@
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase } from "@/integrations/supabase/client"
 import { type Paper } from "@/types/papers"
 import { useToast } from "@/components/ui/use-toast"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface AddToListDialogProps {
-  paper: Paper
+  paper: Paper | null
   isOpen: boolean
   onClose: () => void
-  onSave: (paper: Paper, listName: string) => void
-  existingLists?: string[]
+  onSave: (paper: Paper, listId: string) => void
 }
 
-export function AddToListDialog({
-  paper,
-  isOpen,
-  onClose,
-  onSave,
-  existingLists = [],
-}: AddToListDialogProps) {
+export function AddToListDialog({ paper, isOpen, onClose, onSave }: AddToListDialogProps) {
   const [newListName, setNewListName] = useState("")
   const [lists, setLists] = useState<{ id: string; name: string }[]>([])
   const { toast } = useToast()
 
   useEffect(() => {
-    fetchLists()
-  }, [])
+    if (isOpen) {
+      fetchLists()
+    }
+  }, [isOpen])
 
   const fetchLists = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -36,6 +32,7 @@ export function AddToListDialog({
     const { data, error } = await supabase
       .from("lists")
       .select("id, name")
+      .eq("user_id", session.user.id)
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -51,7 +48,7 @@ export function AddToListDialog({
   }
 
   const handleCreateList = async () => {
-    if (!newListName.trim()) return
+    if (!newListName.trim() || !paper) return
 
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) {
@@ -78,23 +75,27 @@ export function AddToListDialog({
       return
     }
 
-    onSave(paper, data.name)
+    onSave(paper, data.id)
     setNewListName("")
     onClose()
   }
 
-  const handleSelectList = (listName: string) => {
-    onSave(paper, listName)
+  const handleSelectList = async (listId: string) => {
+    if (!paper) return
+    onSave(paper, listId)
     onClose()
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add to List</DialogTitle>
+          <DialogDescription>
+            Choose an existing list or create a new one
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="space-y-4 py-4">
           <div>
             <h4 className="text-sm font-medium mb-2">Create New List</h4>
             <div className="flex space-x-2">
@@ -109,18 +110,20 @@ export function AddToListDialog({
           {lists.length > 0 && (
             <div>
               <h4 className="text-sm font-medium mb-2">Or Select Existing List</h4>
-              <div className="space-y-2">
-                {lists.map((list) => (
-                  <Button
-                    key={list.id}
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => handleSelectList(list.name)}
-                  >
-                    {list.name}
-                  </Button>
-                ))}
-              </div>
+              <ScrollArea className="h-[200px]">
+                <div className="space-y-2">
+                  {lists.map((list) => (
+                    <Button
+                      key={list.id}
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => handleSelectList(list.id)}
+                    >
+                      {list.name}
+                    </Button>
+                  ))}
+                </div>
+              </ScrollArea>
             </div>
           )}
         </div>

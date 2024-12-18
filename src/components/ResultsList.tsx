@@ -6,7 +6,7 @@ import { LoadingState } from "@/components/papers/LoadingState"
 import { SearchCriteria } from "@/components/papers/SearchCriteria"
 import { PaperActions } from "@/components/papers/PaperActions"
 import { type Paper } from "@/types/papers"
-import { AddToListDialog } from "./AddToListDialog"
+import { AddToListDialog } from "./papers/AddToListDialog"
 
 interface ResultsListProps {
   papers: Paper[]
@@ -52,49 +52,25 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
     setIsAddToListDialogOpen(true)
   }
 
-  const handleAddToList = async (paper: Paper, listName: string) => {
+  const handleAddToList = async (paper: Paper, listId: string) => {
     try {
-      // Check if paper is already saved
-      const { data: existingPaper } = await supabase
+      const { error } = await supabase
         .from("saved_papers")
-        .select()
-        .eq("user_id", userId)
-        .eq("paper_id", paper.id)
-        .single()
+        .insert({
+          user_id: userId,
+          paper_id: paper.id,
+          title: paper.title,
+          authors: paper.authors,
+          journal: paper.journal,
+          year: paper.year,
+          list_id: listId,
+        })
 
-      if (existingPaper) {
-        // Paper exists, update it
-        const { error } = await supabase
-          .from("saved_papers")
-          .update({
-            title: paper.title,
-            authors: paper.authors,
-            journal: paper.journal,
-            year: paper.year,
-          })
-          .eq("user_id", userId)
-          .eq("paper_id", paper.id)
-
-        if (error) throw error
-      } else {
-        // Paper doesn't exist, insert it
-        const { error } = await supabase
-          .from("saved_papers")
-          .insert({
-            user_id: userId,
-            paper_id: paper.id,
-            title: paper.title,
-            authors: paper.authors,
-            journal: paper.journal,
-            year: paper.year,
-          })
-
-        if (error) throw error
-      }
+      if (error) throw error
 
       toast({
         title: "Success",
-        description: "Paper saved to your list",
+        description: "Paper saved to list",
       })
     } catch (error) {
       toast({
