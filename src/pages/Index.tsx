@@ -4,6 +4,7 @@ import { ResultsList } from "@/components/ResultsList"
 import { type Paper } from "@/types/papers"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SearchHistory } from "@/components/search/SearchHistory"
+import { ConnectGithubRepo } from "@/components/github/ConnectGithubRepo"
 
 export default function Index() {
   const [searchResults, setSearchResults] = useState<Paper[]>([])
@@ -39,12 +40,16 @@ export default function Index() {
         <TabsList className="w-full">
           <TabsTrigger value="search" className="flex-1">New Search</TabsTrigger>
           <TabsTrigger value="history" className="flex-1">Search History</TabsTrigger>
+          <TabsTrigger value="github" className="flex-1">GitHub Integration</TabsTrigger>
         </TabsList>
         <TabsContent value="search">
           <SearchForm onSearch={handleSearch} />
         </TabsContent>
         <TabsContent value="history">
           <SearchHistory onHistoryClick={handleSearch} />
+        </TabsContent>
+        <TabsContent value="github">
+          <ConnectGithubRepo />
         </TabsContent>
       </Tabs>
       <ResultsList
