@@ -30,23 +30,25 @@ const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/535.24 (KHTML, like Gecko) Chrome/19.0.1055.1 Safari/535.24"
 ]
 
-function makeHeader() {
-  return {
-    'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
-  }
-}
-
 async function searchPubMed(criteria: any) {
-  const baseUrl = 'https://pubmed.ncbi.nlm.nih.gov'
-  let searchQuery = ''
+  console.log('Searching PubMed with criteria:', criteria)
   
+  const makeHeader = () => ({
+    'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
+  })
+
+  // Build search query based on criteria
+  let searchQuery = ''
   if (criteria.disease) searchQuery += `${criteria.disease}[Title/Abstract] `
   if (criteria.medicine) searchQuery += `AND ${criteria.medicine}[Title/Abstract] `
   if (criteria.working_mechanism) searchQuery += `AND ${criteria.working_mechanism}[Title/Abstract] `
   if (criteria.population) searchQuery += `AND ${criteria.population}[Title/Abstract] `
   if (criteria.trial_type) searchQuery += `AND ${criteria.trial_type}[Publication Type] `
   
+  const baseUrl = 'https://pubmed.ncbi.nlm.nih.gov'
   const searchUrl = `${baseUrl}/?term=${encodeURIComponent(searchQuery.trim())}&size=10`
+  
+  console.log('Fetching from URL:', searchUrl)
   
   try {
     const response = await fetch(searchUrl, { headers: makeHeader() })
@@ -55,6 +57,8 @@ async function searchPubMed(criteria: any) {
     
     const results = []
     const articles = soup.findAll('article', { class: 'full-docsum' })
+    
+    console.log(`Found ${articles.length} articles`)
     
     for (const article of articles) {
       const titleElem = article.find('a', { class: 'docsum-title' })
@@ -81,7 +85,7 @@ async function searchPubMed(criteria: any) {
         authors,
         journal,
         year: parseInt(year) || new Date().getFullYear(),
-        citations: 0, // Would need additional API call to get citations
+        citations: 0,
       })
     }
     
