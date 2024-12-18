@@ -1,14 +1,13 @@
-import { Card } from "@/components/ui/card"
+import { useState, useEffect } from "react"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/components/ui/use-toast"
-import { useEffect, useState } from "react"
 import { LoadingState } from "@/components/papers/LoadingState"
 import { SearchCriteria } from "@/components/papers/SearchCriteria"
-import { PaperActions } from "@/components/papers/PaperActions"
 import { type Paper } from "@/types/papers"
-import { AddToListDialog } from "./papers/AddToListDialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+import { PaperCard } from "./papers/PaperCard"
+import { ArticleDetails } from "./papers/ArticleDetails"
 
 interface ResultsListProps {
   papers: Paper[]
@@ -29,7 +28,6 @@ type SortOption = "citations" | "date" | "relevance"
 export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListProps) {
   const { toast } = useToast()
   const [userId, setUserId] = useState<string | null>(null)
-  const [isAddToListDialogOpen, setIsAddToListDialogOpen] = useState(false)
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
   const [sortBy, setSortBy] = useState<SortOption>("relevance")
   const [currentPage, setCurrentPage] = useState(1)
@@ -55,11 +53,6 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
       return
     }
 
-    setSelectedPaper(paper)
-    setIsAddToListDialogOpen(true)
-  }
-
-  const handleAddToList = async (paper: Paper, listId: string) => {
     try {
       const { error } = await supabase
         .from("saved_papers")
@@ -70,14 +63,13 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
           authors: paper.authors,
           journal: paper.journal,
           year: paper.year,
-          list_id: listId,
         })
 
       if (error) throw error
 
       toast({
         title: "Success",
-        description: "Paper saved to list",
+        description: "Paper saved successfully",
       })
     } catch (error) {
       toast({
@@ -145,6 +137,10 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
     }
   }
 
+  const handlePaperClick = (paper: Paper) => {
+    setSelectedPaper(paper)
+  }
+
   const sortedPapers = [...papers].sort((a, b) => {
     switch (sortBy) {
       case "citations":
@@ -156,7 +152,6 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
     }
   })
 
-  // Pagination
   const totalPages = Math.ceil(sortedPapers.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedPapers = sortedPapers.slice(startIndex, startIndex + itemsPerPage)
@@ -167,9 +162,9 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
 
   if (papers.length === 0) {
     return (
-      <Card className="p-6 text-center shadow-card">
+      <div className="text-center p-6 bg-white rounded-lg shadow">
         <p className="text-gray-500">No papers found matching your criteria.</p>
-      </Card>
+      </div>
     )
   }
 
@@ -190,27 +185,17 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
         </Select>
       </div>
 
-      {paginatedPapers.map((paper) => (
-        <Card key={paper.id} className="p-6 shadow-card hover:shadow-lg transition-shadow duration-200">
-          <div className="flex justify-between items-start">
-            <div className="space-y-2">
-              <h3 className="font-semibold text-lg">{paper.title}</h3>
-              <p className="text-sm text-gray-600">
-                {paper.authors.join(", ")} • {paper.journal} • {paper.year}
-              </p>
-              <p className="text-sm text-gray-500">
-                Citations: {paper.citations || 0}
-              </p>
-              <p className="mt-2 text-gray-700">{paper.abstract}</p>
-            </div>
-            <PaperActions
-              paper={paper}
-              onSave={handleSavePaper}
-              onLike={handleLikePaper}
-            />
-          </div>
-        </Card>
-      ))}
+      <div className="space-y-4">
+        {paginatedPapers.map((paper) => (
+          <PaperCard
+            key={paper.id}
+            paper={paper}
+            onSave={handleSavePaper}
+            onLike={handleLikePaper}
+            onClick={handlePaperClick}
+          />
+        ))}
+      </div>
 
       {totalPages > 1 && (
         <Pagination className="mt-4">
@@ -241,11 +226,10 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
         </Pagination>
       )}
 
-      <AddToListDialog
+      <ArticleDetails
         paper={selectedPaper}
-        isOpen={isAddToListDialogOpen}
-        onClose={() => setIsAddToListDialogOpen(false)}
-        onSave={handleAddToList}
+        isOpen={!!selectedPaper}
+        onClose={() => setSelectedPaper(null)}
       />
     </div>
   )

@@ -4,8 +4,8 @@ export interface Paper {
   authors: string[]
   journal: string
   year: number
-  citations?: number // Made optional
-  abstract?: string // Made optional
+  citations?: number
+  abstract?: string
   pdfUrl?: string
 }
 
