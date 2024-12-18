@@ -4,18 +4,20 @@ import { ResultsList } from "@/components/ResultsList"
 import { type Paper } from "@/types/papers"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SearchHistory } from "@/components/search/SearchHistory"
+import { supabase } from "@/integrations/supabase/client"
+import { useToast } from "@/hooks/use-toast"
 
 export default function Index() {
   const [searchResults, setSearchResults] = useState<Paper[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchCriteria, setSearchCriteria] = useState<any>(null)
+  const { toast } = useToast()
 
   const handleSearch = async (criteria: any) => {
     setIsLoading(true)
     setSearchCriteria(criteria)
     
     try {
-      // Call the Supabase Edge Function to search PubMed
       const { data, error } = await supabase.functions.invoke('search-pubmed', {
         body: criteria
       })
