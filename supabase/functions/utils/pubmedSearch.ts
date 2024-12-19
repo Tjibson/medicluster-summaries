@@ -1,4 +1,4 @@
-export async function searchPubMed(searchQuery: string, dateRange?: { start: string; end: string }, limit: number = 5) {
+export async function searchPubMed(searchQuery: string, dateRange?: { start: string; end: string }, limit: number = 100) {
   const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
   let query = searchQuery
 
@@ -27,7 +27,7 @@ export async function searchPubMed(searchQuery: string, dateRange?: { start: str
     }
 
     console.log(`Found ${pmids.length} PMIDs, fetching details...`)
-    const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
+    const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml&rettype=abstract,citation`
     const fetchResponse = await fetch(fetchUrl)
     
     if (!fetchResponse.ok) {

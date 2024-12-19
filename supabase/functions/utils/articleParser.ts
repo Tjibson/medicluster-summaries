@@ -34,6 +34,10 @@ export function parseArticles(xmlText: string, searchTerms: any): Article[] {
       const yearMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(.*?)<\/Year>/)?.[1]
       const year = yearMatch ? parseInt(yearMatch) : new Date().getFullYear()
 
+      // Extract citation count from the XML
+      const citationCountMatch = articleXml.match(/<CitationCount>(\d+)<\/CitationCount>/)
+      const citations = citationCountMatch ? parseInt(citationCountMatch[1]) : 0
+
       const patientCount = extractPatientCount(abstract)
       const relevanceScore = calculateRelevanceScore(`${title} ${abstract}`, searchTerms)
 
@@ -44,7 +48,7 @@ export function parseArticles(xmlText: string, searchTerms: any): Article[] {
         journal: decodeXMLEntities(journal),
         year,
         abstract: decodeXMLEntities(abstract),
-        citations: 0,
+        citations,
         patient_count: patientCount,
         relevance_score: relevanceScore
       })
