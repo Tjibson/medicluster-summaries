@@ -28,16 +28,16 @@ serve(async (req) => {
       )
     }
 
-    // Step 1: Search for PMIDs using E-utilities
-    const term = encodeURIComponent(`${medicine}[Title/Abstract]`)
-    const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${term}&retmax=10&sort=relevance`
+    // Step 1: Search for papers using PubMed API
+    const searchTerm = encodeURIComponent(`${medicine}[Title/Abstract]`)
+    const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
+    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${searchTerm}&retmax=10&retmode=json`
+    
     console.log("Searching PubMed with URL:", searchUrl)
-    
     const searchResponse = await fetch(searchUrl)
-    const searchText = await searchResponse.text()
+    const searchData = await searchResponse.json()
+    const pmids = searchData.esearchresult?.idlist || []
     
-    // Extract PMIDs using regex
-    const pmids = Array.from(searchText.matchAll(/<Id>(\d+)<\/Id>/g)).map(match => match[1])
     console.log(`Found ${pmids.length} PMIDs:`, pmids)
 
     if (pmids.length === 0) {
@@ -47,40 +47,57 @@ serve(async (req) => {
       )
     }
 
-    // Step 2: Fetch detailed information for each PMID
-    const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=json`
+    // Step 2: Fetch detailed information for each paper
+    const summaryUrl = `${baseUrl}/esummary.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=json`
     console.log("Fetching summaries with URL:", summaryUrl)
     
     const summaryResponse = await fetch(summaryUrl)
     const summaryData = await summaryResponse.json()
-    
-    // Process the papers
-    const papers = pmids.map(pmid => {
-      const paper = summaryData.result[pmid]
-      if (!paper) return null
 
-      return {
-        id: pmid,
-        title: paper.title || 'No title available',
-        authors: paper.authors?.map((author: any) => author.name) || [],
-        journal: paper.fulljournalname || paper.source || 'Unknown Journal',
-        year: parseInt(paper.pubdate) || new Date().getFullYear(),
-        abstract: paper.abstract || 'Abstract not available',
-        citations: 0,
-        relevance_score: 100 // Default score for now
-      }
-    }).filter(Boolean)
+    // Step 3: Process and format the papers
+    const papers = pmids
+      .map(pmid => {
+        const paper = summaryData.result[pmid]
+        if (!paper) return null
 
-    console.log(`Successfully processed ${papers.length} papers`)
+        // Extract and clean the date
+        const pubDate = paper.pubdate || ''
+        const yearMatch = pubDate.match(/\d{4}/)
+        const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear()
+
+        // Extract authors
+        const authors = paper.authors?.map((author: any) => {
+          const name = author.name || ''
+          return name.replace(/^([^,]+),\s*(.+)$/, '$2 $1').trim()
+        }) || []
+
+        // Clean the title
+        const title = (paper.title || '')
+          .replace(/\[.*?\]/g, '')
+          .replace(/\.$/, '')
+          .trim()
+
+        return {
+          id: pmid,
+          title: title || 'No title available',
+          authors,
+          journal: paper.fulljournalname || paper.source || 'Unknown Journal',
+          year,
+          abstract: paper.abstract || 'Abstract not available',
+          citations: 0, // We'll need a separate API call to get citations
+          relevance_score: 100
+        }
+      })
+      .filter(Boolean)
+
+    console.log(`Successfully processed ${papers.length} papers:`, papers)
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         papers 
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
