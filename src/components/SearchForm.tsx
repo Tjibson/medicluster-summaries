@@ -22,16 +22,7 @@ export function SearchForm({ onSearch }: { onSearch: (papers: any[]) => void }) 
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        toast({
-          title: "Error",
-          description: "You must be logged in to search",
-          variant: "destructive",
-        })
-        return
-      }
-
+      console.log("Submitting search with medicine:", trimmedMedicine)
       const { data, error } = await supabase.functions.invoke('search-pubmed', {
         body: { medicine: trimmedMedicine }
       })
@@ -45,15 +36,7 @@ export function SearchForm({ onSearch }: { onSearch: (papers: any[]) => void }) 
         throw new Error("Invalid response format")
       }
 
-      // Save search history in background
-      await supabase
-        .from("search_history")
-        .insert({
-          user_id: session.user.id,
-          medicine: trimmedMedicine,
-        })
-        .single()
-
+      console.log("Search results:", data.papers)
       onSearch(data.papers)
 
     } catch (error: any) {

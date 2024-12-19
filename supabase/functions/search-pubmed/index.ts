@@ -6,12 +6,15 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
+    console.log("Received request body:", await req.text())
     const { medicine } = await req.json()
+    console.log("Extracted medicine:", medicine)
 
     if (!medicine?.trim()) {
       return new Response(
@@ -64,6 +67,8 @@ serve(async (req) => {
       const titleMatch = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)
       const abstractMatch = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)
       const idMatch = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)
+      const yearMatch = articleXml.match(/<Year>(\d{4})<\/Year>/)
+      const journalMatch = articleXml.match(/<Title>(.*?)<\/Title>/)
       const authorMatches = articleXml.match(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<\/Author>/g) || []
       const authors = authorMatches.map(author => {
         const lastNameMatch = author.match(/<LastName>(.*?)<\/LastName>/)
@@ -77,8 +82,8 @@ serve(async (req) => {
           abstract: abstractMatch ? decodeXMLEntities(abstractMatch[1]) : 'No abstract available',
           authors: authors,
           citations: 0,
-          year: new Date().getFullYear(), // Default to current year if not found
-          journal: 'PubMed Article'
+          year: yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear(),
+          journal: journalMatch ? decodeXMLEntities(journalMatch[1]) : 'PubMed Article'
         })
       }
     }
