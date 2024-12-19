@@ -1,112 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { SearchParams } from './utils/types'
+import { corsHeaders } from "../_shared/cors.ts"
+import { xml2js } from "https://deno.land/x/xml2js@v1.0.0/mod.ts"
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-const PUBMED_BASE_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
-
-async function searchPubMed(query: string, dateRange?: { start: string; end: string }) {
-  try {
-    console.log('Executing PubMed search with query:', query)
-    
-    // Step 1: Search for PMIDs
-    const searchUrl = `${PUBMED_BASE_URL}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=100&usehistory=y`
-    console.log('Search URL:', searchUrl)
-    
-    const searchResponse = await fetch(searchUrl)
-    if (!searchResponse.ok) {
-      throw new Error(`Search request failed: ${searchResponse.statusText}`)
-    }
-    
-    const searchText = await searchResponse.text()
-    console.log('Search response:', searchText)
-    
-    // Extract PMIDs
-    const pmids = searchText.match(/<Id>(\d+)<\/Id>/g)?.map(id => id.replace(/<\/?Id>/g, '')) || []
-    console.log('Found PMIDs:', pmids)
-    
-    if (pmids.length === 0) {
-      return []
-    }
-
-    // Step 2: Fetch article details
-    const fetchUrl = `${PUBMED_BASE_URL}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
-    console.log('Fetch URL:', fetchUrl)
-    
-    const fetchResponse = await fetch(fetchUrl)
-    if (!fetchResponse.ok) {
-      throw new Error(`Fetch request failed: ${fetchResponse.statusText}`)
-    }
-    
-    const articlesXml = await fetchResponse.text()
-    console.log('Received articles XML length:', articlesXml.length)
-    
-    // Parse articles
-    const articles = parseArticles(articlesXml)
-    console.log(`Successfully processed ${articles.length} papers`)
-    
-    return articles
-    
-  } catch (error) {
-    console.error('Error in searchPubMed:', error)
-    throw error
+interface SearchParams {
+  medicine?: string
+  dateRange?: {
+    start: string
+    end: string
   }
-}
-
-function parseArticles(xml: string) {
-  const articles = []
-  const articleMatches = xml.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
-  
-  for (const articleXml of articleMatches) {
-    try {
-      const article = {
-        id: extractText(articleXml, 'PMID'),
-        title: extractText(articleXml, 'ArticleTitle'),
-        abstract: extractText(articleXml, 'Abstract/AbstractText') || 'No abstract available',
-        authors: extractAuthors(articleXml),
-        journal: extractText(articleXml, 'Journal/Title') || extractText(articleXml, 'ISOAbbreviation') || 'Unknown Journal',
-        year: parseInt(extractText(articleXml, 'PubDate/Year') || new Date().getFullYear().toString()),
-        citations: 0
-      }
-      
-      articles.push(article)
-    } catch (error) {
-      console.error('Error processing article:', error)
-      continue
-    }
-  }
-  
-  return articles
-}
-
-function extractText(xml: string, tag: string): string {
-  const match = new RegExp(`<${tag}[^>]*>(.*?)</${tag.split('/').pop()}>`, 's').exec(xml)
-  return match ? decodeXMLEntities(match[1].trim()) : ''
-}
-
-function extractAuthors(xml: string): string[] {
-  const authors = []
-  const authorMatches = xml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
-  
-  for (const match of authorMatches) {
-    const lastName = match[1] || ''
-    const foreName = match[2] || ''
-    authors.push(`${lastName} ${foreName}`.trim())
-  }
-  
-  return authors
-}
-
-function decodeXMLEntities(text: string): string {
-  return text
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
+  journalNames?: string[]
 }
 
 serve(async (req) => {
@@ -115,54 +17,117 @@ serve(async (req) => {
   }
 
   try {
-    const params = await req.json() as SearchParams
-    console.log('Received search params:', params)
+    const { medicine, dateRange, journalNames } = await req.json() as SearchParams
+    console.log("Search params received:", { medicine, dateRange, journalNames })
 
-    if (!params.keywords) {
+    if (!medicine && !dateRange && !journalNames?.length) {
+      throw new Error("At least one search parameter is required")
+    }
+
+    // Build search query
+    let searchQuery = medicine || ""
+    if (journalNames?.length) {
+      searchQuery += ` AND (${journalNames.join(" OR ")}[Journal])`
+    }
+    if (dateRange) {
+      searchQuery += ` AND ("${dateRange.start}"[Date - Publication] : "${dateRange.end}"[Date - Publication])`
+    }
+
+    console.log("PubMed search query:", searchQuery)
+
+    // Step 1: Use ESearch to get PMIDs
+    const esearchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmode=json&retmax=100`
+    const esearchResponse = await fetch(esearchUrl)
+    const esearchData = await esearchResponse.json()
+    
+    console.log("ESearch response:", esearchData)
+    
+    const pmids = esearchData.esearchresult.idlist
+    if (!pmids?.length) {
       return new Response(
-        JSON.stringify({
-          papers: [],
-          message: 'No search keywords provided'
-        }),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-          status: 200
-        }
+        JSON.stringify({ papers: [] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       )
     }
 
-    const papers = await searchPubMed(params.keywords, params.dateRange)
+    // Step 2: Use EFetch to get article details
+    const efetchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
+    const efetchResponse = await fetch(efetchUrl)
+    const xmlData = await efetchResponse.text()
+    
+    console.log("EFetch XML received, parsing...")
+
+    // Parse XML
+    const jsonResult = await xml2js(xmlData, { compact: true })
+    const pubmedArticles = Array.isArray(jsonResult.PubmedArticleSet.PubmedArticle) 
+      ? jsonResult.PubmedArticleSet.PubmedArticle 
+      : [jsonResult.PubmedArticleSet.PubmedArticle]
+
+    // Transform articles into our format
+    const papers = pubmedArticles.map(article => {
+      const articleData = article.MedlineCitation.Article
+      const pmid = article.MedlineCitation.PMID._text
+
+      // Extract authors
+      let authors = []
+      if (articleData.AuthorList?.Author) {
+        const authorList = Array.isArray(articleData.AuthorList.Author)
+          ? articleData.AuthorList.Author
+          : [articleData.AuthorList.Author]
+
+        authors = authorList.map(auth => {
+          const foreName = auth.ForeName?._text || ''
+          const lastName = auth.LastName?._text || ''
+          return `${foreName} ${lastName}`.trim()
+        })
+      }
+
+      // Extract abstract
+      let abstract = ''
+      if (articleData.Abstract?.AbstractText) {
+        if (typeof articleData.Abstract.AbstractText === 'string') {
+          abstract = articleData.Abstract.AbstractText
+        } else if (Array.isArray(articleData.Abstract.AbstractText)) {
+          abstract = articleData.Abstract.AbstractText.map(section => 
+            section._text || section
+          ).join('\n')
+        } else {
+          abstract = articleData.Abstract.AbstractText._text || ''
+        }
+      }
+
+      // Extract publication year
+      const pubDate = articleData.Journal?.JournalIssue?.PubDate
+      const year = pubDate?.Year?._text || 
+                  (pubDate?.MedlineDate?._text || '').substring(0, 4) || 
+                  new Date().getFullYear()
+
+      return {
+        id: pmid,
+        title: articleData.ArticleTitle._text || '',
+        abstract,
+        authors,
+        journal: articleData.Journal?.Title?._text || '',
+        year: parseInt(year),
+        citations: 0, // We'll need to implement citation count in a separate step
+        pdfUrl: null // We'll need to implement PDF URL retrieval in a separate step
+      }
+    })
+
+    console.log(`Processed ${papers.length} papers`)
 
     return new Response(
-      JSON.stringify({
-        papers,
-        message: 'Search completed successfully'
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-        status: 200
-      }
+      JSON.stringify({ papers }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     )
-    
+
   } catch (error) {
-    console.error('Error in search-pubmed function:', error)
+    console.error("Error in search-pubmed function:", error)
     return new Response(
-      JSON.stringify({
-        error: error.message || 'An error occurred during search',
-        papers: []
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-        status: 200
+      JSON.stringify({ error: error.message }),
+      { 
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     )
   }
