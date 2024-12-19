@@ -27,7 +27,19 @@ const DEFAULT_JOURNALS = [
   "Journal of the American Heart Association",
   "Nature",
   "The Lancet",
-  "The New England journal of medicine"
+  "The New England journal of medicine",
+  "JAMA",
+  "BMJ (Clinical research ed.)",
+  "Annals of internal medicine",
+  "European heart journal",
+  "Circulation research",
+  "Nature medicine",
+  "The Lancet. Diabetes & endocrinology",
+  "The Lancet. Oncology",
+  "JAMA internal medicine",
+  "JAMA oncology",
+  "Science translational medicine",
+  "Nature cardiovascular research"
 ]
 
 export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
