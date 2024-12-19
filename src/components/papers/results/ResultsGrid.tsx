@@ -127,8 +127,15 @@ export function ResultsGrid({
         return b.year - a.year
       case "title":
         return a.title.localeCompare(b.title)
-      default:
-        return (b.relevance_score || 0) - (a.relevance_score || 0)
+      default: // "relevance" is default
+        // Higher relevance score should come first
+        const scoreA = a.relevance_score || 0
+        const scoreB = b.relevance_score || 0
+        if (scoreA !== scoreB) {
+          return scoreB - scoreA
+        }
+        // If relevance scores are equal, sort by date (newer first)
+        return b.year - a.year
     }
   })
 

@@ -39,7 +39,7 @@ export function parseArticles(xmlText: string, searchTerms: any): Article[] {
       const citations = citationCountMatch ? parseInt(citationCountMatch[1]) : 0
 
       const patientCount = extractPatientCount(abstract)
-      const relevanceScore = calculateRelevanceScore(`${title} ${abstract}`, searchTerms)
+      const relevanceScore = calculateRelevanceScore(title, abstract, searchTerms)
 
       articles.push({
         id,
@@ -95,39 +95,33 @@ function extractPatientCount(text: string): number | null {
   return null
 }
 
-function calculateRelevanceScore(text: string, searchTerms: any): number {
-  if (!text || !Object.values(searchTerms).some(term => term)) return 0
+function calculateRelevanceScore(title: string, abstract: string, searchTerms: string): number {
+  if (!title || !abstract || !searchTerms) return 0
+
+  const text = `${title.toLowerCase()} ${abstract.toLowerCase()}`
+  const terms = searchTerms.toLowerCase()
+    .replace(/[()]/g, '') // Remove parentheses
+    .split(/\s+(?:AND|OR)\s+/) // Split on AND/OR operators
+    .map(term => term.trim())
+    .filter(Boolean)
 
   let score = 0
-  let totalCriteria = 0
-  const textLower = text.toLowerCase()
 
-  const countOccurrences = (searchTerm: string): number => {
-    if (!searchTerm) return 0
-    const terms = searchTerm.toLowerCase().split(/\s+/)
-    let matches = 0
-    terms.forEach(term => {
-      const regex = new RegExp(term, 'g')
-      matches += (textLower.match(regex) || []).length
-    })
-    return matches
-  }
-
-  Object.entries(searchTerms).forEach(([key, term]) => {
-    if (term && typeof term === 'string' && key !== 'patient_count') {
-      totalCriteria++
-      const occurrences = countOccurrences(term)
-      if (occurrences > 0) {
-        score += 1
-        score += Math.min(occurrences / 5, 0.5)
-      }
-    }
+  // Title matches are worth more
+  terms.forEach(term => {
+    const titleMatches = (title.toLowerCase().match(new RegExp(term, 'g')) || []).length
+    const abstractMatches = (abstract.toLowerCase().match(new RegExp(term, 'g')) || []).length
+    
+    score += titleMatches * 3 // Title matches worth 3x
+    score += abstractMatches
   })
 
-  if (searchTerms.query) {
-    const queryScore = countOccurrences(searchTerms.query)
-    return queryScore > 0 ? 100 * (1 + Math.min(queryScore / 10, 0.5)) : 0
-  }
+  // Normalize score to 0-100 range
+  const normalizedScore = Math.min(100, score * 10)
 
-  return totalCriteria > 0 ? (score / totalCriteria) * 100 : 0
+  // Recent papers get a small boost (up to 20% boost for current year)
+  const currentYear = new Date().getFullYear()
+  const yearBoost = Math.max(0, Math.min(0.2, (currentYear - 1950) / (currentYear - 1950)))
+  
+  return Math.round(normalizedScore * (1 + yearBoost))
 }
