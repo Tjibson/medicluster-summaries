@@ -1,12 +1,10 @@
 export interface SearchParams {
+  keywords: string
   dateRange?: {
     start: string
     end: string
   }
   journalNames?: string[]
-  keywords?: string
-  medicine?: string
-  condition?: string
 }
 
 export interface PubMedArticle {
@@ -16,5 +14,5 @@ export interface PubMedArticle {
   authors: string[]
   journal: string
   year: number
-  citations: number
+  citations?: number
 }
