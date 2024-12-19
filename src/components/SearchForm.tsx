@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { type Paper } from "@/types/papers"
 import { DateRangeSelect } from "./search/DateRangeSelect"
+import { Loader2 } from "lucide-react"
 
 interface SearchFormProps {
   onSearch: (papers: Paper[], searchCriteria: {
@@ -12,6 +13,7 @@ interface SearchFormProps {
     keywords: string;
     journalNames: string[];
   }) => void
+  onSearchStart: () => void
 }
 
 const DEFAULT_JOURNALS = [
@@ -27,7 +29,7 @@ const DEFAULT_JOURNALS = [
   "The Lancet",
 ]
 
-export function SearchForm({ onSearch }: SearchFormProps) {
+export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
   const [medicine, setMedicine] = useState("")
   const [condition, setCondition] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -38,6 +40,7 @@ export function SearchForm({ onSearch }: SearchFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    onSearchStart() // Clear previous results
 
     try {
       console.log("Building search query...")
@@ -133,7 +136,14 @@ export function SearchForm({ onSearch }: SearchFormProps) {
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Searching..." : "Search PubMed"}
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Searching...
+            </>
+          ) : (
+            "Search PubMed"
+          )}
         </Button>
       </form>
     </div>
