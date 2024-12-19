@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 import axiod from 'https://deno.land/x/axiod@0.26.2/mod.ts'
-import * as xml2js from 'https://esm.sh/xml2js@0.4.23'
+import { parseStringPromise } from 'https://esm.sh/xml2js@0.4.23'
 
 const NCBI_EMAIL = 'tjibbe-beckers@live.nl'
 const NCBI_API_KEY = '0e15924868078a8b07c4fc709d8a306e6108'
@@ -61,9 +61,9 @@ serve(async (req) => {
     const efetchResponse = await axiod.get(efetchUrl)
     const xmlData = efetchResponse.data
 
-    // Parse XML using xml2js
+    // Parse XML using xml2js with named import
     const parserOptions = { explicitArray: false, mergeAttrs: true }
-    const parsedXml = await xml2js.parseStringPromise(xmlData, parserOptions)
+    const parsedXml = await parseStringPromise(xmlData, parserOptions)
 
     // Transform parsed XML to articles
     const articles = parsedXml.PubmedArticleSet.PubmedArticle.map(article => {
