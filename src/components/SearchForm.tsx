@@ -33,8 +33,14 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
   const [medicine, setMedicine] = useState("")
   const [condition, setCondition] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [startDate, setStartDate] = useState<Date>()
-  const [endDate, setEndDate] = useState<Date>()
+  
+  // Set default dates for 20 years range
+  const defaultEndDate = new Date()
+  const defaultStartDate = new Date()
+  defaultStartDate.setFullYear(defaultStartDate.getFullYear() - 20)
+  
+  const [startDate, setStartDate] = useState<Date>(defaultStartDate)
+  const [endDate, setEndDate] = useState<Date>(defaultEndDate)
   const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,8 +66,8 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
       const { data, error } = await supabase.functions.invoke('search-pubmed', {
         body: {
           dateRange: {
-            start: startDate ? startDate.toISOString().split('T')[0].replace(/-/g, '/') : "2024/01/01",
-            end: endDate ? endDate.toISOString().split('T')[0].replace(/-/g, '/') : "2024/12/31"
+            start: startDate.toISOString().split('T')[0].replace(/-/g, '/'),
+            end: endDate.toISOString().split('T')[0].replace(/-/g, '/')
           },
           journalNames: DEFAULT_JOURNALS,
           keywords: keywordsLogic
@@ -79,8 +85,8 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
       console.log("Search results:", data.papers)
       onSearch(data.papers, {
         dateRange: {
-          start: startDate?.toISOString().split('T')[0] || "2024/01/01",
-          end: endDate?.toISOString().split('T')[0] || "2024/12/31"
+          start: startDate.toISOString().split('T')[0],
+          end: endDate.toISOString().split('T')[0]
         },
         keywords: keywordsLogic,
         journalNames: DEFAULT_JOURNALS
