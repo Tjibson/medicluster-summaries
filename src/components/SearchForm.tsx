@@ -1,10 +1,10 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { type Paper } from "@/types/papers"
 import { DateRangeSelect } from "./search/DateRangeSelect"
+import { SearchInputs } from "./search/SearchInputs"
 import { Loader2 } from "lucide-react"
 
 interface SearchFormProps {
@@ -115,25 +115,12 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
           }}
         />
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Medicine Keywords (optional)</label>
-          <Input
-            value={medicine}
-            onChange={(e) => setMedicine(e.target.value)}
-            placeholder="e.g., Entresto Sacubitril ARNi LCZ696"
-            className="w-full"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Condition Keywords (optional)</label>
-          <Input
-            value={condition}
-            onChange={(e) => setCondition(e.target.value)}
-            placeholder="e.g., HFrEF heart failure"
-            className="w-full"
-          />
-        </div>
+        <SearchInputs
+          medicine={medicine}
+          condition={condition}
+          onMedicineChange={setMedicine}
+          onConditionChange={setCondition}
+        />
 
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? (
