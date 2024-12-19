@@ -1,12 +1,12 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 import axios from 'https://esm.sh/axios@1.3.4'
 import { xml2js } from 'https://esm.sh/xml2js@0.4.23'
 
 const parser = new xml2js({ explicitArray: false, mergeAttrs: true })
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
