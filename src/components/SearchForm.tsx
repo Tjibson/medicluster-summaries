@@ -68,7 +68,6 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
       }
 
       const searchCriteria = {
-        user_id: session.user.id,
         population: `${selectedContinent}${selectedRegion ? ` - ${selectedRegion}` : ''}`,
         disease,
         medicine,
@@ -82,18 +81,29 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
         } : null
       }
 
-      const { error } = await supabase
+      // Call the search-pubmed edge function
+      const { data: pubmedData, error: pubmedError } = await supabase.functions.invoke('search-pubmed', {
+        body: searchCriteria
+      })
+
+      if (pubmedError) throw pubmedError
+
+      // Save search history in background
+      await supabase
         .from("search_history")
-        .insert(searchCriteria)
+        .insert({
+          user_id: session.user.id,
+          ...searchCriteria
+        })
+        .single()
 
-      if (error) throw error
+      onSearch(pubmedData.papers || [])
 
-      onSearch(searchCriteria)
     } catch (error) {
-      console.error("Error saving search:", error)
+      console.error("Error performing search:", error)
       toast({
         title: "Error",
-        description: "Failed to save search",
+        description: "Failed to perform search",
         variant: "destructive",
       })
     }
@@ -145,7 +155,7 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
         </div>
 
         <Button type="submit" className="w-full">
-          Search
+          Search PubMed & Google Scholar
         </Button>
       </form>
     </div>

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { searchPubMed } from "../utils/pubmedSearch.ts"
 import { parseArticles } from "../utils/articleParser.ts"
+import { fetchGoogleScholarData } from "../utils/googleScholar.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,24 +29,36 @@ serve(async (req) => {
     
     searchQuery = searchTerms.join(' AND ')
     
-    // Handle direct query searches
-    if (searchCriteria.query) {
-      searchQuery = `${searchCriteria.query}[Title/Abstract]`
-    }
-    
     if (!searchQuery.trim()) {
       throw new Error('No search criteria provided')
     }
 
     console.log('Final search query:', searchQuery)
 
+    // Search PubMed
     const xmlText = await searchPubMed(searchQuery, searchCriteria.date_range)
-    const papers = parseArticles(xmlText, searchCriteria)
+    let papers = parseArticles(xmlText, searchCriteria)
+
+    // Enhance papers with Google Scholar data
+    const enhancedPapers = await Promise.all(
+      papers.map(async (paper) => {
+        try {
+          const scholarData = await fetchGoogleScholarData(paper.title, paper.authors)
+          return {
+            ...paper,
+            pdfUrl: scholarData?.pdfUrl || null,
+          }
+        } catch (error) {
+          console.error(`Error fetching Google Scholar data for paper ${paper.id}:`, error)
+          return paper
+        }
+      })
+    )
 
     console.log(`Found ${papers.length} papers`)
 
     return new Response(
-      JSON.stringify({ success: true, papers }),
+      JSON.stringify({ success: true, papers: enhancedPapers }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 
