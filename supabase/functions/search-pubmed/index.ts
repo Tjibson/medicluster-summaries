@@ -61,7 +61,7 @@ serve(async (req) => {
     const efetchResponse = await axiod.get(efetchUrl)
     const xmlData = efetchResponse.data
 
-    // Parse XML using xml2js with named import
+    // Parse XML using xml2js
     const parserOptions = { explicitArray: false, mergeAttrs: true }
     const parsedXml = await parseStringPromise(xmlData, parserOptions)
 
@@ -71,15 +71,20 @@ serve(async (req) => {
       const articleData = medlineCitation.Article
 
       // Handle both single author and multiple authors cases
-      let authors = []
-      if (articleData.AuthorList) {
-        const authorList = Array.isArray(articleData.AuthorList.Author)
-          ? articleData.AuthorList.Author
-          : [articleData.AuthorList.Author]
+      let authors: string[] = []
+      if (articleData.AuthorList && articleData.AuthorList.Author) {
+        let authorList = articleData.AuthorList.Author
         
-        authors = authorList.map(author => 
-          `${author?.LastName || ''} ${author?.ForeName || ''}`.trim()
-        ).filter(name => name.length > 0)
+        // If authorList is not an array, wrap it in an array
+        if (!Array.isArray(authorList)) {
+          authorList = [authorList]
+        }
+
+        authors = authorList.map((auth: any) => {
+          const firstName = auth.ForeName || ''
+          const lastName = auth.LastName || ''
+          return [firstName, lastName].filter(Boolean).join(' ')
+        }).filter(name => name.length > 0)
       }
 
       // Extract publication year with fallback options
