@@ -47,14 +47,39 @@ serve(async (req) => {
       )
     }
 
-    // Step 2: Fetch detailed information for each paper
+    // Step 2: Fetch detailed information including abstracts for each paper
+    const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
+    console.log("Fetching full details with URL:", fetchUrl)
+    const fetchResponse = await fetch(fetchUrl)
+    const xmlText = await fetchResponse.text()
+
+    // Step 3: Also fetch summary data for basic paper info
     const summaryUrl = `${baseUrl}/esummary.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=json`
     console.log("Fetching summaries with URL:", summaryUrl)
-    
     const summaryResponse = await fetch(summaryUrl)
     const summaryData = await summaryResponse.json()
 
-    // Step 3: Process and format the papers
+    // Step 4: Extract abstracts from XML
+    const abstractMap = new Map()
+    const abstractMatches = xmlText.matchAll(/<Abstract>[\s\S]*?<AbstractText[^>]*>([\s\S]*?)<\/AbstractText>[\s\S]*?<\/Abstract>/g)
+    
+    for (const match of abstractMatches) {
+      const pmid = match[0].match(/<PMID[^>]*>(.*?)<\/PMID>/)?.[1]
+      if (pmid) {
+        let abstract = match[1] || ''
+        // Clean up the abstract text
+        abstract = abstract
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&')
+          .replace(/&quot;/g, '"')
+          .replace(/&apos;/g, "'")
+          .trim()
+        abstractMap.set(pmid, abstract)
+      }
+    }
+
+    // Step 5: Process and format the papers
     const papers = pmids
       .map(pmid => {
         const paper = summaryData.result[pmid]
@@ -77,20 +102,23 @@ serve(async (req) => {
           .replace(/\.$/, '')
           .trim()
 
+        // Get abstract from our XML parsing
+        const abstract = abstractMap.get(pmid) || 'Abstract not available'
+
         return {
           id: pmid,
           title: title || 'No title available',
           authors,
           journal: paper.fulljournalname || paper.source || 'Unknown Journal',
           year,
-          abstract: paper.abstract || 'Abstract not available',
-          citations: 0, // We'll need a separate API call to get citations
+          abstract,
+          citations: 0,
           relevance_score: 100
         }
       })
       .filter(Boolean)
 
-    console.log(`Successfully processed ${papers.length} papers:`, papers)
+    console.log(`Successfully processed ${papers.length} papers with abstracts`)
 
     return new Response(
       JSON.stringify({ 
