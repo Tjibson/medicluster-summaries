@@ -64,11 +64,25 @@ serve(async (req) => {
     // Parse XML using xml2js
     const parserOptions = { explicitArray: false, mergeAttrs: true }
     const parsedXml = await parseStringPromise(xmlData, parserOptions)
+    const pubmedArticles = parsedXml.PubmedArticleSet?.PubmedArticle || []
 
     // Transform parsed XML to articles
-    const articles = parsedXml.PubmedArticleSet.PubmedArticle.map(article => {
+    const articles = pubmedArticles.map(article => {
       const medlineCitation = article.MedlineCitation
       const articleData = medlineCitation.Article
+      const articleTitle = articleData.ArticleTitle || ''
+
+      // Handle abstract text with different possible formats
+      let abstractText = ''
+      if (articleData.Abstract && articleData.Abstract.AbstractText) {
+        if (typeof articleData.Abstract.AbstractText === 'string') {
+          abstractText = articleData.Abstract.AbstractText
+        } else if (Array.isArray(articleData.Abstract.AbstractText)) {
+          abstractText = articleData.Abstract.AbstractText.join('\n')
+        } else if (articleData.Abstract.AbstractText._) {
+          abstractText = articleData.Abstract.AbstractText._
+        }
+      }
 
       // Handle both single author and multiple authors cases
       let authors: string[] = []
@@ -108,10 +122,10 @@ serve(async (req) => {
 
       return {
         id: medlineCitation.PMID,
-        title: articleData.ArticleTitle,
-        abstract: articleData.Abstract?.AbstractText || '',
+        title: articleTitle,
+        abstract: abstractText,
         authors,
-        journal: articleData.Journal?.Title || 'Unknown Journal',
+        journal: articleData.Journal?.Title || articleData.Journal?.ISOAbbreviation || 'Unknown Journal',
         year: publicationYear,
         citations: 0
       }
