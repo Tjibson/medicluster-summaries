@@ -10,11 +10,21 @@ interface SearchCriteria {
 interface ResultsListProps {
   papers: Paper[]
   isLoading: boolean
-  searchCriteria?: SearchCriteria
+  searchCriteria?: SearchCriteria | null
 }
 
 export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListProps) {
   console.log("ResultsList received papers:", papers)
+  
+  if (!papers.length && !isLoading) {
+    return (
+      <div className="text-center p-6 bg-background rounded-lg shadow">
+        <p className="text-muted-foreground">
+          No papers found. Try adjusting your search criteria.
+        </p>
+      </div>
+    )
+  }
   
   return (
     <ResultsContainer

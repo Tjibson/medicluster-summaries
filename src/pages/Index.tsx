@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { AppLayout } from "@/components/AppLayout"
 import { ResultsList } from "@/components/ResultsList"
 import { SearchForm } from "@/components/SearchForm"
 import { type Paper } from "@/types/papers"
@@ -18,22 +17,20 @@ export default function Index() {
     keywords: string;
     journalNames: string[];
   }) => {
-    setIsLoading(true)
-    setSearchCriteria(criteria)
+    console.log("Search results received:", papers)
     setPapers(papers)
+    setSearchCriteria(criteria)
     setIsLoading(false)
   }
 
   return (
-    <AppLayout>
-      <div className="container mx-auto max-w-7xl">
-        <SearchForm onSearch={handleSearch} />
-        <ResultsList 
-          papers={papers} 
-          isLoading={isLoading} 
-          searchCriteria={searchCriteria}
-        />
-      </div>
-    </AppLayout>
+    <div className="container mx-auto max-w-7xl space-y-8">
+      <SearchForm onSearch={handleSearch} />
+      <ResultsList 
+        papers={papers} 
+        isLoading={isLoading} 
+        searchCriteria={searchCriteria}
+      />
+    </div>
   )
 }

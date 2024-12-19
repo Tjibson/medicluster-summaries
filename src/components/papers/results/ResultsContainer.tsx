@@ -14,7 +14,7 @@ interface ResultsContainerProps {
     dateRange: { start: string; end: string }
     keywords: string
     journalNames: string[]
-  }
+  } | null
 }
 
 export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsContainerProps) {
@@ -35,44 +35,12 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
   }, [])
 
   useEffect(() => {
-    const fetchCitations = async () => {
-      const updatedPapers = await Promise.all(
-        papers.map(async (paper) => {
-          try {
-            const response = await supabase.functions.invoke('fetch-citations', {
-              body: { title: paper.title, authors: paper.authors }
-            })
-            
-            if (response.data?.citations !== undefined) {
-              return { ...paper, citations: response.data.citations }
-            }
-            return paper
-          } catch (error) {
-            console.error('Error fetching citations:', error)
-            return paper
-          }
-        })
-      )
-      setPapersWithCitations(updatedPapers)
-    }
-
-    if (papers.length > 0) {
-      fetchCitations()
-    } else {
-      setPapersWithCitations([])
-    }
+    console.log("Papers received in ResultsContainer:", papers)
+    setPapersWithCitations(papers)
   }, [papers])
 
   if (isLoading) {
     return <LoadingState />
-  }
-
-  if (papers.length === 0) {
-    return (
-      <div className="text-center p-6 bg-background rounded-lg shadow">
-        <p className="text-muted-foreground">No papers found matching your criteria.</p>
-      </div>
-    )
   }
 
   return (

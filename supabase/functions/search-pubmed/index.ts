@@ -39,15 +39,26 @@ serve(async (req) => {
     console.log('Executing PubMed search with query:', finalQuery)
 
     // Perform the PubMed search
-    const xmlResponse = await searchPubMed(finalQuery, dateRange)
+    const xmlResponse = await searchPubMed(finalQuery)
     
     if (!xmlResponse) {
-      throw new Error('No results found')
+      console.log('No results found')
+      return new Response(
+        JSON.stringify({
+          papers: [],
+          message: 'No results found'
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      )
     }
 
     // Parse the articles
-    const papers = parseArticles(xmlResponse)
-
+    const papers = parseArticles(xmlResponse, { keywords })
     console.log(`Successfully processed ${papers.length} papers`)
 
     return new Response(
