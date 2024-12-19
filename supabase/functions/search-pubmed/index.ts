@@ -82,13 +82,32 @@ serve(async (req) => {
         ).filter(name => name.length > 0)
       }
 
+      // Extract publication year with fallback options
+      let publicationYear = new Date().getFullYear() // Default to current year
+      try {
+        const pubDate = articleData.Journal?.JournalIssue?.PubDate || articleData.Journal?.PubDate
+        if (pubDate) {
+          if (pubDate.Year) {
+            publicationYear = parseInt(pubDate.Year)
+          } else if (pubDate.MedlineDate) {
+            // Extract year from MedlineDate format (e.g., "2023 Dec" or "2023")
+            const yearMatch = pubDate.MedlineDate.match(/\d{4}/)
+            if (yearMatch) {
+              publicationYear = parseInt(yearMatch[0])
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error extracting publication year:', error)
+      }
+
       return {
         id: medlineCitation.PMID,
         title: articleData.ArticleTitle,
         abstract: articleData.Abstract?.AbstractText || '',
         authors,
-        journal: medlineCitation.Article.Journal.Title || 'Unknown Journal',
-        year: parseInt(medlineCitation.Article.Journal.PubDate.Year) || new Date().getFullYear(),
+        journal: articleData.Journal?.Title || 'Unknown Journal',
+        year: publicationYear,
         citations: 0
       }
     })
