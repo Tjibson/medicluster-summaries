@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts"
+import { extractPatientCount } from "../utils/extractPatientCount.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,37 +38,47 @@ function makeHeader() {
   }
 }
 
-function calculateRelevanceScore(paper: any, criteria: any): number {
-  let score = 0
-  const maxScore = 100
-
-  // Check each search criteria
-  const criteriaToCheck = [
-    { key: 'population', weight: 20 },
-    { key: 'disease', weight: 20 },
-    { key: 'medicine', weight: 20 },
-    { key: 'working_mechanism', weight: 20 },
-    { key: 'trial_type', weight: 10 },
-    { key: 'patient_count', weight: 10 }
-  ]
-
-  criteriaToCheck.forEach(({ key, weight }) => {
-    if (criteria[key]) {
-      const paperValue = paper[key.toLowerCase()] || ''
-      const criteriaValue = criteria[key]
-
-      // Case-insensitive partial match
-      if (paperValue.toLowerCase().includes(criteriaValue.toLowerCase())) {
-        score += weight
+async function fetchFullText(pmid: string): Promise<string> {
+  try {
+    const url = `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`;
+    const response = await fetch(url, { headers: makeHeader() });
+    const html = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    if (!doc) return '';
+    
+    // Get abstract and full text if available
+    const abstractElement = doc.querySelector('.abstract-content');
+    const fullTextElement = doc.querySelector('.full-text-links-list a');
+    
+    let text = abstractElement?.textContent || '';
+    
+    if (fullTextElement) {
+      try {
+        const fullTextUrl = fullTextElement.getAttribute('href');
+        if (fullTextUrl) {
+          const fullTextResponse = await fetch(fullTextUrl, { headers: makeHeader() });
+          const fullTextHtml = await fullTextResponse.text();
+          const fullTextDoc = parser.parseFromString(fullTextHtml, 'text/html');
+          if (fullTextDoc) {
+            text += ' ' + fullTextDoc.body.textContent;
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching full text:', error);
       }
     }
-  })
-
-  return Math.min(score, maxScore)
+    
+    return text;
+  } catch (error) {
+    console.error('Error fetching article text:', error);
+    return '';
+  }
 }
 
 async function searchPubMed(criteria: any) {
-  console.log('Searching PubMed with criteria:', criteria)
+  console.log('Searching PubMed with criteria:', criteria);
   
   let searchQuery = ''
   if (criteria.disease) searchQuery += `${criteria.disease}[Title/Abstract] `
@@ -97,11 +108,11 @@ async function searchPubMed(criteria: any) {
     const response = await fetch(searchUrl, { headers })
     const html = await response.text()
     
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(html, 'text/html')
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
     
     if (!doc) {
-      throw new Error('Failed to parse HTML')
+      throw new Error('Failed to parse HTML');
     }
 
     const articles = []
@@ -128,8 +139,9 @@ async function searchPubMed(criteria: any) {
         const idElement = element.querySelector('a')
         const id = idElement?.getAttribute('href')?.replace('/', '') || ''
 
-        // Try to get PDF URL if available
-        const pdfUrl = `https://pubmed.ncbi.nlm.nih.gov/${id}/pdf`
+        // Extract patient count from abstract/full text
+        const fullText = await fetchFullText(id);
+        const patientCount = extractPatientCount(fullText);
 
         const paperData = {
           id,
@@ -138,8 +150,9 @@ async function searchPubMed(criteria: any) {
           journal,
           year,
           abstract,
-          pdfUrl,
-          citations: 0
+          pdfUrl: `https://pubmed.ncbi.nlm.nih.gov/${id}/pdf`,
+          citations: 0,
+          patient_count: patientCount
         }
 
         // Calculate relevance score

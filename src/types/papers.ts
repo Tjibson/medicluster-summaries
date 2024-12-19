@@ -7,6 +7,8 @@ export interface Paper {
   citations?: number
   abstract?: string
   pdfUrl?: string
+  relevance_score?: number
+  patient_count?: number
 }
 
 export interface SavedPaper extends Paper {
