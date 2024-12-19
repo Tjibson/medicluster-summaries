@@ -2,57 +2,17 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts"
 import { extractPatientCount } from "../utils/extractPatientCount.ts"
 import { calculateRelevanceScore } from "../utils/calculateRelevance.ts"
-import { fetchGoogleScholarData } from "../utils/googleScholar.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-async function fetchFullText(pmid: string): Promise<string> {
-  try {
-    const url = `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`
-    const response = await fetch(url, { 
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124' }
-    })
-    const html = await response.text()
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(html, 'text/html')
-    
-    if (!doc) return ''
-    
-    const abstractElement = doc.querySelector('.abstract-content')
-    const fullTextElement = doc.querySelector('.full-text-links-list a')
-    
-    let text = abstractElement?.textContent || ''
-    
-    if (fullTextElement) {
-      const fullTextUrl = fullTextElement.getAttribute('href')
-      if (fullTextUrl) {
-        try {
-          const fullTextResponse = await fetch(fullTextUrl)
-          const fullTextHtml = await fullTextResponse.text()
-          const fullTextDoc = parser.parseFromString(fullTextHtml, 'text/html')
-          if (fullTextDoc) {
-            text += ' ' + fullTextDoc.body.textContent
-          }
-        } catch (error) {
-          console.error('Error fetching full text:', error)
-        }
-      }
-    }
-    
-    return text
-  } catch (error) {
-    console.error('Error fetching article text:', error)
-    return ''
-  }
-}
-
 async function searchPubMed(criteria: any) {
   let searchQuery = ''
   const searchTerms: string[] = []
   
+  // Build search query with Title/Abstract for each term
   if (criteria.disease) searchTerms.push(`${criteria.disease}[Title/Abstract]`)
   if (criteria.medicine) searchTerms.push(`${criteria.medicine}[Title/Abstract]`)
   if (criteria.working_mechanism) searchTerms.push(`${criteria.working_mechanism}[Title/Abstract]`)
@@ -61,6 +21,7 @@ async function searchPubMed(criteria: any) {
   
   searchQuery = searchTerms.join(' AND ')
   
+  // Handle direct query searches (like from the top nav)
   if (criteria.query) {
     searchQuery = `${criteria.query}[Title/Abstract]`
   }
@@ -69,54 +30,69 @@ async function searchPubMed(criteria: any) {
     throw new Error('No search criteria provided')
   }
 
-  const baseUrl = 'https://pubmed.ncbi.nlm.nih.gov'
-  const searchUrl = `${baseUrl}/?term=${encodeURIComponent(searchQuery)}&size=100`
+  console.log('Search query:', searchQuery)
+
+  const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
+  const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=100&usehistory=y`
   
   try {
-    const response = await fetch(searchUrl)
-    const html = await response.text()
+    // First get the PMIDs
+    const searchResponse = await fetch(searchUrl)
+    const searchText = await searchResponse.text()
     const parser = new DOMParser()
-    const doc = parser.parseFromString(html, 'text/html')
+    const searchDoc = parser.parseFromString(searchText, 'text/xml')
     
-    if (!doc) throw new Error('Failed to parse HTML')
+    if (!searchDoc) throw new Error('Failed to parse search XML')
+
+    const idList = searchDoc.querySelectorAll('IdList Id')
+    const pmids = Array.from(idList).map(id => id.textContent)
+
+    if (pmids.length === 0) {
+      return []
+    }
+
+    // Then fetch details for all PMIDs
+    const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
+    const fetchResponse = await fetch(fetchUrl)
+    const fetchText = await fetchResponse.text()
+    const fetchDoc = parser.parseFromString(fetchText, 'text/xml')
+
+    if (!fetchDoc) throw new Error('Failed to parse fetch XML')
 
     const articles = []
-    const articleElements = doc.querySelectorAll('.docsum-content')
+    const articleElements = fetchDoc.querySelectorAll('PubmedArticle')
     
     for (const element of articleElements) {
       try {
-        const titleElement = element.querySelector('.docsum-title')
-        const title = titleElement?.textContent?.trim() || 'No title'
+        const id = element.querySelector('PMID')?.textContent || ''
+        const title = element.querySelector('ArticleTitle')?.textContent || 'No title'
+        const abstract = element.querySelector('Abstract')?.textContent || ''
         
-        const authorElement = element.querySelector('.docsum-authors')
-        const authors = authorElement?.textContent?.split(',').map(a => a.trim()) || []
-        
-        const journalElement = element.querySelector('.docsum-journal-citation')
-        const journalText = journalElement?.textContent || ''
-        const journal = journalText.split('.')[0] || 'No journal'
-        
-        const yearMatch = journalText.match(/\d{4}/)
-        const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear()
-        
-        const abstractElement = element.querySelector('.full-view-snippet')
-        const abstract = abstractElement?.textContent?.trim() || ''
+        // Get authors
+        const authorElements = element.querySelectorAll('Author')
+        const authors = Array.from(authorElements).map(author => {
+          const lastName = author.querySelector('LastName')?.textContent || ''
+          const foreName = author.querySelector('ForeName')?.textContent || ''
+          return `${lastName} ${foreName}`.trim()
+        })
 
-        const idElement = element.querySelector('a')
-        const id = idElement?.getAttribute('href')?.replace('/', '') || ''
-
-        // Fetch full text and Google Scholar data in parallel
-        const [fullText, scholarData] = await Promise.all([
-          fetchFullText(id),
-          fetchGoogleScholarData(title, authors)
-        ])
-
-        const patientCount = extractPatientCount(fullText)
+        // Get journal info
+        const journal = element.querySelector('Journal Title')?.textContent || 
+                       element.querySelector('ISOAbbreviation')?.textContent || 
+                       'Unknown Journal'
         
+        // Get year
+        const yearElement = element.querySelector('PubDate Year')
+        const year = yearElement ? parseInt(yearElement.textContent || '') : new Date().getFullYear()
+
         // Calculate relevance score using full text
         const relevanceScore = calculateRelevanceScore(
-          `${title} ${abstract} ${fullText}`, 
+          `${title} ${abstract}`, 
           criteria
         )
+
+        // Extract patient count from abstract
+        const patientCount = extractPatientCount(abstract)
 
         const paperData = {
           id,
@@ -125,7 +101,6 @@ async function searchPubMed(criteria: any) {
           journal,
           year,
           abstract,
-          pdfUrl: scholarData?.pdfUrl || `https://pubmed.ncbi.nlm.nih.gov/${id}/pdf`,
           citations: 0,
           patient_count: patientCount,
           relevance_score: relevanceScore
