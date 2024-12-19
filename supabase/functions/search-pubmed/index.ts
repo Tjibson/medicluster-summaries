@@ -34,8 +34,8 @@ serve(async (req) => {
 
     console.log('Final search query:', searchQuery)
 
-    // Search PubMed with a smaller limit
-    const xmlText = await searchPubMed(searchQuery, searchCriteria.date_range, 10)
+    // Reduced limit to 5 papers to stay within compute limits
+    const xmlText = await searchPubMed(searchQuery, searchCriteria.date_range, 5)
     const papers = parseArticles(xmlText, searchCriteria)
 
     console.log(`Found ${papers.length} papers from PubMed`)
