@@ -44,7 +44,7 @@ serve(async (req) => {
 
     // Add timeout to the PubMed search
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Search timeout')), 25000)
+      setTimeout(() => reject(new Error('Search timeout')), 15000) // Reduced timeout
     })
 
     // Format the journal query if journals are provided
@@ -68,18 +68,53 @@ serve(async (req) => {
 
     console.log('Executing PubMed search with query:', finalQuery)
 
-    // Race between the search and the timeout
-    const xmlResponse = await Promise.race([
-      searchPubMed(finalQuery),
-      timeoutPromise
-    ])
-    
-    if (!xmlResponse) {
-      console.log('No results found')
+    try {
+      // Race between the search and the timeout
+      const xmlResponse = await Promise.race([
+        searchPubMed(finalQuery),
+        timeoutPromise
+      ])
+      
+      if (!xmlResponse) {
+        console.log('No results found')
+        return new Response(
+          JSON.stringify({
+            papers: [],
+            message: 'No results found'
+          }),
+          {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+            },
+            status: 200
+          }
+        )
+      }
+
+      // Parse the articles
+      const papers = parseArticles(xmlResponse, { keywords: params.keywords })
+      console.log(`Successfully processed ${papers.length} papers`)
+
       return new Response(
         JSON.stringify({
-          papers: [],
-          message: 'No results found'
+          papers,
+          message: 'Search completed successfully'
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+          status: 200
+        }
+      )
+    } catch (timeoutError) {
+      console.error('Search timeout or error:', timeoutError)
+      return new Response(
+        JSON.stringify({
+          error: 'Search timed out. Please try a more specific search query.',
+          papers: []
         }),
         {
           headers: {
@@ -90,28 +125,9 @@ serve(async (req) => {
         }
       )
     }
-
-    // Parse the articles
-    const papers = parseArticles(xmlResponse, { keywords: params.keywords })
-    console.log(`Successfully processed ${papers.length} papers`)
-
-    return new Response(
-      JSON.stringify({
-        papers,
-        message: 'Search completed successfully'
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-        status: 200
-      }
-    )
   } catch (error) {
     console.error('Error in search-pubmed function:', error)
     
-    // Return a more informative error response
     return new Response(
       JSON.stringify({
         error: error.message || 'An error occurred during search',
@@ -122,7 +138,7 @@ serve(async (req) => {
           ...corsHeaders,
           'Content-Type': 'application/json',
         },
-        status: 200 // Always return 200 to prevent the FunctionsHttpError
+        status: 200
       }
     )
   }
