@@ -26,6 +26,27 @@ serve(async (req) => {
     const params = await req.json() as SearchParams
     console.log('Received search params:', params)
 
+    if (!params.keywords?.trim()) {
+      return new Response(
+        JSON.stringify({
+          papers: [],
+          message: 'No search keywords provided'
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+          status: 200
+        }
+      )
+    }
+
+    // Add timeout to the PubMed search
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Search timeout')), 25000)
+    })
+
     // Format the journal query if journals are provided
     const journalQuery = params.journalNames?.length 
       ? params.journalNames.map(journal => `"${journal}"[Journal]`).join(' OR ')
@@ -47,8 +68,11 @@ serve(async (req) => {
 
     console.log('Executing PubMed search with query:', finalQuery)
 
-    // Perform the PubMed search
-    const xmlResponse = await searchPubMed(finalQuery)
+    // Race between the search and the timeout
+    const xmlResponse = await Promise.race([
+      searchPubMed(finalQuery),
+      timeoutPromise
+    ])
     
     if (!xmlResponse) {
       console.log('No results found')
@@ -62,6 +86,7 @@ serve(async (req) => {
             ...corsHeaders,
             'Content-Type': 'application/json',
           },
+          status: 200
         }
       )
     }
@@ -80,13 +105,16 @@ serve(async (req) => {
           ...corsHeaders,
           'Content-Type': 'application/json',
         },
+        status: 200
       }
     )
   } catch (error) {
     console.error('Error in search-pubmed function:', error)
+    
+    // Return a more informative error response
     return new Response(
       JSON.stringify({
-        error: error.message,
+        error: error.message || 'An error occurred during search',
         papers: []
       }),
       {
@@ -94,7 +122,7 @@ serve(async (req) => {
           ...corsHeaders,
           'Content-Type': 'application/json',
         },
-        status: 500,
+        status: 200 // Always return 200 to prevent the FunctionsHttpError
       }
     )
   }
