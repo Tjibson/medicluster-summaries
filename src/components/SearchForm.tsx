@@ -155,7 +155,7 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
         </div>
 
         <Button type="submit" className="w-full">
-          Search PubMed & Google Scholar
+          Search PubMed
         </Button>
       </form>
     </div>

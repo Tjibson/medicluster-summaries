@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { searchPubMed } from "../utils/pubmedSearch.ts"
 import { parseArticles } from "../utils/articleParser.ts"
-import { fetchGoogleScholarData } from "../utils/googleScholar.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,42 +36,12 @@ serve(async (req) => {
 
     // Search PubMed with a smaller limit
     const xmlText = await searchPubMed(searchQuery, searchCriteria.date_range, 10)
-    let papers = parseArticles(xmlText, searchCriteria)
+    const papers = parseArticles(xmlText, searchCriteria)
 
     console.log(`Found ${papers.length} papers from PubMed`)
 
-    // Process papers in smaller batches with delay between batches
-    const batchSize = 3
-    const enhancedPapers = []
-    
-    for (let i = 0; i < papers.length; i += batchSize) {
-      const batch = papers.slice(i, i + batchSize)
-      const batchResults = await Promise.all(
-        batch.map(async (paper) => {
-          try {
-            const scholarData = await fetchGoogleScholarData(paper.title, paper.authors)
-            return {
-              ...paper,
-              pdfUrl: scholarData?.pdfUrl || null,
-            }
-          } catch (error) {
-            console.error(`Error fetching Google Scholar data for paper ${paper.id}:`, error)
-            return paper
-          }
-        })
-      )
-      enhancedPapers.push(...batchResults)
-      
-      // Add delay between batches
-      if (i + batchSize < papers.length) {
-        await new Promise(resolve => setTimeout(resolve, 2000))
-      }
-    }
-
-    console.log(`Enhanced ${enhancedPapers.length} papers with Google Scholar data`)
-
     return new Response(
-      JSON.stringify({ success: true, papers: enhancedPapers }),
+      JSON.stringify({ success: true, papers }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 
