@@ -17,10 +17,10 @@ export function ContinentSelect({ value, onChange }: ContinentSelectProps) {
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium">Continent</label>
+      <label className="text-sm font-medium">Population Demographics</label>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger>
-          <SelectValue placeholder="Select Continent" />
+          <SelectValue placeholder="Select Population Demographics" />
         </SelectTrigger>
         <SelectContent>
           {continents.map((continent) => (

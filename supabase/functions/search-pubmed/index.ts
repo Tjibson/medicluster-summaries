@@ -37,6 +37,35 @@ function makeHeader() {
   }
 }
 
+function calculateRelevanceScore(paper: any, criteria: any): number {
+  let score = 0
+  const maxScore = 100
+
+  // Check each search criteria
+  const criteriaToCheck = [
+    { key: 'population', weight: 20 },
+    { key: 'disease', weight: 20 },
+    { key: 'medicine', weight: 20 },
+    { key: 'working_mechanism', weight: 20 },
+    { key: 'trial_type', weight: 10 },
+    { key: 'patient_count', weight: 10 }
+  ]
+
+  criteriaToCheck.forEach(({ key, weight }) => {
+    if (criteria[key]) {
+      const paperValue = paper[key.toLowerCase()] || ''
+      const criteriaValue = criteria[key]
+
+      // Case-insensitive partial match
+      if (paperValue.toLowerCase().includes(criteriaValue.toLowerCase())) {
+        score += weight
+      }
+    }
+  })
+
+  return Math.min(score, maxScore)
+}
+
 async function searchPubMed(criteria: any) {
   console.log('Searching PubMed with criteria:', criteria)
   
@@ -102,7 +131,7 @@ async function searchPubMed(criteria: any) {
         // Try to get PDF URL if available
         const pdfUrl = `https://pubmed.ncbi.nlm.nih.gov/${id}/pdf`
 
-        articles.push({
+        const paperData = {
           id,
           title,
           authors,
@@ -110,13 +139,22 @@ async function searchPubMed(criteria: any) {
           year,
           abstract,
           pdfUrl,
-          citations: 0 // Will be updated by the frontend
-        })
+          citations: 0
+        }
+
+        // Calculate relevance score
+        const relevanceScore = calculateRelevanceScore(paperData, criteria)
+        paperData['relevance_score'] = relevanceScore
+
+        articles.push(paperData)
       } catch (error) {
         console.error('Error processing article:', error)
         continue
       }
     }
+    
+    // Sort articles by relevance score in descending order
+    articles.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0))
     
     console.log(`Found ${articles.length} articles`)
     return articles

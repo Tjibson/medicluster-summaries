@@ -1,4 +1,4 @@
-import { Search, List, Download, Star, Settings, LogOut, Presentation } from "lucide-react"
+import { Search, List, Download, Star, Settings, LogOut, Presentation, FileText } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "@/integrations/supabase/client"
 import {
@@ -41,6 +41,11 @@ export function AppSidebar() {
       icon: Star,
       onClick: () => navigate("/liked"),
     },
+    {
+      title: "Reporting",
+      icon: FileText,
+      onClick: () => navigate("/reporting"),
+    }
   ]
 
   return (
