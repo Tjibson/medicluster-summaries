@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,7 +7,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -27,11 +27,11 @@ serve(async (req) => {
       )
     }
 
-    const searchQuery = `${medicine}[Title/Abstract]`
+    const searchQuery = encodeURIComponent(`${medicine}[Title/Abstract]`)
     const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
     
     // Step 1: Search for IDs
-    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=10`
+    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${searchQuery}&retmax=10`
     console.log("Searching PubMed with URL:", searchUrl)
     
     const searchResponse = await fetch(searchUrl)
@@ -56,25 +56,25 @@ serve(async (req) => {
     
     const fetchResponse = await fetch(fetchUrl)
     const articlesXml = await fetchResponse.text()
+
+    // Step 3: Parse articles using Deno DOM
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(articlesXml, "text/xml")
+    const articles = doc?.querySelectorAll("PubmedArticle") || []
     
-    // Step 3: Parse articles
-    const papers = []
-    const articleMatches = articlesXml.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
+    const papers = Array.from(articles).map((article) => {
+      const title = article.querySelector("ArticleTitle")?.textContent || "No title"
+      const abstract = article.querySelector("Abstract AbstractText")?.textContent || "No abstract available"
+      const pmid = article.querySelector("PMID")?.textContent || ""
 
-    for (const articleXml of articleMatches) {
-      const titleMatch = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)
-      const abstractMatch = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)
-      const idMatch = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)
-
-      if (titleMatch) {
-        papers.push({
-          id: idMatch?.[1] || '',
-          title: decodeXMLEntities(titleMatch[1]),
-          abstract: abstractMatch ? decodeXMLEntities(abstractMatch[1]) : '',
-          citations: 0
-        })
+      return {
+        id: pmid,
+        title: decodeXMLEntities(title),
+        abstract: decodeXMLEntities(abstract),
+        citations: 0,
+        relevance_score: 1
       }
-    }
+    }).slice(0, 10) // Ensure we only return max 10 results
 
     console.log(`Found ${papers.length} papers`)
 
