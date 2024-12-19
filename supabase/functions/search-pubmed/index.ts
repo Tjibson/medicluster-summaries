@@ -26,9 +26,9 @@ serve(async (req) => {
     
     console.log('Final search query:', searchQuery)
 
-    // Fetch from PubMed
+    // Fetch from PubMed with limit of 10 results
     const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
-    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=5&usehistory=y`
+    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=10&usehistory=y`
     
     console.log('Fetching from PubMed:', searchUrl)
     const searchResponse = await fetch(searchUrl)
@@ -63,13 +63,10 @@ serve(async (req) => {
 
     for (const articleXml of articleMatches) {
       try {
-        // Extract PMID
         const id = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)?.[1] || ''
-        
-        // Extract title
         const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
+        const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
         
-        // Extract authors
         const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
         const authors = Array.from(authorMatches).map(match => {
           const lastName = match[1] || ''
@@ -77,17 +74,12 @@ serve(async (req) => {
           return `${foreName} ${lastName}`.trim()
         })
 
-        // Extract journal info
         const journal = articleXml.match(/<Journal>[\s\S]*?<Title>(.*?)<\/Title>/)?.[1] ||
                        articleXml.match(/<ISOAbbreviation>(.*?)<\/ISOAbbreviation>/)?.[1] ||
                        'Unknown Journal'
         
-        // Extract publication year
         const yearMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(.*?)<\/Year>/)?.[1]
         const year = yearMatch ? parseInt(yearMatch) : new Date().getFullYear()
-
-        // Extract and clean abstract
-        const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
 
         papers.push({
           id,
@@ -96,6 +88,7 @@ serve(async (req) => {
           journal: decodeXMLEntities(journal),
           year,
           abstract: decodeXMLEntities(abstract),
+          citations: 0
         })
       } catch (error) {
         console.error('Error processing article:', error)
