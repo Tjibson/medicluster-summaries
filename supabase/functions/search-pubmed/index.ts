@@ -1,12 +1,10 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
-import { xml2js } from 'https://esm.sh/xml2js@0.4.23'
 import axiod from 'https://deno.land/x/axiod@0.26.2/mod.ts'
 
 const NCBI_EMAIL = 'tjibbe-beckers@live.nl'
 const NCBI_API_KEY = '0e15924868078a8b07c4fc709d8a306e6108'
 const RESULTS_PER_PAGE = 25
-const parser = new xml2js.Parser({ explicitArray: false, mergeAttrs: true })
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -15,8 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    const { term, dateRange, journalNames, page = 1 } = await req.json()
-    console.log('Search request:', { term, dateRange, journalNames, page })
+    const { term, dateRange, journalNames } = await req.json()
+    console.log('Search request:', { term, dateRange, journalNames })
 
     if (!term) {
       throw new Error('Search term is required')
@@ -32,11 +30,8 @@ serve(async (req) => {
       searchQuery += ` AND (${journalFilter})`
     }
 
-    // Calculate pagination parameters
-    const start = (page - 1) * RESULTS_PER_PAGE
-
-    // 1. Use ESearch to get PMIDs with pagination
-    const esearchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${searchQuery}&retmode=json&retmax=${RESULTS_PER_PAGE}&retstart=${start}&email=${NCBI_EMAIL}&api_key=${NCBI_API_KEY}`
+    // 1. Use ESearch to get PMIDs
+    const esearchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${searchQuery}&retmode=json&retmax=${RESULTS_PER_PAGE}&email=${NCBI_EMAIL}&api_key=${NCBI_API_KEY}`
     console.log('ESearch URL:', esearchUrl)
 
     const esearchResponse = await axiod.get(esearchUrl)
@@ -49,7 +44,7 @@ serve(async (req) => {
           articles: [],
           pagination: {
             total: 0,
-            page,
+            page: 1,
             totalPages: 0,
             hasMore: false
           }
@@ -65,86 +60,62 @@ serve(async (req) => {
     const efetchResponse = await axiod.get(efetchUrl)
     const xmlData = efetchResponse.data
 
-    // 3. Parse XML response
-    const jsonResult = await parser.parseStringPromise(xmlData)
-    const pubmedArticles = jsonResult.PubmedArticleSet.PubmedArticle || []
-    console.log('Parsing articles:', pubmedArticles.length)
-
-    const articles = pubmedArticles.map(article => {
+    // Parse XML to extract article data
+    const articles = pmids.map(pmid => {
       try {
-        const articleData = article.MedlineCitation.Article
-        const articleTitle = articleData.ArticleTitle
+        const articleMatch = xmlData.match(new RegExp(`<PubmedArticle>.*?<PMID>${pmid}</PMID>.*?</PubmedArticle>`, 's'))
+        if (!articleMatch) return null
 
-        // Parse abstract
-        let abstractText = ''
-        if (articleData.Abstract && articleData.Abstract.AbstractText) {
-          if (typeof articleData.Abstract.AbstractText === 'string') {
-            abstractText = articleData.Abstract.AbstractText
-          } else if (Array.isArray(articleData.Abstract.AbstractText)) {
-            abstractText = articleData.Abstract.AbstractText.join('\n')
-          } else {
-            abstractText = articleData.Abstract.AbstractText._ || ''
-          }
-        }
+        const articleXml = articleMatch[0]
+        const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
+        const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
+        
+        const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
+        const authors = Array.from(authorMatches).map(match => {
+          const lastName = match[1] || ''
+          const foreName = match[2] || ''
+          return `${lastName} ${foreName}`.trim()
+        })
 
-        // Parse authors
-        let authors = []
-        if (articleData.AuthorList && articleData.AuthorList.Author) {
-          const authorList = Array.isArray(articleData.AuthorList.Author)
-            ? articleData.AuthorList.Author
-            : [articleData.AuthorList.Author]
-
-          authors = authorList.map(auth => {
-            let nameParts = []
-            if (auth.ForeName) nameParts.push(auth.ForeName)
-            if (auth.LastName) nameParts.push(auth.LastName)
-            return nameParts.join(' ')
-          })
-        }
-
-        // Parse journal info
-        const journalInfo = articleData.Journal ? {
-          title: articleData.Journal.Title || '',
-          isoAbbreviation: articleData.Journal.ISOAbbreviation || '',
-          issn: articleData.Journal.ISSN || '',
-          volume: articleData.Journal.JournalIssue?.Volume || '',
-          issue: articleData.Journal.JournalIssue?.Issue || '',
-          pubDate: articleData.Journal.JournalIssue?.PubDate || {}
-        } : {}
+        const journal = articleXml.match(/<Journal>[\s\S]*?<Title>(.*?)<\/Title>/)?.[1] ||
+                       articleXml.match(/<ISOAbbreviation>(.*?)<\/ISOAbbreviation>/)?.[1] ||
+                       'Unknown Journal'
+        
+        const yearMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(.*?)<\/Year>/)
+        const year = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear()
 
         return {
-          pmid: article.MedlineCitation.PMID._,
-          title: articleTitle,
-          abstract: abstractText,
+          id: pmid,
+          title: decodeXMLEntities(title),
+          abstract: decodeXMLEntities(abstract),
           authors,
-          journal: journalInfo
+          journal: decodeXMLEntities(journal),
+          year,
+          citations: 0
         }
-      } catch (err) {
-        console.error("Error parsing article:", err)
+      } catch (error) {
+        console.error(`Error processing article ${pmid}:`, error)
         return null
       }
     }).filter(Boolean)
 
-    // Calculate pagination info
     const totalPages = Math.ceil(count / RESULTS_PER_PAGE)
-    const hasMore = page < totalPages
-
-    console.log('Returning articles:', articles.length)
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         articles,
         pagination: {
           total: count,
-          page,
+          page: 1,
           totalPages,
-          hasMore
+          hasMore: totalPages > 1
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
+
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error in search-pubmed function:', error)
     return new Response(
       JSON.stringify({ 
         error: error.message,
@@ -163,3 +134,12 @@ serve(async (req) => {
     )
   }
 })
+
+function decodeXMLEntities(text: string): string {
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+}
