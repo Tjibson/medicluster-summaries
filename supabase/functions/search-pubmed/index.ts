@@ -11,27 +11,19 @@ serve(async (req) => {
   }
 
   try {
-    const searchCriteria = await req.json()
-    console.log('Search criteria:', searchCriteria)
+    const { medicine } = await req.json()
+    console.log('Search criteria:', { medicine })
 
-    let searchQuery = ''
-    const searchTerms: string[] = []
-    
-    if (searchCriteria.disease) searchTerms.push(`"${searchCriteria.disease}"[Title/Abstract]`)
-    if (searchCriteria.medicine) searchTerms.push(`"${searchCriteria.medicine}"[Title/Abstract]`)
-    if (searchCriteria.working_mechanism) searchTerms.push(`"${searchCriteria.working_mechanism}"[Title/Abstract]`)
-    if (searchCriteria.population) searchTerms.push(`"${searchCriteria.population}"[Title/Abstract]`)
-    if (searchCriteria.trial_type) searchTerms.push(`"${searchCriteria.trial_type}"[Publication Type]`)
-    if (searchCriteria.journal) searchTerms.push(`"${searchCriteria.journal}"[Journal]`)
-    
-    searchQuery = searchTerms.join(' AND ')
-    
-    // If no specific criteria provided, search for recent medical research papers
-    if (!searchQuery.trim()) {
-      const lastYear = new Date().getFullYear() - 1
-      searchQuery = `"${lastYear}/01/01"[Date - Publication] : "${lastYear}/12/31"[Date - Publication] AND "clinical trial"[Publication Type]`
+    if (!medicine?.trim()) {
+      return new Response(
+        JSON.stringify({ success: false, message: "No search criteria provided" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
     }
 
+    // Construct PubMed search query focusing on title and abstract
+    const searchQuery = `"${medicine}"[Title/Abstract]`
+    
     console.log('Final search query:', searchQuery)
 
     // Fetch from PubMed
@@ -77,7 +69,7 @@ serve(async (req) => {
         // Extract title
         const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
         
-        // Extract authors with improved parsing
+        // Extract authors
         const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
         const authors = Array.from(authorMatches).map(match => {
           const lastName = match[1] || ''
@@ -97,9 +89,6 @@ serve(async (req) => {
         // Extract and clean abstract
         const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
 
-        // Extract references count
-        const referencesCount = (articleXml.match(/<Reference>/g) || []).length
-
         papers.push({
           id,
           title: decodeXMLEntities(title),
@@ -107,7 +96,6 @@ serve(async (req) => {
           journal: decodeXMLEntities(journal),
           year,
           abstract: decodeXMLEntities(abstract),
-          citations: referencesCount, // Using reference count as a basic citation metric
           relevance_score: 100 // Default relevance score
         })
       } catch (error) {
