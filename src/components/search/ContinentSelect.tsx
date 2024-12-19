@@ -24,7 +24,7 @@ export function ContinentSelect({ value, onChange }: ContinentSelectProps) {
         </SelectTrigger>
         <SelectContent>
           {continents.map((continent) => (
-            <SelectItem key={continent} value={continent}>
+            <SelectItem key={continent} value={continent || 'default'}>
               {continent}
             </SelectItem>
           ))}

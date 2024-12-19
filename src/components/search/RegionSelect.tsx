@@ -67,7 +67,7 @@ export function RegionSelect({ continent, value, onChange }: RegionSelectProps) 
         <SelectContent>
           <SelectItem value="all">Select All</SelectItem>
           {getRegionOptions().map((region) => (
-            <SelectItem key={region} value={region}>
+            <SelectItem key={region} value={region || 'default'}>
               {region}
             </SelectItem>
           ))}
