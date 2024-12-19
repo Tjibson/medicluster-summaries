@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -56,25 +55,33 @@ serve(async (req) => {
     
     const fetchResponse = await fetch(fetchUrl)
     const articlesXml = await fetchResponse.text()
-
-    // Step 3: Parse articles using Deno DOM
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(articlesXml, "text/xml")
-    const articles = doc?.querySelectorAll("PubmedArticle") || []
     
-    const papers = Array.from(articles).map((article) => {
-      const title = article.querySelector("ArticleTitle")?.textContent || "No title"
-      const abstract = article.querySelector("Abstract AbstractText")?.textContent || "No abstract available"
-      const pmid = article.querySelector("PMID")?.textContent || ""
+    // Step 3: Parse articles using regex
+    const papers = []
+    const articleMatches = articlesXml.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
 
-      return {
-        id: pmid,
-        title: decodeXMLEntities(title),
-        abstract: decodeXMLEntities(abstract),
-        citations: 0,
-        relevance_score: 1
+    for (const articleXml of articleMatches) {
+      const titleMatch = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)
+      const abstractMatch = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)
+      const idMatch = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)
+      const authorMatches = articleXml.match(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<\/Author>/g) || []
+      const authors = authorMatches.map(author => {
+        const lastNameMatch = author.match(/<LastName>(.*?)<\/LastName>/)
+        return lastNameMatch ? lastNameMatch[1] : ''
+      }).filter(Boolean)
+
+      if (titleMatch) {
+        papers.push({
+          id: idMatch?.[1] || '',
+          title: decodeXMLEntities(titleMatch[1]),
+          abstract: abstractMatch ? decodeXMLEntities(abstractMatch[1]) : 'No abstract available',
+          authors: authors,
+          citations: 0,
+          year: new Date().getFullYear(), // Default to current year if not found
+          journal: 'PubMed Article'
+        })
       }
-    }).slice(0, 10) // Ensure we only return max 10 results
+    }
 
     console.log(`Found ${papers.length} papers`)
 
