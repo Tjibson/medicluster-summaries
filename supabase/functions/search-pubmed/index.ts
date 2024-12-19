@@ -1,119 +1,84 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts"
 import { extractPatientCount } from "../utils/extractPatientCount.ts"
+import { calculateRelevanceScore } from "../utils/calculateRelevance.ts"
+import { fetchGoogleScholarData } from "../utils/googleScholar.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const USER_AGENTS = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-  "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:55.0) Gecko/20100101 Firefox/55.0",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.101 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1",
-  "Mozilla/5.0 (X11; CrOS i686 2268.111.0) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.57 Safari/536.11",
-  "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1092.0 Safari/536.6",
-  "Mozilla/5.0 (Windows NT 6.0) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.36 Safari/536.5",
-  "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
-  "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_0) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
-  "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1062.0 Safari/536.3",
-  "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1062.0 Safari/536.3",
-  "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3",
-  "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3",
-  "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3",
-  "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1090.0 Safari/536.6",
-  "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/19.77.34.5 Safari/537.1",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.9 Safari/536.5",
-  "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.0 Safari/536.3",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.24 (KHTML, like Gecko) Chrome/19.0.1055.1 Safari/535.24",
-  "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/535.24 (KHTML, like Gecko) Chrome/19.0.1055.1 Safari/535.24"
-]
-
-function makeHeader() {
-  return {
-    'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]
-  }
-}
-
 async function fetchFullText(pmid: string): Promise<string> {
   try {
-    const url = `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`;
-    const response = await fetch(url, { headers: makeHeader() });
-    const html = await response.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+    const url = `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`
+    const response = await fetch(url, { 
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124' }
+    })
+    const html = await response.text()
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
     
-    if (!doc) return '';
+    if (!doc) return ''
     
-    // Get abstract and full text if available
-    const abstractElement = doc.querySelector('.abstract-content');
-    const fullTextElement = doc.querySelector('.full-text-links-list a');
+    const abstractElement = doc.querySelector('.abstract-content')
+    const fullTextElement = doc.querySelector('.full-text-links-list a')
     
-    let text = abstractElement?.textContent || '';
+    let text = abstractElement?.textContent || ''
     
     if (fullTextElement) {
-      try {
-        const fullTextUrl = fullTextElement.getAttribute('href');
-        if (fullTextUrl) {
-          const fullTextResponse = await fetch(fullTextUrl, { headers: makeHeader() });
-          const fullTextHtml = await fullTextResponse.text();
-          const fullTextDoc = parser.parseFromString(fullTextHtml, 'text/html');
+      const fullTextUrl = fullTextElement.getAttribute('href')
+      if (fullTextUrl) {
+        try {
+          const fullTextResponse = await fetch(fullTextUrl)
+          const fullTextHtml = await fullTextResponse.text()
+          const fullTextDoc = parser.parseFromString(fullTextHtml, 'text/html')
           if (fullTextDoc) {
-            text += ' ' + fullTextDoc.body.textContent;
+            text += ' ' + fullTextDoc.body.textContent
           }
+        } catch (error) {
+          console.error('Error fetching full text:', error)
         }
-      } catch (error) {
-        console.error('Error fetching full text:', error);
       }
     }
     
-    return text;
+    return text
   } catch (error) {
-    console.error('Error fetching article text:', error);
-    return '';
+    console.error('Error fetching article text:', error)
+    return ''
   }
 }
 
 async function searchPubMed(criteria: any) {
-  console.log('Searching PubMed with criteria:', criteria);
-  
   let searchQuery = ''
-  if (criteria.disease) searchQuery += `${criteria.disease}[Title/Abstract] `
-  if (criteria.medicine) searchQuery += `AND ${criteria.medicine}[Title/Abstract] `
-  if (criteria.working_mechanism) searchQuery += `AND ${criteria.working_mechanism}[Title/Abstract] `
-  if (criteria.population) searchQuery += `AND ${criteria.population}[Title/Abstract] `
-  if (criteria.trial_type) searchQuery += `AND ${criteria.trial_type}[Publication Type] `
+  const searchTerms: string[] = []
   
-  // If it's a simple search from the top bar
+  if (criteria.disease) searchTerms.push(`${criteria.disease}[Title/Abstract]`)
+  if (criteria.medicine) searchTerms.push(`${criteria.medicine}[Title/Abstract]`)
+  if (criteria.working_mechanism) searchTerms.push(`${criteria.working_mechanism}[Title/Abstract]`)
+  if (criteria.population) searchTerms.push(`${criteria.population}[Title/Abstract]`)
+  if (criteria.trial_type) searchTerms.push(`${criteria.trial_type}[Publication Type]`)
+  
+  searchQuery = searchTerms.join(' AND ')
+  
   if (criteria.query) {
-    searchQuery = criteria.query
+    searchQuery = `${criteria.query}[Title/Abstract]`
   }
   
-  searchQuery = searchQuery.trim().replace(/^AND\s+/, '')
-  
-  if (!searchQuery) {
+  if (!searchQuery.trim()) {
     throw new Error('No search criteria provided')
   }
 
   const baseUrl = 'https://pubmed.ncbi.nlm.nih.gov'
-  const searchUrl = `${baseUrl}/?term=${encodeURIComponent(searchQuery)}&size=100` // Increased to 100 results
-  
-  console.log('Search URL:', searchUrl)
+  const searchUrl = `${baseUrl}/?term=${encodeURIComponent(searchQuery)}&size=100`
   
   try {
-    const headers = makeHeader()
-    const response = await fetch(searchUrl, { headers })
+    const response = await fetch(searchUrl)
     const html = await response.text()
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
     
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    
-    if (!doc) {
-      throw new Error('Failed to parse HTML');
-    }
+    if (!doc) throw new Error('Failed to parse HTML')
 
     const articles = []
     const articleElements = doc.querySelectorAll('.docsum-content')
@@ -139,9 +104,19 @@ async function searchPubMed(criteria: any) {
         const idElement = element.querySelector('a')
         const id = idElement?.getAttribute('href')?.replace('/', '') || ''
 
-        // Extract patient count from abstract/full text
-        const fullText = await fetchFullText(id);
-        const patientCount = extractPatientCount(fullText);
+        // Fetch full text and Google Scholar data in parallel
+        const [fullText, scholarData] = await Promise.all([
+          fetchFullText(id),
+          fetchGoogleScholarData(title, authors)
+        ])
+
+        const patientCount = extractPatientCount(fullText)
+        
+        // Calculate relevance score using full text
+        const relevanceScore = calculateRelevanceScore(
+          `${title} ${abstract} ${fullText}`, 
+          criteria
+        )
 
         const paperData = {
           id,
@@ -150,14 +125,11 @@ async function searchPubMed(criteria: any) {
           journal,
           year,
           abstract,
-          pdfUrl: `https://pubmed.ncbi.nlm.nih.gov/${id}/pdf`,
+          pdfUrl: scholarData?.pdfUrl || `https://pubmed.ncbi.nlm.nih.gov/${id}/pdf`,
           citations: 0,
-          patient_count: patientCount
+          patient_count: patientCount,
+          relevance_score: relevanceScore
         }
-
-        // Calculate relevance score
-        const relevanceScore = calculateRelevanceScore(paperData, criteria)
-        paperData['relevance_score'] = relevanceScore
 
         articles.push(paperData)
       } catch (error) {
@@ -166,10 +138,9 @@ async function searchPubMed(criteria: any) {
       }
     }
     
-    // Sort articles by relevance score in descending order
+    // Sort by relevance score
     articles.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0))
     
-    console.log(`Found ${articles.length} articles`)
     return articles
     
   } catch (error) {
@@ -185,32 +156,18 @@ serve(async (req) => {
 
   try {
     const searchCriteria = await req.json()
-    console.log('Received search criteria:', searchCriteria)
-
     const papers = await searchPubMed(searchCriteria)
 
     return new Response(
-      JSON.stringify({ 
-        success: true,
-        papers
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
+      JSON.stringify({ success: true, papers }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 
   } catch (error) {
     console.error('Error:', error.message)
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: error.message 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
-      }
+      JSON.stringify({ success: false, message: error.message }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     )
   }
 })
