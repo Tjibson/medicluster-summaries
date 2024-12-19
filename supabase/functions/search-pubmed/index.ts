@@ -14,8 +14,6 @@ interface SearchParams {
   }
   journalNames?: string[]
   keywords?: string
-  medicine?: string
-  condition?: string
 }
 
 serve(async (req) => {
@@ -38,28 +36,13 @@ serve(async (req) => {
     const endDate = params.dateRange?.end || "2024/12/31"
     const dateQuery = `(${startDate}[PDAT] : ${endDate}[PDAT])`
 
-    // Build keywords query
-    let keywordsQuery = ''
-    if (params.medicine || params.condition) {
-      const medicineTerms = params.medicine?.trim().split(/[ ,]+/).filter(Boolean) || []
-      const conditionTerms = params.condition?.trim().split(/[ ,]+/).filter(Boolean) || []
-      
-      if (medicineTerms.length && conditionTerms.length) {
-        keywordsQuery = `(${medicineTerms.join(" OR ")}) AND (${conditionTerms.join(" OR ")})`
-      } else if (medicineTerms.length) {
-        keywordsQuery = `(${medicineTerms.join(" OR ")})`
-      } else if (conditionTerms.length) {
-        keywordsQuery = `(${conditionTerms.join(" OR ")})`
-      }
-    }
-
     // Construct the final query
     let finalQuery = dateQuery
     if (journalQuery) {
       finalQuery += ` AND (${journalQuery})`
     }
-    if (keywordsQuery) {
-      finalQuery += ` AND ${keywordsQuery}`
+    if (params.keywords) {
+      finalQuery += ` AND ${params.keywords}`
     }
 
     console.log('Executing PubMed search with query:', finalQuery)
@@ -84,7 +67,7 @@ serve(async (req) => {
     }
 
     // Parse the articles
-    const papers = parseArticles(xmlResponse, { keywords: keywordsQuery })
+    const papers = parseArticles(xmlResponse, { keywords: params.keywords })
     console.log(`Successfully processed ${papers.length} papers`)
 
     return new Response(
