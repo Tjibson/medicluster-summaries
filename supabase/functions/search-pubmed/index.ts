@@ -35,27 +35,36 @@ serve(async (req) => {
 
     console.log('Final search query:', searchQuery)
 
-    // Search PubMed
-    const xmlText = await searchPubMed(searchQuery, searchCriteria.date_range)
+    // Search PubMed with a limit of 20 papers
+    const xmlText = await searchPubMed(searchQuery, searchCriteria.date_range, 20)
     let papers = parseArticles(xmlText, searchCriteria)
 
-    // Enhance papers with Google Scholar data
-    const enhancedPapers = await Promise.all(
-      papers.map(async (paper) => {
-        try {
-          const scholarData = await fetchGoogleScholarData(paper.title, paper.authors)
-          return {
-            ...paper,
-            pdfUrl: scholarData?.pdfUrl || null,
-          }
-        } catch (error) {
-          console.error(`Error fetching Google Scholar data for paper ${paper.id}:`, error)
-          return paper
-        }
-      })
-    )
+    console.log(`Found ${papers.length} papers from PubMed`)
 
-    console.log(`Found ${papers.length} papers`)
+    // Process papers in smaller batches for Google Scholar data
+    const batchSize = 5
+    const enhancedPapers = []
+    
+    for (let i = 0; i < papers.length; i += batchSize) {
+      const batch = papers.slice(i, i + batchSize)
+      const batchResults = await Promise.all(
+        batch.map(async (paper) => {
+          try {
+            const scholarData = await fetchGoogleScholarData(paper.title, paper.authors)
+            return {
+              ...paper,
+              pdfUrl: scholarData?.pdfUrl || null,
+            }
+          } catch (error) {
+            console.error(`Error fetching Google Scholar data for paper ${paper.id}:`, error)
+            return paper
+          }
+        })
+      )
+      enhancedPapers.push(...batchResults)
+    }
+
+    console.log(`Enhanced ${enhancedPapers.length} papers with Google Scholar data`)
 
     return new Response(
       JSON.stringify({ success: true, papers: enhancedPapers }),

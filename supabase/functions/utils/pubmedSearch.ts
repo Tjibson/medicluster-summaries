@@ -1,4 +1,4 @@
-export async function searchPubMed(searchQuery: string, dateRange?: { start: string; end: string }) {
+export async function searchPubMed(searchQuery: string, dateRange?: { start: string; end: string }, limit: number = 20) {
   const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
   let query = searchQuery
 
@@ -9,7 +9,7 @@ export async function searchPubMed(searchQuery: string, dateRange?: { start: str
     query += ` AND ("${startYear}/01/01"[Date - Publication] : "${endYear}/12/31"[Date - Publication])`
   }
 
-  const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=100&usehistory=y`
+  const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${limit}&usehistory=y`
   
   const searchResponse = await fetch(searchUrl)
   if (!searchResponse.ok) {
