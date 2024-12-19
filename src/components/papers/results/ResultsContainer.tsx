@@ -11,13 +11,9 @@ interface ResultsContainerProps {
   papers: Paper[]
   isLoading: boolean
   searchCriteria?: {
-    population?: string
-    disease?: string
-    medicine?: string
-    working_mechanism?: string
-    patientCount?: string
-    trialType?: string
-    journal?: string
+    dateRange: { start: string; end: string }
+    keywords: string
+    journalNames: string[]
   }
 }
 
@@ -73,8 +69,8 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
 
   if (papers.length === 0) {
     return (
-      <div className="text-center p-6 bg-white rounded-lg shadow">
-        <p className="text-gray-500">No papers found matching your criteria.</p>
+      <div className="text-center p-6 bg-background rounded-lg shadow">
+        <p className="text-muted-foreground">No papers found matching your criteria.</p>
       </div>
     )
   }

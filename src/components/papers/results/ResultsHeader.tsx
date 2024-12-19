@@ -3,13 +3,9 @@ import { SortingControls, type SortOption } from "@/components/papers/SortingCon
 
 interface ResultsHeaderProps {
   searchCriteria?: {
-    population?: string
-    disease?: string
-    medicine?: string
-    working_mechanism?: string
-    patientCount?: string
-    trialType?: string
-    journal?: string
+    dateRange?: { start: string; end: string }
+    keywords?: string
+    journalNames?: string[]
   }
   sortBy: SortOption
   onSortChange: (value: SortOption) => void
