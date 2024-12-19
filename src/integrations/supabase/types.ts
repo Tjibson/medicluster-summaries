@@ -14,6 +14,7 @@ export type Database = {
           branch: string | null
           created_at: string
           id: string
+          is_scraper: boolean | null
           last_sync_at: string | null
           repo_url: string
           user_id: string
@@ -22,6 +23,7 @@ export type Database = {
           branch?: string | null
           created_at?: string
           id?: string
+          is_scraper?: boolean | null
           last_sync_at?: string | null
           repo_url: string
           user_id: string
@@ -30,6 +32,7 @@ export type Database = {
           branch?: string | null
           created_at?: string
           id?: string
+          is_scraper?: boolean | null
           last_sync_at?: string | null
           repo_url?: string
           user_id?: string

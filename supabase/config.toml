@@ -1,4 +1,4 @@
 project_id = "fkgrqknujcoxwdivyjda"
 
-[functions.search-pubmed]
+[functions.pubmed-search]
 verify_jwt = false
