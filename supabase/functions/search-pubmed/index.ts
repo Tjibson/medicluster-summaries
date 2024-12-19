@@ -22,86 +22,55 @@ serve(async (req) => {
     }
 
     const searchQuery = `${medicine}[Title/Abstract]`
-    console.log('Search query:', searchQuery)
-
     const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 25000) // 25 second timeout
+    
+    // Step 1: Search for IDs
+    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=10`
+    const searchResponse = await fetch(searchUrl)
+    const searchText = await searchResponse.text()
+    const pmids = searchText.match(/<Id>(\d+)<\/Id>/g)?.map(id => id.replace(/<\/?Id>/g, '')) || []
 
-    try {
-      const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=10&usehistory=y`
-      console.log('Fetching from PubMed:', searchUrl)
-      
-      const searchResponse = await fetch(searchUrl, { signal: controller.signal })
-      if (!searchResponse.ok) {
-        throw new Error(`PubMed search failed: ${searchResponse.statusText}`)
-      }
-      
-      const searchText = await searchResponse.text()
-      const pmids = searchText.match(/<Id>(\d+)<\/Id>/g)?.map(id => id.replace(/<\/?Id>/g, '')) || []
-      
-      if (pmids.length === 0) {
-        console.log('No results found')
-        return new Response(
-          JSON.stringify({ success: true, papers: [] }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      console.log(`Found ${pmids.length} PMIDs, fetching details...`)
-      const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
-      const fetchResponse = await fetch(fetchUrl, { signal: controller.signal })
-      
-      if (!fetchResponse.ok) {
-        throw new Error(`Failed to fetch article details: ${fetchResponse.statusText}`)
-      }
-
-      const articlesXml = await fetchResponse.text()
-      const papers = []
-      const articleMatches = articlesXml.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
-
-      for (const articleXml of articleMatches) {
-        try {
-          const id = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)?.[1] || ''
-          const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
-          const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
-
-          papers.push({
-            id,
-            title: decodeXMLEntities(title),
-            abstract: decodeXMLEntities(abstract),
-            citations: 0
-          })
-        } catch (error) {
-          console.error('Error processing article:', error)
-          continue
-        }
-      }
-
-      clearTimeout(timeout)
-      console.log(`Successfully parsed ${papers.length} papers`)
-
+    if (pmids.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, papers }),
+        JSON.stringify({ success: true, papers: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
-
-    } catch (error) {
-      clearTimeout(timeout)
-      if (error.name === 'AbortError') {
-        return new Response(
-          JSON.stringify({ success: false, message: "Request timed out" }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 408 }
-        )
-      }
-      throw error
     }
 
+    // Step 2: Fetch details for found IDs
+    const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
+    const fetchResponse = await fetch(fetchUrl)
+    const articlesXml = await fetchResponse.text()
+    
+    // Step 3: Parse articles
+    const papers = []
+    const articleMatches = articlesXml.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
+
+    for (const articleXml of articleMatches) {
+      const titleMatch = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)
+      const abstractMatch = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)
+      const idMatch = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)
+
+      if (titleMatch) {
+        papers.push({
+          id: idMatch?.[1] || '',
+          title: decodeXMLEntities(titleMatch[1]),
+          abstract: abstractMatch ? decodeXMLEntities(abstractMatch[1]) : '',
+          citations: 0
+        })
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, papers }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+
   } catch (error) {
-    console.error('Error:', error.message)
+    console.error('Error:', error)
     return new Response(
       JSON.stringify({ success: false, message: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     )
   }
 })

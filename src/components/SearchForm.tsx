@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 
-export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) {
+export function SearchForm({ onSearch }: { onSearch: (papers: any[]) => void }) {
   const [medicine, setMedicine] = useState("")
   const { toast } = useToast()
 
@@ -31,17 +31,11 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
         return
       }
 
-      const searchCriteria = {
-        medicine: medicine.trim(),
-      }
-
-      console.log('Search criteria:', searchCriteria)
-
-      const { data: pubmedData, error: pubmedError } = await supabase.functions.invoke('search-pubmed', {
-        body: searchCriteria
+      const { data, error } = await supabase.functions.invoke('search-pubmed', {
+        body: { medicine: medicine.trim() }
       })
 
-      if (pubmedError) throw pubmedError
+      if (error) throw error
 
       // Save search history in background
       await supabase
@@ -52,7 +46,7 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
         })
         .single()
 
-      onSearch(pubmedData.papers || [])
+      onSearch(data.papers || [])
 
     } catch (error) {
       console.error("Error performing search:", error)
