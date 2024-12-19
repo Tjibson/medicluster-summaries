@@ -35,8 +35,32 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
   }, [])
 
   useEffect(() => {
+    const fetchCitations = async () => {
+      if (papers.length === 0) return
+
+      try {
+        const { data, error } = await supabase.functions.invoke('fetch-citations', {
+          body: { papers: papers.map(p => ({ id: p.id, title: p.title })) }
+        })
+
+        if (error) throw error
+
+        const citationsMap = new Map(data.citations.map((c: { id: string, citations: number }) => [c.id, c.citations]))
+        
+        const updatedPapers = papers.map(paper => ({
+          ...paper,
+          citations: citationsMap.get(paper.id) || paper.citations || 0
+        }))
+
+        setPapersWithCitations(updatedPapers)
+      } catch (error) {
+        console.error('Error fetching citations:', error)
+        setPapersWithCitations(papers)
+      }
+    }
+
     console.log("Papers received in ResultsContainer:", papers)
-    setPapersWithCitations(papers)
+    fetchCitations()
   }, [papers])
 
   if (isLoading) {
