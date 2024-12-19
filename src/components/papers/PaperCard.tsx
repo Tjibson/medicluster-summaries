@@ -1,6 +1,8 @@
 import { Card } from "@/components/ui/card"
 import { type Paper } from "@/types/papers"
 import { PaperActions } from "./PaperActions"
+import { Button } from "@/components/ui/button"
+import { ExternalLink } from "lucide-react"
 
 interface PaperCardProps {
   paper: Paper
@@ -10,6 +12,8 @@ interface PaperCardProps {
 }
 
 export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
+  const pubmedUrl = `https://pubmed.ncbi.nlm.nih.gov/${paper.id}/`
+
   return (
     <Card 
       className="p-6 shadow-card hover:shadow-lg transition-shadow duration-200 cursor-pointer"
@@ -34,7 +38,20 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
           {paper.abstract || "Abstract not available"}
         </p>
 
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={(e) => {
+              e.stopPropagation()
+              window.open(pubmedUrl, '_blank')
+            }}
+          >
+            <ExternalLink className="h-4 w-4" />
+            View on PubMed
+          </Button>
+
           <PaperActions
             paper={paper}
             onSave={onSave}
