@@ -1,14 +1,14 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
-import axios from 'https://esm.sh/axios@1.3.4'
 import { xml2js } from 'https://esm.sh/xml2js@0.4.23'
+import axiod from 'https://deno.land/x/axiod@0.26.2/mod.ts'
 
-const parser = new xml2js({ explicitArray: false, mergeAttrs: true })
+const parser = new xml2js.Parser({ explicitArray: false, mergeAttrs: true })
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
@@ -19,7 +19,7 @@ serve(async (req) => {
       throw new Error('Search term is required')
     }
 
-    // Build the search query with date range and journal filters
+    // Build search query with date range and journal filters
     let searchQuery = encodeURIComponent(term)
     if (dateRange) {
       searchQuery += ` AND ("${dateRange.start}"[Date - Publication] : "${dateRange.end}"[Date - Publication])`
@@ -33,21 +33,22 @@ serve(async (req) => {
     const esearchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${searchQuery}&retmode=json&retmax=100`
     console.log('ESearch URL:', esearchUrl)
 
-    const esearchResponse = await axios.get(esearchUrl)
+    const esearchResponse = await axiod.get(esearchUrl)
     const pmids = esearchResponse.data.esearchresult.idlist
     console.log('Found PMIDs:', pmids.length)
 
     if (pmids.length === 0) {
-      return new Response(JSON.stringify({ articles: [] }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      return new Response(
+        JSON.stringify({ articles: [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     // 2. Use EFetch to get article details
     const efetchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
     console.log('EFetch URL:', efetchUrl)
 
-    const efetchResponse = await axios.get(efetchUrl)
+    const efetchResponse = await axiod.get(efetchUrl)
     const xmlData = efetchResponse.data
 
     // 3. Parse XML response
@@ -112,14 +113,18 @@ serve(async (req) => {
 
     console.log('Returning articles:', articles.length)
 
-    return new Response(JSON.stringify({ articles }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return new Response(
+      JSON.stringify({ articles }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   } catch (error) {
     console.error('Error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    })
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
+      }
+    )
   }
 })
