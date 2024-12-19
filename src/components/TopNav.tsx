@@ -28,13 +28,12 @@ export function TopNav() {
       const { data, error } = await supabase.functions.invoke('search-pubmed', {
         body: { 
           disease: searchQuery,
-          pages: 1 // Limit to 1 page for quick search
+          pages: 1
         }
       })
 
       if (error) throw error
 
-      // Navigate to home with search results
       navigate('/', { 
         state: { 
           searchResults: data.papers,
@@ -54,18 +53,17 @@ export function TopNav() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-nav">
-      <div className="container flex h-14 items-center gap-4 px-4">
+      <div className="flex h-14 items-center gap-4 px-4">
         <SidebarTrigger />
         <div className="mr-4 hidden md:flex">
           <Link to="/" className="mr-6 flex items-center space-x-2">
             <Pill className="h-6 w-6 text-primary" />
             <span className="hidden font-bold sm:inline-block">
-              PaperSearch
+              MediScrape
             </span>
           </Link>
         </div>
         
-        {/* Search Bar */}
         <form onSubmit={handleSearch} className="flex-1 max-w-2xl">
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />

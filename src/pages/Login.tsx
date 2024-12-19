@@ -1,24 +1,22 @@
-import { Auth } from "@supabase/auth-ui-react";
-import { ThemeSupa } from "@supabase/auth-ui-shared";
-import { supabase } from "@/integrations/supabase/client";
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
-import { Pill } from "lucide-react";
+import { Auth } from "@supabase/auth-ui-react"
+import { ThemeSupa } from "@supabase/auth-ui-shared"
+import { supabase } from "@/integrations/supabase/client"
+import { useEffect } from "react"
+import { useNavigate } from "react-router-dom"
+import { Pill } from "lucide-react"
 
-const Login = () => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
+export default function Login() {
+  const navigate = useNavigate()
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
-        navigate("/");
+        navigate("/")
       }
-    });
+    })
 
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+    return () => subscription.unsubscribe()
+  }, [navigate])
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
@@ -27,7 +25,7 @@ const Login = () => {
           <div className="flex justify-center mb-4">
             <Pill className="h-12 w-12 text-primary" />
           </div>
-          <h2 className="text-3xl font-bold text-foreground">Welcome to PaperSearch</h2>
+          <h2 className="text-3xl font-bold text-foreground">Welcome to MediScrape</h2>
           <p className="mt-2 text-sm text-muted-foreground">Sign in to access your medical research portal</p>
         </div>
         <Auth
@@ -58,18 +56,9 @@ const Login = () => {
           }}
           theme="default"
           providers={[]}
-          localization={{
-            variables: {
-              sign_in: {
-                email_label: 'Email',
-                password_label: 'Password',
-              },
-            },
-          }}
+          redirectTo={window.location.origin}
         />
       </div>
     </div>
-  );
-};
-
-export default Login;
+  )
+}
