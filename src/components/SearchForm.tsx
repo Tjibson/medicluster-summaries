@@ -42,16 +42,17 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
       const medicineKeywords = medicine.trim().split(/[ ,]+/).filter(Boolean)
       const conditionKeywords = condition.trim().split(/[ ,]+/).filter(Boolean)
       
-      const keywordsLogic = buildSearchQuery(medicineKeywords, conditionKeywords)
+      const searchTerms = [...medicineKeywords, ...conditionKeywords].join(' ')
+      console.log("Search terms:", searchTerms)
 
       const { data, error } = await supabase.functions.invoke('search-pubmed', {
         body: {
+          term: searchTerms,
           dateRange: {
             start: startDate.toISOString().split('T')[0].replace(/-/g, '/'),
             end: endDate.toISOString().split('T')[0].replace(/-/g, '/')
           },
-          journalNames: DEFAULT_JOURNALS,
-          keywords: keywordsLogic
+          journalNames: DEFAULT_JOURNALS
         }
       })
 
@@ -59,17 +60,28 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
         throw error
       }
 
-      if (!data || !data.papers) {
+      if (!data || !data.articles) {
         throw new Error("Invalid response format")
       }
 
-      console.log("Search results:", data.papers)
-      onSearch(data.papers, {
+      // Transform PubMed articles to match Paper type
+      const papers: Paper[] = data.articles.map((article: any) => ({
+        id: article.pmid,
+        title: article.title,
+        abstract: article.abstract,
+        authors: article.authors,
+        journal: article.journal.title || article.journal.isoAbbreviation,
+        year: parseInt(article.journal.pubDate.Year) || new Date().getFullYear(),
+        citations: 0 // PubMed API doesn't provide citation count
+      }))
+
+      console.log("Transformed papers:", papers)
+      onSearch(papers, {
         dateRange: {
           start: startDate.toISOString().split('T')[0],
           end: endDate.toISOString().split('T')[0]
         },
-        keywords: keywordsLogic,
+        keywords: searchTerms,
         journalNames: DEFAULT_JOURNALS
       })
 
