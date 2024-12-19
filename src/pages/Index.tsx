@@ -1,57 +1,67 @@
 import { useState } from "react"
-import { SearchForm } from "@/components/SearchForm"
+import { AppLayout } from "@/components/AppLayout"
 import { ResultsList } from "@/components/ResultsList"
+import { SearchForm } from "@/components/SearchForm"
+import { supabase } from "@/integrations/supabase/client"
 import { type Paper } from "@/types/papers"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { SearchHistory } from "@/components/search/SearchHistory"
-import { useToast } from "@/hooks/use-toast"
-import { useLocation } from "react-router-dom"
+
+const DEFAULT_JOURNALS = [
+  "ESC heart failure",
+  "JACC. Heart failure",
+  "Journal of the American College of Cardiology",
+  "Circulation",
+  "European journal of heart failure",
+  "JAMA cardiology",
+  "Frontiers in cardiovascular medicine",
+  "Journal of the American Heart Association",
+  "Nature",
+  "The Lancet",
+]
+
+const DEFAULT_KEYWORDS = "(Entresto OR Sacubitril OR ARNi OR LCZ696) AND (HFrEF OR heart failure)"
 
 export default function Index() {
-  const [searchResults, setSearchResults] = useState<Paper[]>([])
+  const [papers, setPapers] = useState<Paper[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchCriteria, setSearchCriteria] = useState<any>(null)
-  const { toast } = useToast()
-  const location = useLocation()
 
-  // Handle search results from TopNav search
-  useState(() => {
-    if (location.state?.searchResults) {
-      setSearchResults(location.state.searchResults)
-      setSearchCriteria(location.state.searchCriteria)
-      // Clear the location state to avoid showing same results on refresh
-      window.history.replaceState({}, document.title)
-    }
-  })
-
-  const handleSearch = (papers: Paper[], criteria: any) => {
-    setSearchResults(papers)
+  const handleSearch = async (criteria: any) => {
+    setIsLoading(true)
     setSearchCriteria(criteria)
-    console.log("Setting search results:", papers)
+
+    try {
+      const { data, error } = await supabase.functions.invoke('search-pubmed', {
+        body: {
+          dateRange: {
+            start: criteria.dateRange?.from || "2024/01/01",
+            end: criteria.dateRange?.to || "2024/12/31"
+          },
+          journalNames: criteria.journals || DEFAULT_JOURNALS,
+          keywords: criteria.keywords || DEFAULT_KEYWORDS
+        }
+      })
+
+      if (error) throw error
+
+      setPapers(data.papers)
+    } catch (error) {
+      console.error('Search error:', error)
+      setPapers([])
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <Tabs defaultValue="search" className="w-full">
-        <TabsList className="w-full">
-          <TabsTrigger value="search" className="flex-1">New Search</TabsTrigger>
-          <TabsTrigger value="history" className="flex-1">Search History</TabsTrigger>
-        </TabsList>
-        <TabsContent value="search">
-          <SearchForm onSearch={handleSearch} />
-        </TabsContent>
-        <TabsContent value="history">
-          <SearchHistory onHistoryClick={handleSearch} />
-        </TabsContent>
-      </Tabs>
-      
-      {searchResults.length > 0 && (
-        <ResultsList
-          papers={searchResults}
-          isLoading={isLoading}
+    <AppLayout>
+      <div className="container mx-auto max-w-7xl">
+        <SearchForm onSearch={handleSearch} defaultJournals={DEFAULT_JOURNALS} />
+        <ResultsList 
+          papers={papers} 
+          isLoading={isLoading} 
           searchCriteria={searchCriteria}
         />
-      )}
-    </div>
+      </div>
+    </AppLayout>
   )
 }

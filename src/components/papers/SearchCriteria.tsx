@@ -1,57 +1,56 @@
+import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
+
+const JOURNAL_NAMES = [
+  "ESC heart failure",
+  "JACC. Heart failure",
+  "Journal of the American College of Cardiology",
+  "Circulation",
+  "European journal of heart failure",
+  "JAMA cardiology",
+  "Frontiers in cardiovascular medicine",
+  "Journal of the American Heart Association",
+  "Nature",
+  "The Lancet",
+]
 
 interface SearchCriteriaProps {
   criteria: {
-    population?: string
-    disease?: string
-    medicine?: string
-    working_mechanism?: string
-    patientCount?: string
-    trialType?: string
-    journal?: string
+    dateRange?: {
+      start: string
+      end: string
+    }
+    keywords?: string
+    journalNames?: string[]
   }
 }
 
 export function SearchCriteria({ criteria }: SearchCriteriaProps) {
-  if (!criteria) return null
-
   return (
-    <Card className="p-4 bg-gray-50 shadow-soft">
-      <h3 className="font-semibold mb-2">Search Criteria:</h3>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-        {criteria.population && (
-          <div>
-            <span className="font-medium">Demographics:</span> {criteria.population}
-          </div>
-        )}
-        {criteria.disease && (
-          <div>
-            <span className="font-medium">Disease:</span> {criteria.disease}
-          </div>
-        )}
-        {criteria.medicine && (
-          <div>
-            <span className="font-medium">Medicine:</span> {criteria.medicine}
-          </div>
-        )}
-        {criteria.working_mechanism && (
-          <div>
-            <span className="font-medium">Mechanism:</span> {criteria.working_mechanism}
-          </div>
-        )}
-        {criteria.patientCount && (
-          <div>
-            <span className="font-medium">Min. Patients:</span> {criteria.patientCount}
-          </div>
-        )}
-        {criteria.trialType && (
-          <div>
-            <span className="font-medium">Trial Type:</span> {criteria.trialType}
-          </div>
-        )}
-        {criteria.journal && (
-          <div>
-            <span className="font-medium">Journal:</span> {criteria.journal}
+    <Card className="p-4 mb-4">
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
+          {criteria.dateRange && (
+            <Badge variant="outline">
+              Date Range: {criteria.dateRange.start} to {criteria.dateRange.end}
+            </Badge>
+          )}
+          {criteria.keywords && (
+            <Badge variant="outline">
+              Keywords: {criteria.keywords}
+            </Badge>
+          )}
+        </div>
+        {criteria.journalNames && criteria.journalNames.length > 0 && (
+          <div className="mt-2">
+            <p className="text-sm text-muted-foreground mb-1">Selected Journals:</p>
+            <div className="flex flex-wrap gap-2">
+              {criteria.journalNames.map((journal) => (
+                <Badge key={journal} variant="secondary">
+                  {journal}
+                </Badge>
+              ))}
+            </div>
           </div>
         )}
       </div>
