@@ -11,15 +11,17 @@ import { StudyDetailsInputs } from "./search/StudyDetailsInputs"
 export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) {
   const [selectedContinent, setSelectedContinent] = useState("")
   const [selectedRegion, setSelectedRegion] = useState("")
-  const [disease, setDisease] = useState("")
-  const [medicine, setMedicine] = useState("")
-  const [workingMechanism, setWorkingMechanism] = useState("")
-  const [patientCount, setPatientCount] = useState("")
-  const [trialType, setTrialType] = useState("")
-  const [startDate, setStartDate] = useState<Date>()
-  const [endDate, setEndDate] = useState<Date>()
   const [selectedJournal, setSelectedJournal] = useState("all")
   const [journals, setJournals] = useState<{ id: string; name: string }[]>([])
+  const [startDate, setStartDate] = useState<Date>()
+  const [endDate, setEndDate] = useState<Date>()
+  const [formData, setFormData] = useState({
+    disease: "",
+    medicine: "",
+    workingMechanism: "",
+    patientCount: "",
+    trialType: ""
+  })
   const { toast } = useToast()
 
   useEffect(() => {
@@ -69,11 +71,11 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
 
       const searchCriteria = {
         population: selectedContinent && `${selectedContinent}${selectedRegion ? ` - ${selectedRegion}` : ''}`,
-        disease,
-        medicine,
-        working_mechanism: workingMechanism,
-        patient_count: patientCount ? parseInt(patientCount) : undefined,
-        trial_type: trialType,
+        disease: formData.disease,
+        medicine: formData.medicine,
+        working_mechanism: formData.workingMechanism,
+        patient_count: formData.patientCount ? parseInt(formData.patientCount) : undefined,
+        trial_type: formData.trialType,
         journal: selectedJournal !== "all" ? selectedJournal : undefined,
         date_range: startDate && endDate ? {
           start: startDate.toISOString(),
@@ -90,7 +92,7 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
 
       if (pubmedError) throw pubmedError
 
-      // Save search history in background, excluding date_range
+      // Save search history in background
       const { population, disease, medicine, working_mechanism, patient_count, trial_type } = searchCriteria
       await supabase
         .from("search_history")
@@ -135,16 +137,16 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
           )}
 
           <StudyDetailsInputs
-            disease={disease}
-            onDiseaseChange={setDisease}
-            medicine={medicine}
-            onMedicineChange={setMedicine}
-            workingMechanism={workingMechanism}
-            onWorkingMechanismChange={setWorkingMechanism}
-            patientCount={patientCount}
-            onPatientCountChange={setPatientCount}
-            trialType={trialType}
-            onTrialTypeChange={setTrialType}
+            disease={formData.disease}
+            onDiseaseChange={(value) => setFormData(prev => ({ ...prev, disease: value }))}
+            medicine={formData.medicine}
+            onMedicineChange={(value) => setFormData(prev => ({ ...prev, medicine: value }))}
+            workingMechanism={formData.workingMechanism}
+            onWorkingMechanismChange={(value) => setFormData(prev => ({ ...prev, workingMechanism: value }))}
+            patientCount={formData.patientCount}
+            onPatientCountChange={(value) => setFormData(prev => ({ ...prev, patientCount: value }))}
+            trialType={formData.trialType}
+            onTrialTypeChange={(value) => setFormData(prev => ({ ...prev, trialType: value }))}
           />
 
           <JournalSelect
