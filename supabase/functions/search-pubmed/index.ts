@@ -15,6 +15,14 @@ async function searchPubMed(criteria: any) {
   if (criteria.working_mechanism) searchTerms.push(`${criteria.working_mechanism}[Title/Abstract]`)
   if (criteria.population) searchTerms.push(`${criteria.population}[Title/Abstract]`)
   if (criteria.trial_type) searchTerms.push(`${criteria.trial_type}[Publication Type]`)
+  if (criteria.journal) searchTerms.push(`"${criteria.journal}"[Journal]`)
+  
+  // Add date range if provided
+  if (criteria.date_range) {
+    const startDate = new Date(criteria.date_range.start)
+    const endDate = new Date(criteria.date_range.end)
+    searchTerms.push(`("${startDate.getFullYear()}/01/01"[Date - Publication] : "${endDate.getFullYear()}/12/31"[Date - Publication])`)
+  }
   
   searchQuery = searchTerms.join(' AND ')
   
