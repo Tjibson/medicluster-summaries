@@ -22,7 +22,7 @@ serve(async (req) => {
     }
 
     // Construct PubMed search query focusing on title and abstract
-    const searchQuery = `"${medicine}"[Title/Abstract]`
+    const searchQuery = `${medicine}[Title/Abstract]`
     
     console.log('Final search query:', searchQuery)
 
@@ -96,7 +96,6 @@ serve(async (req) => {
           journal: decodeXMLEntities(journal),
           year,
           abstract: decodeXMLEntities(abstract),
-          relevance_score: 100 // Default relevance score
         })
       } catch (error) {
         console.error('Error processing article:', error)

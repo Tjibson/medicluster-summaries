@@ -11,6 +11,15 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    if (!medicine.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a medicine name",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
@@ -23,12 +32,11 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
       }
 
       const searchCriteria = {
-        medicine: medicine,
+        medicine: medicine.trim(),
       }
 
       console.log('Search criteria:', searchCriteria)
 
-      // Call the search-pubmed edge function
       const { data: pubmedData, error: pubmedError } = await supabase.functions.invoke('search-pubmed', {
         body: searchCriteria
       })
@@ -40,7 +48,7 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
         .from("search_history")
         .insert({
           user_id: session.user.id,
-          medicine: medicine,
+          medicine: medicine.trim(),
         })
         .single()
 
@@ -60,12 +68,13 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Medicine</label>
+          <label className="text-sm font-medium">Medicine Name</label>
           <Input
             value={medicine}
             onChange={(e) => setMedicine(e.target.value)}
             placeholder="Enter medicine name"
             className="w-full"
+            required
           />
         </div>
 
