@@ -11,7 +11,8 @@ export function SearchForm({ onSearch }: { onSearch: (papers: any[]) => void }) 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!medicine.trim()) {
+    const trimmedMedicine = medicine.trim()
+    if (!trimmedMedicine) {
       toast({
         title: "Error",
         description: "Please enter a medicine name",
@@ -32,27 +33,34 @@ export function SearchForm({ onSearch }: { onSearch: (papers: any[]) => void }) 
       }
 
       const { data, error } = await supabase.functions.invoke('search-pubmed', {
-        body: { medicine: medicine.trim() }
+        body: { medicine: trimmedMedicine }
       })
 
-      if (error) throw error
+      if (error) {
+        console.error("Search error:", error)
+        throw error
+      }
+
+      if (!data || !data.papers) {
+        throw new Error("Invalid response format")
+      }
 
       // Save search history in background
       await supabase
         .from("search_history")
         .insert({
           user_id: session.user.id,
-          medicine: medicine.trim(),
+          medicine: trimmedMedicine,
         })
         .single()
 
-      onSearch(data.papers || [])
+      onSearch(data.papers)
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error performing search:", error)
       toast({
         title: "Error",
-        description: "Failed to perform search",
+        description: error.message || "Failed to perform search",
         variant: "destructive",
       })
     }

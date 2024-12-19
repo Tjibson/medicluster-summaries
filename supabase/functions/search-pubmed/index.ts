@@ -6,18 +6,24 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
     const { medicine } = await req.json()
-    console.log('Search criteria:', { medicine })
 
     if (!medicine?.trim()) {
       return new Response(
-        JSON.stringify({ success: false, message: "No search criteria provided" }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        JSON.stringify({ 
+          success: false, 
+          message: "No search criteria provided" 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+          status: 400 
+        }
       )
     }
 
@@ -26,19 +32,28 @@ serve(async (req) => {
     
     // Step 1: Search for IDs
     const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=10`
+    console.log("Searching PubMed with URL:", searchUrl)
+    
     const searchResponse = await fetch(searchUrl)
     const searchText = await searchResponse.text()
     const pmids = searchText.match(/<Id>(\d+)<\/Id>/g)?.map(id => id.replace(/<\/?Id>/g, '')) || []
 
     if (pmids.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, papers: [] }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: true, 
+          papers: [] 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
       )
     }
 
     // Step 2: Fetch details for found IDs
     const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
+    console.log("Fetching article details with URL:", fetchUrl)
+    
     const fetchResponse = await fetch(fetchUrl)
     const articlesXml = await fetchResponse.text()
     
@@ -61,16 +76,29 @@ serve(async (req) => {
       }
     }
 
+    console.log(`Found ${papers.length} papers`)
+
     return new Response(
-      JSON.stringify({ success: true, papers }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        success: true, 
+        papers 
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     )
 
   } catch (error) {
     console.error('Error:', error)
     return new Response(
-      JSON.stringify({ success: false, message: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ 
+        success: false, 
+        message: error.message 
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, 
+        status: 500 
+      }
     )
   }
 })
