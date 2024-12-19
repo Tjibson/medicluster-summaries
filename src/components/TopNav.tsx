@@ -13,6 +13,14 @@ export function TopNav() {
   const navigate = useNavigate()
   const { toast } = useToast()
 
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    // Navigate to home page
+    navigate('/')
+    // Refresh the page
+    window.location.reload()
+  }
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -56,12 +64,16 @@ export function TopNav() {
       <div className="flex h-14 items-center gap-4 px-4">
         <SidebarTrigger />
         <div className="mr-4 hidden md:flex">
-          <Link to="/" className="mr-6 flex items-center space-x-2">
+          <a 
+            href="/" 
+            onClick={handleLogoClick}
+            className="mr-6 flex items-center space-x-2"
+          >
             <Pill className="h-6 w-6 text-primary" />
             <span className="hidden font-bold sm:inline-block">
               MediScrape
             </span>
-          </Link>
+          </a>
         </div>
         
         <form onSubmit={handleSearch} className="flex-1 max-w-2xl">
