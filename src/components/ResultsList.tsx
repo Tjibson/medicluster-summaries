@@ -23,7 +23,7 @@ interface ResultsListProps {
   }
 }
 
-type SortOption = "citations" | "date" | "relevance"
+type SortOption = "citations" | "date" | "relevance" | "title"
 
 export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListProps) {
   const { toast } = useToast()
@@ -31,6 +31,7 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
   const [sortBy, setSortBy] = useState<SortOption>("relevance")
   const [currentPage, setCurrentPage] = useState(1)
+  const [papersWithCitations, setPapersWithCitations] = useState<Paper[]>([])
   const itemsPerPage = 25
 
   useEffect(() => {
@@ -42,6 +43,35 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
     }
     getUserId()
   }, [])
+
+  useEffect(() => {
+    const fetchCitations = async () => {
+      const updatedPapers = await Promise.all(
+        papers.map(async (paper) => {
+          try {
+            const response = await supabase.functions.invoke('fetch-citations', {
+              body: { title: paper.title, authors: paper.authors }
+            })
+            
+            if (response.data?.citations !== undefined) {
+              return { ...paper, citations: response.data.citations }
+            }
+            return paper
+          } catch (error) {
+            console.error('Error fetching citations:', error)
+            return paper
+          }
+        })
+      )
+      setPapersWithCitations(updatedPapers)
+    }
+
+    if (papers.length > 0) {
+      fetchCitations()
+    } else {
+      setPapersWithCitations([])
+    }
+  }, [papers])
 
   const handleSavePaper = async (paper: Paper) => {
     if (!userId) {
@@ -141,12 +171,14 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
     setSelectedPaper(paper)
   }
 
-  const sortedPapers = [...papers].sort((a, b) => {
+  const sortedPapers = [...papersWithCitations].sort((a, b) => {
     switch (sortBy) {
       case "citations":
         return (b.citations || 0) - (a.citations || 0)
       case "date":
         return b.year - a.year
+      case "title":
+        return a.title.localeCompare(b.title)
       default:
         return 0
     }
@@ -181,6 +213,7 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
             <SelectItem value="relevance">Relevance</SelectItem>
             <SelectItem value="citations">Citations</SelectItem>
             <SelectItem value="date">Date Published</SelectItem>
+            <SelectItem value="title">Title</SelectItem>
           </SelectContent>
         </Select>
       </div>

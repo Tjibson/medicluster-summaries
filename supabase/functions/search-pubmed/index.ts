@@ -7,7 +7,8 @@ const corsHeaders = {
 }
 
 const USER_AGENTS = [
-  "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
   "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:55.0) Gecko/20100101 Firefox/55.0",
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.101 Safari/537.36",
   "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1",
@@ -46,6 +47,11 @@ async function searchPubMed(criteria: any) {
   if (criteria.population) searchQuery += `AND ${criteria.population}[Title/Abstract] `
   if (criteria.trial_type) searchQuery += `AND ${criteria.trial_type}[Publication Type] `
   
+  // If it's a simple search from the top bar
+  if (criteria.query) {
+    searchQuery = criteria.query
+  }
+  
   searchQuery = searchQuery.trim().replace(/^AND\s+/, '')
   
   if (!searchQuery) {
@@ -53,7 +59,7 @@ async function searchPubMed(criteria: any) {
   }
 
   const baseUrl = 'https://pubmed.ncbi.nlm.nih.gov'
-  const searchUrl = `${baseUrl}/?term=${encodeURIComponent(searchQuery)}&size=10`
+  const searchUrl = `${baseUrl}/?term=${encodeURIComponent(searchQuery)}&size=100` // Increased to 100 results
   
   console.log('Search URL:', searchUrl)
   
@@ -93,6 +99,9 @@ async function searchPubMed(criteria: any) {
         const idElement = element.querySelector('a')
         const id = idElement?.getAttribute('href')?.replace('/', '') || ''
 
+        // Try to get PDF URL if available
+        const pdfUrl = `https://pubmed.ncbi.nlm.nih.gov/${id}/pdf`
+
         articles.push({
           id,
           title,
@@ -100,7 +109,8 @@ async function searchPubMed(criteria: any) {
           journal,
           year,
           abstract,
-          citations: 0 // Default value as citations require additional API calls
+          pdfUrl,
+          citations: 0 // Will be updated by the frontend
         })
       } catch (error) {
         console.error('Error processing article:', error)
@@ -118,7 +128,6 @@ async function searchPubMed(criteria: any) {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }

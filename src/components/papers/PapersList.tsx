@@ -50,10 +50,9 @@ export const PapersList = ({
         <PaperCard
           key={paper.id}
           paper={paper}
-          onUnlike={onUnlike ? () => onUnlike(paper.id) : undefined}
-          onRemove={() => onRemove(paper.id)}
-          onDownload={() => onDownload(paper.id)}
-          showLikeButton={showLikeButton}
+          onSave={() => {}} // Empty function since this is for saved papers
+          onLike={() => onUnlike?.(paper.id)}
+          onClick={() => {}}
         />
       ))}
     </div>
