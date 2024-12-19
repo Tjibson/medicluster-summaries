@@ -9,21 +9,24 @@ const corsHeaders = {
 const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-  // ... Add more user agents for rotation
 ]
 
 async function fetchCitations(title: string, authors: string[]) {
   const searchQuery = encodeURIComponent(`${title} ${authors[0]}`)
-  const url = `https://scholar.google.com/scholar?q=${searchQuery}`
+  const url = `https://scholar.google.com/scholar?q=${searchQuery}&hl=en`
   
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]
+        'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Connection': 'keep-alive',
       }
     })
     
     if (!response.ok) {
+      console.error('Failed to fetch from Google Scholar:', response.status)
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     
@@ -36,13 +39,19 @@ async function fetchCitations(title: string, authors: string[]) {
     }
     
     // Find citation count in Google Scholar results
-    const citedByElement = doc.querySelector('.gs_fl a')
-    if (citedByElement) {
-      const citedByText = citedByElement.textContent
-      const citations = citedByText.match(/\d+/)
-      return citations ? parseInt(citations[0]) : 0
+    const citedByElements = doc.querySelectorAll('.gs_fl a')
+    for (const element of citedByElements) {
+      const text = element.textContent
+      if (text && text.includes('Cited by')) {
+        const citations = text.match(/\d+/)
+        if (citations) {
+          console.log(`Found citations for "${title}": ${citations[0]}`)
+          return parseInt(citations[0])
+        }
+      }
     }
     
+    console.log(`No citations found for "${title}"`)
     return 0
   } catch (error) {
     console.error('Error fetching citations:', error)
@@ -63,6 +72,7 @@ serve(async (req) => {
     }
 
     const citations = await fetchCitations(title, authors)
+    console.log(`Returning ${citations} citations for "${title}"`)
 
     return new Response(
       JSON.stringify({ citations }),
@@ -72,6 +82,7 @@ serve(async (req) => {
       }
     )
   } catch (error) {
+    console.error('Error in fetch-citations function:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 

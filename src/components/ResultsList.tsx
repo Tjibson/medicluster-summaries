@@ -4,10 +4,10 @@ import { useToast } from "@/components/ui/use-toast"
 import { LoadingState } from "@/components/papers/LoadingState"
 import { SearchCriteria } from "@/components/papers/SearchCriteria"
 import { type Paper } from "@/types/papers"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import { PaperCard } from "./papers/PaperCard"
 import { ArticleDetails } from "./papers/ArticleDetails"
+import { SortingControls, type SortOption } from "./papers/SortingControls"
+import { PaginationControls } from "./papers/PaginationControls"
 
 interface ResultsListProps {
   papers: Paper[]
@@ -22,8 +22,6 @@ interface ResultsListProps {
     journal?: string
   }
 }
-
-type SortOption = "citations" | "date" | "relevance" | "title"
 
 export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListProps) {
   const { toast } = useToast()
@@ -167,10 +165,6 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
     }
   }
 
-  const handlePaperClick = (paper: Paper) => {
-    setSelectedPaper(paper)
-  }
-
   const sortedPapers = [...papersWithCitations].sort((a, b) => {
     switch (sortBy) {
       case "citations":
@@ -204,19 +198,7 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
     <div className="space-y-4">
       {searchCriteria && <SearchCriteria criteria={searchCriteria} />}
       
-      <div className="flex justify-end mb-4">
-        <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Sort by..." />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="relevance">Relevance</SelectItem>
-            <SelectItem value="citations">Citations</SelectItem>
-            <SelectItem value="date">Date Published</SelectItem>
-            <SelectItem value="title">Title</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <SortingControls sortBy={sortBy} onSortChange={setSortBy} />
 
       <div className="space-y-4">
         {paginatedPapers.map((paper) => (
@@ -225,39 +207,16 @@ export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListPr
             paper={paper}
             onSave={handleSavePaper}
             onLike={handleLikePaper}
-            onClick={handlePaperClick}
+            onClick={() => setSelectedPaper(paper)}
           />
         ))}
       </div>
 
-      {totalPages > 1 && (
-        <Pagination className="mt-4">
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious 
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
-              />
-            </PaginationItem>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <PaginationItem key={page}>
-                <PaginationLink
-                  onClick={() => setCurrentPage(page)}
-                  isActive={currentPage === page}
-                >
-                  {page}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
+      <PaginationControls
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+      />
 
       <ArticleDetails
         paper={selectedPaper}
