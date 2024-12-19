@@ -12,6 +12,8 @@ interface SearchParams {
   }
   journalNames?: string[]
   keywords?: string
+  medicine?: string
+  condition?: string
 }
 
 async function searchPubMed(query: string, dateRange?: { start: string; end: string }) {
@@ -69,7 +71,7 @@ function parseArticles(xml: string) {
         authors: extractAuthors(articleXml),
         journal: extractText(articleXml, 'Journal/Title') || extractText(articleXml, 'ISOAbbreviation') || 'Unknown Journal',
         year: parseInt(extractText(articleXml, 'PubDate/Year') || new Date().getFullYear().toString()),
-        citations: 0 // Default to 0 citations
+        citations: 0
       }
       
       articles.push(article)
@@ -119,7 +121,7 @@ serve(async (req) => {
     const params = await req.json() as SearchParams
     console.log('Received search params:', params)
 
-    if (!params.keywords?.trim()) {
+    if (!params.medicine && !params.condition) {
       return new Response(
         JSON.stringify({
           papers: [],
@@ -135,13 +137,18 @@ serve(async (req) => {
       )
     }
 
+    // Build search query
+    const searchTerms = []
+    if (params.medicine) searchTerms.push(params.medicine)
+    if (params.condition) searchTerms.push(params.condition)
+    
     // Format the journal query if journals are provided
     const journalQuery = params.journalNames?.length 
       ? ` AND (${params.journalNames.map(journal => `"${journal}"[Journal]`).join(' OR ')})`
       : ''
 
     // Construct the final query
-    const finalQuery = `${params.keywords}${journalQuery}`
+    const finalQuery = `${searchTerms.join(' AND ')}${journalQuery}`
     
     const papers = await searchPubMed(finalQuery, params.dateRange)
 
