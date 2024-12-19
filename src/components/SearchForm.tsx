@@ -27,6 +27,7 @@ const DEFAULT_JOURNALS = [
   "Journal of the American Heart Association",
   "Nature",
   "The Lancet",
+  "The New England journal of medicine"
 ]
 
 export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
@@ -46,7 +47,7 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    onSearchStart() // Clear previous results
+    onSearchStart()
 
     try {
       console.log("Building search query...")
@@ -56,9 +57,17 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
       let keywordsLogic = ""
       
       if (medicineKeywords.length > 0 && conditionKeywords.length > 0) {
-        keywordsLogic = `(${medicineKeywords.join(" OR ")}) AND (${conditionKeywords.join(" OR ")})`
+        // For medicine terms, also search for them as MeSH terms and Supplementary Concepts
+        const medicineSearch = medicineKeywords.map(term => 
+          `(${term}[All Fields] OR ${term}[MeSH Terms] OR ${term}[Supplementary Concept])`
+        ).join(" OR ")
+        
+        keywordsLogic = `(${medicineSearch}) AND (${conditionKeywords.join(" OR ")})`
       } else if (medicineKeywords.length > 0) {
-        keywordsLogic = `(${medicineKeywords.join(" OR ")})`
+        const medicineSearch = medicineKeywords.map(term => 
+          `(${term}[All Fields] OR ${term}[MeSH Terms] OR ${term}[Supplementary Concept])`
+        ).join(" OR ")
+        keywordsLogic = `(${medicineSearch})`
       } else if (conditionKeywords.length > 0) {
         keywordsLogic = `(${conditionKeywords.join(" OR ")})`
       }
