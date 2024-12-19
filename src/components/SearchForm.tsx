@@ -4,24 +4,47 @@ import { Input } from "@/components/ui/input"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { type Paper } from "@/types/papers"
+import { DateRangeSelect } from "./search/DateRangeSelect"
 
 interface SearchFormProps {
-  onSearch: (papers: Paper[], searchCriteria: { medicine: string }) => void
+  onSearch: (papers: Paper[], searchCriteria: {
+    dateRange: { start: string; end: string };
+    keywords: string;
+    journalNames: string[];
+  }) => void
 }
+
+const DEFAULT_JOURNALS = [
+  "ESC heart failure",
+  "JACC. Heart failure",
+  "Journal of the American College of Cardiology",
+  "Circulation",
+  "European journal of heart failure",
+  "JAMA cardiology",
+  "Frontiers in cardiovascular medicine",
+  "Journal of the American Heart Association",
+  "Nature",
+  "The Lancet",
+]
 
 export function SearchForm({ onSearch }: SearchFormProps) {
   const [medicine, setMedicine] = useState("")
+  const [condition, setCondition] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [startDate, setStartDate] = useState<Date>()
+  const [endDate, setEndDate] = useState<Date>()
   const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     const trimmedMedicine = medicine.trim()
-    if (!trimmedMedicine) {
+    const trimmedCondition = condition.trim()
+    
+    if (!trimmedMedicine && !trimmedCondition) {
       toast({
         title: "Error",
-        description: "Please enter a medicine name",
+        description: "Please enter at least a medicine or condition",
         variant: "destructive",
       })
       return
@@ -30,13 +53,31 @@ export function SearchForm({ onSearch }: SearchFormProps) {
     setIsLoading(true)
 
     try {
-      console.log("Submitting search with medicine:", trimmedMedicine)
+      console.log("Building search query...")
+      const medicineKeywords = trimmedMedicine.split(/[ ,]+/).filter(Boolean)
+      const conditionKeywords = trimmedCondition.split(/[ ,]+/).filter(Boolean)
+      
+      const medicineQuery = medicineKeywords.length > 0 ? 
+        `(${medicineKeywords.join(" OR ")})` : ""
+      const conditionQuery = conditionKeywords.length > 0 ? 
+        `(${conditionKeywords.join(" OR ")})` : ""
+      
+      const keywordsLogic = [medicineQuery, conditionQuery]
+        .filter(Boolean)
+        .join(" AND ")
+
       const { data, error } = await supabase.functions.invoke('search-pubmed', {
-        body: { medicine: trimmedMedicine }
+        body: {
+          dateRange: {
+            start: startDate ? startDate.toISOString().split('T')[0].replace(/-/g, '/') : "2024/01/01",
+            end: endDate ? endDate.toISOString().split('T')[0].replace(/-/g, '/') : "2024/12/31"
+          },
+          journalNames: DEFAULT_JOURNALS,
+          keywords: keywordsLogic
+        }
       })
 
       if (error) {
-        console.error("Search error:", error)
         throw error
       }
 
@@ -45,7 +86,14 @@ export function SearchForm({ onSearch }: SearchFormProps) {
       }
 
       console.log("Search results:", data.papers)
-      onSearch(data.papers, { medicine: trimmedMedicine })
+      onSearch(data.papers, {
+        dateRange: {
+          start: startDate?.toISOString().split('T')[0] || "2024/01/01",
+          end: endDate?.toISOString().split('T')[0] || "2024/12/31"
+        },
+        keywords: keywordsLogic,
+        journalNames: DEFAULT_JOURNALS
+      })
 
     } catch (error: any) {
       console.error("Error performing search:", error)
@@ -62,14 +110,37 @@ export function SearchForm({ onSearch }: SearchFormProps) {
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-4">
+        <DateRangeSelect
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+          onQuickSelect={(days) => {
+            const end = new Date()
+            const start = new Date()
+            start.setDate(start.getDate() - days)
+            setStartDate(start)
+            setEndDate(end)
+          }}
+        />
+
         <div className="space-y-2">
-          <label className="text-sm font-medium">Medicine Name</label>
+          <label className="text-sm font-medium">Medicine Keywords (separated by spaces or commas)</label>
           <Input
             value={medicine}
             onChange={(e) => setMedicine(e.target.value)}
-            placeholder="Enter medicine name"
+            placeholder="e.g., Entresto Sacubitril ARNi LCZ696"
             className="w-full"
-            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Condition Keywords (separated by spaces or commas)</label>
+          <Input
+            value={condition}
+            onChange={(e) => setCondition(e.target.value)}
+            placeholder="e.g., HFrEF heart failure"
+            className="w-full"
           />
         </div>
 

@@ -27,8 +27,9 @@ serve(async (req) => {
     // Format the journal query
     const journalQuery = journalNames.map(journal => `"${journal}"[Journal]`).join(' OR ')
     
-    // Construct the final query
-    const finalQuery = `(${dateRange.start}[PDAT] : ${dateRange.end}[PDAT]) AND (${journalQuery}) AND ${keywords}`
+    // Construct the final query with date range
+    const dateQuery = `(${dateRange.start}[PDAT] : ${dateRange.end}[PDAT])`
+    const finalQuery = `${dateQuery} AND (${journalQuery}) AND ${keywords}`
 
     console.log('Executing PubMed search with query:', finalQuery)
 
@@ -42,7 +43,7 @@ serve(async (req) => {
     // Parse the articles
     const papers = parseArticles(xmlResponse)
 
-    console.log(`Successfully processed ${papers.length} papers with abstracts`)
+    console.log(`Successfully processed ${papers.length} papers`)
 
     return new Response(
       JSON.stringify({

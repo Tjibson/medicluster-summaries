@@ -5,13 +5,9 @@ interface ResultsListProps {
   papers: Paper[]
   isLoading: boolean
   searchCriteria?: {
-    medicine?: string
-    population?: string
-    disease?: string
-    working_mechanism?: string
-    patientCount?: string
-    trialType?: string
-    journal?: string
+    dateRange: { start: string; end: string };
+    keywords: string;
+    journalNames: string[];
   }
 }
 
