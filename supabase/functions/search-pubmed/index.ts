@@ -70,13 +70,23 @@ serve(async (req) => {
       const medlineCitation = article.MedlineCitation
       const articleData = medlineCitation.Article
 
+      // Handle both single author and multiple authors cases
+      let authors = []
+      if (articleData.AuthorList) {
+        const authorList = Array.isArray(articleData.AuthorList.Author)
+          ? articleData.AuthorList.Author
+          : [articleData.AuthorList.Author]
+        
+        authors = authorList.map(author => 
+          `${author?.LastName || ''} ${author?.ForeName || ''}`.trim()
+        ).filter(name => name.length > 0)
+      }
+
       return {
         id: medlineCitation.PMID,
         title: articleData.ArticleTitle,
         abstract: articleData.Abstract?.AbstractText || '',
-        authors: articleData.AuthorList?.Author?.map(author => 
-          `${author.LastName || ''} ${author.ForeName || ''}`.trim()
-        ) || [],
+        authors,
         journal: medlineCitation.Article.Journal.Title || 'Unknown Journal',
         year: parseInt(medlineCitation.Article.Journal.PubDate.Year) || new Date().getFullYear(),
         citations: 0
