@@ -68,18 +68,20 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
       }
 
       const searchCriteria = {
-        population: `${selectedContinent}${selectedRegion ? ` - ${selectedRegion}` : ''}`,
+        population: selectedContinent && `${selectedContinent}${selectedRegion ? ` - ${selectedRegion}` : ''}`,
         disease,
         medicine,
         working_mechanism: workingMechanism,
-        patient_count: patientCount ? parseInt(patientCount) : null,
+        patient_count: patientCount ? parseInt(patientCount) : undefined,
         trial_type: trialType,
-        journal: selectedJournal !== "all" ? selectedJournal : null,
+        journal: selectedJournal !== "all" ? selectedJournal : undefined,
         date_range: startDate && endDate ? {
           start: startDate.toISOString(),
           end: endDate.toISOString()
-        } : null
+        } : undefined
       }
+
+      console.log('Search criteria:', searchCriteria)
 
       // Call the search-pubmed edge function
       const { data: pubmedData, error: pubmedError } = await supabase.functions.invoke('search-pubmed', {
