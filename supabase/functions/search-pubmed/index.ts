@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts"
+import { parse } from "https://deno.land/x/xml@2.1.1/mod.ts"
 import { extractPatientCount } from "../utils/extractPatientCount.ts"
 import { calculateRelevanceScore } from "../utils/calculateRelevance.ts"
 
@@ -39,13 +39,12 @@ async function searchPubMed(criteria: any) {
     // First get the PMIDs
     const searchResponse = await fetch(searchUrl)
     const searchText = await searchResponse.text()
-    const parser = new DOMParser()
-    const searchDoc = parser.parseFromString(searchText, 'text/xml')
+    const searchDoc = parse(searchText)
     
     if (!searchDoc) throw new Error('Failed to parse search XML')
 
-    const idList = searchDoc.querySelectorAll('IdList Id')
-    const pmids = Array.from(idList).map(id => id.textContent)
+    const idList = searchDoc.IdList?.Id || []
+    const pmids = Array.isArray(idList) ? idList.map(id => id?._text) : []
 
     if (pmids.length === 0) {
       return []
@@ -55,35 +54,45 @@ async function searchPubMed(criteria: any) {
     const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
     const fetchResponse = await fetch(fetchUrl)
     const fetchText = await fetchResponse.text()
-    const fetchDoc = parser.parseFromString(fetchText, 'text/xml')
+    const fetchDoc = parse(fetchText)
 
     if (!fetchDoc) throw new Error('Failed to parse fetch XML')
 
     const articles = []
-    const articleElements = fetchDoc.querySelectorAll('PubmedArticle')
+    const articleSet = fetchDoc.PubmedArticleSet?.PubmedArticle || []
+    const articleElements = Array.isArray(articleSet) ? articleSet : [articleSet]
     
     for (const element of articleElements) {
       try {
-        const id = element.querySelector('PMID')?.textContent || ''
-        const title = element.querySelector('ArticleTitle')?.textContent || 'No title'
-        const abstract = element.querySelector('Abstract')?.textContent || ''
+        const medlineCitation = element.MedlineCitation
+        const article = medlineCitation?.Article
+        
+        if (!article) continue
+
+        const id = medlineCitation?.PMID?._text || ''
+        const title = article?.ArticleTitle?._text || 'No title'
+        const abstract = article?.Abstract?.AbstractText?._text || ''
         
         // Get authors
-        const authorElements = element.querySelectorAll('Author')
-        const authors = Array.from(authorElements).map(author => {
-          const lastName = author.querySelector('LastName')?.textContent || ''
-          const foreName = author.querySelector('ForeName')?.textContent || ''
-          return `${lastName} ${foreName}`.trim()
-        })
+        const authorList = article?.AuthorList?.Author || []
+        const authors = Array.isArray(authorList) 
+          ? authorList.map(author => {
+              const lastName = author?.LastName?._text || ''
+              const foreName = author?.ForeName?._text || ''
+              return `${lastName} ${foreName}`.trim()
+            })
+          : []
 
         // Get journal info
-        const journal = element.querySelector('Journal Title')?.textContent || 
-                       element.querySelector('ISOAbbreviation')?.textContent || 
+        const journal = article?.Journal?.Title?._text || 
+                       article?.Journal?.ISOAbbreviation?._text || 
                        'Unknown Journal'
         
         // Get year
-        const yearElement = element.querySelector('PubDate Year')
-        const year = yearElement ? parseInt(yearElement.textContent || '') : new Date().getFullYear()
+        const pubDate = article?.Journal?.JournalIssue?.PubDate
+        const year = pubDate?.Year?._text 
+          ? parseInt(pubDate.Year._text) 
+          : new Date().getFullYear()
 
         // Calculate relevance score using full text
         const relevanceScore = calculateRelevanceScore(
