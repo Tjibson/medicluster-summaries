@@ -4,6 +4,7 @@ import { type Paper } from "@/types/papers"
 import { PaperCard } from "../PaperCard"
 import { PaginationControls } from "../PaginationControls"
 import { type SortOption } from "../SortingControls"
+import { useState } from "react"
 
 interface ResultsGridProps {
   papers: Paper[]
@@ -12,6 +13,7 @@ interface ResultsGridProps {
   currentPage: number
   onPageChange: (page: number) => void
   onPaperSelect: (paper: Paper) => void
+  totalPages?: number
 }
 
 export function ResultsGrid({ 
@@ -20,10 +22,11 @@ export function ResultsGrid({
   sortBy, 
   currentPage, 
   onPageChange,
-  onPaperSelect 
+  onPaperSelect,
+  totalPages = 1
 }: ResultsGridProps) {
   const { toast } = useToast()
-  const itemsPerPage = 25
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSavePaper = async (paper: Paper) => {
     if (!userId) {
@@ -128,38 +131,37 @@ export function ResultsGrid({
       case "title":
         return a.title.localeCompare(b.title)
       default: // "relevance" is default
-        // First sort by citations (higher citations first)
         const citationDiff = (b.citations || 0) - (a.citations || 0)
         if (citationDiff !== 0) {
           return citationDiff
         }
-        // If citations are equal, sort by relevance score
         const scoreA = a.relevance_score || 0
         const scoreB = b.relevance_score || 0
         if (scoreA !== scoreB) {
           return scoreB - scoreA
         }
-        // If both citations and relevance are equal, sort by date
         return b.year - a.year
     }
   })
 
-  const totalPages = Math.ceil(sortedPapers.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const paginatedPapers = sortedPapers.slice(startIndex, startIndex + itemsPerPage)
-
   return (
     <>
       <div className="space-y-4">
-        {paginatedPapers.map((paper) => (
-          <PaperCard
-            key={paper.id}
-            paper={paper}
-            onSave={handleSavePaper}
-            onLike={handleLikePaper}
-            onClick={() => onPaperSelect(paper)}
-          />
-        ))}
+        {isLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : (
+          sortedPapers.map((paper) => (
+            <PaperCard
+              key={paper.id}
+              paper={paper}
+              onSave={handleSavePaper}
+              onLike={handleLikePaper}
+              onClick={() => onPaperSelect(paper)}
+            />
+          ))
+        )}
       </div>
 
       <PaginationControls

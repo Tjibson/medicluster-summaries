@@ -3,6 +3,9 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { xml2js } from 'https://esm.sh/xml2js@0.4.23'
 import axiod from 'https://deno.land/x/axiod@0.26.2/mod.ts'
 
+const NCBI_EMAIL = 'tjibbe-beckers@live.nl'
+const NCBI_API_KEY = '0e15924868078a8b07c4fc709d8a306e6108'
+const RESULTS_PER_PAGE = 25
 const parser = new xml2js.Parser({ explicitArray: false, mergeAttrs: true })
 
 serve(async (req) => {
@@ -12,8 +15,8 @@ serve(async (req) => {
   }
 
   try {
-    const { term, dateRange, journalNames } = await req.json()
-    console.log('Search request:', { term, dateRange, journalNames })
+    const { term, dateRange, journalNames, page = 1 } = await req.json()
+    console.log('Search request:', { term, dateRange, journalNames, page })
 
     if (!term) {
       throw new Error('Search term is required')
@@ -29,23 +32,34 @@ serve(async (req) => {
       searchQuery += ` AND (${journalFilter})`
     }
 
-    // 1. Use ESearch to get PMIDs
-    const esearchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${searchQuery}&retmode=json&retmax=100`
+    // Calculate pagination parameters
+    const start = (page - 1) * RESULTS_PER_PAGE
+
+    // 1. Use ESearch to get PMIDs with pagination
+    const esearchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${searchQuery}&retmode=json&retmax=${RESULTS_PER_PAGE}&retstart=${start}&email=${NCBI_EMAIL}&api_key=${NCBI_API_KEY}`
     console.log('ESearch URL:', esearchUrl)
 
     const esearchResponse = await axiod.get(esearchUrl)
-    const pmids = esearchResponse.data.esearchresult.idlist
-    console.log('Found PMIDs:', pmids.length)
+    const { count, idlist: pmids } = esearchResponse.data.esearchresult
+    console.log('Found PMIDs:', pmids.length, 'Total results:', count)
 
     if (pmids.length === 0) {
       return new Response(
-        JSON.stringify({ articles: [] }),
+        JSON.stringify({ 
+          articles: [],
+          pagination: {
+            total: 0,
+            page,
+            totalPages: 0,
+            hasMore: false
+          }
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     // 2. Use EFetch to get article details
-    const efetchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
+    const efetchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml&email=${NCBI_EMAIL}&api_key=${NCBI_API_KEY}`
     console.log('EFetch URL:', efetchUrl)
 
     const efetchResponse = await axiod.get(efetchUrl)
@@ -111,16 +125,37 @@ serve(async (req) => {
       }
     }).filter(Boolean)
 
+    // Calculate pagination info
+    const totalPages = Math.ceil(count / RESULTS_PER_PAGE)
+    const hasMore = page < totalPages
+
     console.log('Returning articles:', articles.length)
 
     return new Response(
-      JSON.stringify({ articles }),
+      JSON.stringify({ 
+        articles,
+        pagination: {
+          total: count,
+          page,
+          totalPages,
+          hasMore
+        }
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
     console.error('Error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        articles: [],
+        pagination: {
+          total: 0,
+          page: 1,
+          totalPages: 0,
+          hasMore: false
+        }
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500

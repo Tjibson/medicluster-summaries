@@ -15,13 +15,25 @@ interface ResultsContainerProps {
     keywords: string
     journalNames: string[]
   } | null
+  pagination?: {
+    total: number
+    page: number
+    totalPages: number
+    hasMore: boolean
+  }
+  onPageChange?: (page: number) => void
 }
 
-export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsContainerProps) {
+export function ResultsContainer({ 
+  papers, 
+  isLoading, 
+  searchCriteria,
+  pagination = { total: 0, page: 1, totalPages: 1, hasMore: false },
+  onPageChange = () => {}
+}: ResultsContainerProps) {
   const [userId, setUserId] = useState<string | null>(null)
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
   const [sortBy, setSortBy] = useState<SortOption>("relevance")
-  const [currentPage, setCurrentPage] = useState(1)
   const [papersWithCitations, setPapersWithCitations] = useState<Paper[]>([])
 
   useEffect(() => {
@@ -36,7 +48,6 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
 
   useEffect(() => {
     console.log("Papers received in ResultsContainer:", papers)
-    // Since we're already getting citations from PubMed, we can just use the papers directly
     setPapersWithCitations(papers.map(paper => ({
       ...paper,
       citations: paper.citations || 0
@@ -53,15 +64,17 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
         searchCriteria={searchCriteria}
         sortBy={sortBy}
         onSortChange={setSortBy}
+        totalResults={pagination.total}
       />
       
       <ResultsGrid
         papers={papersWithCitations}
         userId={userId}
         sortBy={sortBy}
-        currentPage={currentPage}
-        onPageChange={setCurrentPage}
+        currentPage={pagination.page}
+        onPageChange={onPageChange}
         onPaperSelect={setSelectedPaper}
+        totalPages={pagination.totalPages}
       />
 
       <ArticleDetails
