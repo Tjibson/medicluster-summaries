@@ -25,10 +25,10 @@ export function TopNav() {
     }
 
     try {
+      console.log("Searching with query:", searchQuery.trim())
       const { data, error } = await supabase.functions.invoke('search-pubmed', {
         body: { 
-          disease: searchQuery,
-          pages: 1
+          medicine: searchQuery.trim()
         }
       })
 
@@ -37,7 +37,7 @@ export function TopNav() {
       navigate('/', { 
         state: { 
           searchResults: data.papers,
-          searchCriteria: { disease: searchQuery }
+          searchCriteria: { medicine: searchQuery.trim() }
         }
       })
 
