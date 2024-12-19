@@ -35,14 +35,14 @@ serve(async (req) => {
 
     console.log('Final search query:', searchQuery)
 
-    // Search PubMed with a limit of 20 papers
-    const xmlText = await searchPubMed(searchQuery, searchCriteria.date_range, 20)
+    // Search PubMed with a smaller limit
+    const xmlText = await searchPubMed(searchQuery, searchCriteria.date_range, 10)
     let papers = parseArticles(xmlText, searchCriteria)
 
     console.log(`Found ${papers.length} papers from PubMed`)
 
-    // Process papers in smaller batches for Google Scholar data
-    const batchSize = 5
+    // Process papers in smaller batches with delay between batches
+    const batchSize = 3
     const enhancedPapers = []
     
     for (let i = 0; i < papers.length; i += batchSize) {
@@ -62,6 +62,11 @@ serve(async (req) => {
         })
       )
       enhancedPapers.push(...batchResults)
+      
+      // Add delay between batches
+      if (i + batchSize < papers.length) {
+        await new Promise(resolve => setTimeout(resolve, 2000))
+      }
     }
 
     console.log(`Enhanced ${enhancedPapers.length} papers with Google Scholar data`)
