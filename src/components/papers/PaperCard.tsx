@@ -17,10 +17,23 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
     >
       <div className="space-y-4">
         <h3 className="font-semibold text-lg">{paper.title}</h3>
-        <p className="text-sm text-gray-600">
-          Citations: {paper.citations || 0}
+        
+        <div className="flex items-center space-x-2 text-sm text-gray-600">
+          <p>Citations: {paper.citations || 0}</p>
+          <span>•</span>
+          <p>{paper.year}</p>
+          <span>•</span>
+          <p>{paper.journal}</p>
+        </div>
+
+        <div className="text-sm text-gray-600">
+          <p>Authors: {paper.authors.join(", ")}</p>
+        </div>
+
+        <p className="text-gray-700 text-sm leading-relaxed">
+          {paper.abstract || "Abstract not available"}
         </p>
-        <p className="text-gray-700">{paper.abstract}</p>
+
         <div className="flex justify-end">
           <PaperActions
             paper={paper}
