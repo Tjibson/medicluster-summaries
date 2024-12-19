@@ -1,7 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { parse } from "https://deno.land/x/xml@2.1.1/mod.ts"
-import { extractPatientCount } from "../utils/extractPatientCount.ts"
-import { calculateRelevanceScore } from "../utils/calculateRelevance.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,13 +35,12 @@ async function searchPubMed(criteria: any) {
   try {
     // First get the PMIDs
     const searchResponse = await fetch(searchUrl)
-    const searchText = await searchResponse.text()
-    const searchDoc = parse(searchText)
+    if (!searchResponse.ok) {
+      throw new Error(`Failed to fetch search results: ${searchResponse.statusText}`)
+    }
     
-    if (!searchDoc) throw new Error('Failed to parse search XML')
-
-    const idList = searchDoc.IdList?.Id || []
-    const pmids = Array.isArray(idList) ? idList.map(id => id?._text) : []
+    const searchText = await searchResponse.text()
+    const pmids = searchText.match(/<Id>(\d+)<\/Id>/g)?.map(id => id.replace(/<\/?Id>/g, '')) || []
 
     if (pmids.length === 0) {
       return []
@@ -53,63 +49,56 @@ async function searchPubMed(criteria: any) {
     // Then fetch details for all PMIDs
     const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
     const fetchResponse = await fetch(fetchUrl)
-    const fetchText = await fetchResponse.text()
-    const fetchDoc = parse(fetchText)
-
-    if (!fetchDoc) throw new Error('Failed to parse fetch XML')
-
-    const articles = []
-    const articleSet = fetchDoc.PubmedArticleSet?.PubmedArticle || []
-    const articleElements = Array.isArray(articleSet) ? articleSet : [articleSet]
+    if (!fetchResponse.ok) {
+      throw new Error(`Failed to fetch article details: ${fetchResponse.statusText}`)
+    }
     
-    for (const element of articleElements) {
+    const fetchText = await fetchResponse.text()
+    const articles = []
+
+    // Parse articles using regex since XML parsing is problematic
+    const articleMatches = fetchText.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
+    
+    for (const articleXml of articleMatches) {
       try {
-        const medlineCitation = element.MedlineCitation
-        const article = medlineCitation?.Article
+        // Extract basic article info using regex
+        const id = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)?.[1] || ''
+        const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
+        const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
         
-        if (!article) continue
+        // Extract authors
+        const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
+        const authors = Array.from(authorMatches).map(match => {
+          const lastName = match[1] || ''
+          const foreName = match[2] || ''
+          return `${lastName} ${foreName}`.trim()
+        })
 
-        const id = medlineCitation?.PMID?._text || ''
-        const title = article?.ArticleTitle?._text || 'No title'
-        const abstract = article?.Abstract?.AbstractText?._text || ''
-        
-        // Get authors
-        const authorList = article?.AuthorList?.Author || []
-        const authors = Array.isArray(authorList) 
-          ? authorList.map(author => {
-              const lastName = author?.LastName?._text || ''
-              const foreName = author?.ForeName?._text || ''
-              return `${lastName} ${foreName}`.trim()
-            })
-          : []
-
-        // Get journal info
-        const journal = article?.Journal?.Title?._text || 
-                       article?.Journal?.ISOAbbreviation?._text || 
+        // Extract journal info
+        const journal = articleXml.match(/<Journal>[\s\S]*?<Title>(.*?)<\/Title>/)?.[1] ||
+                       articleXml.match(/<ISOAbbreviation>(.*?)<\/ISOAbbreviation>/)?.[1] ||
                        'Unknown Journal'
         
-        // Get year
-        const pubDate = article?.Journal?.JournalIssue?.PubDate
-        const year = pubDate?.Year?._text 
-          ? parseInt(pubDate.Year._text) 
-          : new Date().getFullYear()
-
-        // Calculate relevance score using full text
-        const relevanceScore = calculateRelevanceScore(
-          `${title} ${abstract}`, 
-          criteria
-        )
+        // Extract year
+        const yearMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(.*?)<\/Year>/)?.[1]
+        const year = yearMatch ? parseInt(yearMatch) : new Date().getFullYear()
 
         // Extract patient count from abstract
         const patientCount = extractPatientCount(abstract)
 
+        // Calculate relevance score
+        const relevanceScore = calculateRelevanceScore(
+          `${title} ${abstract}`,
+          criteria
+        )
+
         const paperData = {
           id,
-          title,
+          title: decodeXMLEntities(title),
           authors,
-          journal,
+          journal: decodeXMLEntities(journal),
           year,
-          abstract,
+          abstract: decodeXMLEntities(abstract),
           citations: 0,
           patient_count: patientCount,
           relevance_score: relevanceScore
@@ -131,6 +120,86 @@ async function searchPubMed(criteria: any) {
     console.error('Error searching PubMed:', error)
     throw error
   }
+}
+
+// Helper function to decode XML entities
+function decodeXMLEntities(text: string): string {
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+}
+
+// Helper function to extract patient count
+function extractPatientCount(text: string): number | null {
+  if (!text) return null
+
+  const patterns = [
+    /(?:included|enrolled|recruited|studied)\s+(\d+)\s+(?:patients?|participants?|subjects?)/i,
+    /(?:n\s*=\s*)(\d+)(?:\s*patients?)?/i,
+    /(?:sample size|cohort)\s+of\s+(\d+)/i,
+    /(\d+)\s+(?:patients?|participants?|subjects?)\s+(?:were|was)\s+(?:included|enrolled|recruited)/i,
+    /total\s+(?:of\s+)?(\d+)\s+(?:patients?|participants?|subjects?)/i,
+    /population\s+of\s+(\d+)/i
+  ]
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern)
+    if (match && match[1]) {
+      const count = parseInt(match[1])
+      if (!isNaN(count) && count > 0) {
+        return count
+      }
+    }
+  }
+
+  return null
+}
+
+// Helper function to calculate relevance score
+function calculateRelevanceScore(text: string, searchTerms: any): number {
+  if (!text || !Object.values(searchTerms).some(term => term)) return 0
+
+  let score = 0
+  let totalCriteria = 0
+  const textLower = text.toLowerCase()
+
+  // Helper function to count occurrences
+  const countOccurrences = (searchTerm: string): number => {
+    if (!searchTerm) return 0
+    const terms = searchTerm.toLowerCase().split(/\s+/)
+    let matches = 0
+    terms.forEach(term => {
+      const regex = new RegExp(term, 'g')
+      matches += (textLower.match(regex) || []).length
+    })
+    return matches
+  }
+
+  // Score each search term
+  Object.entries(searchTerms).forEach(([key, term]) => {
+    if (term && typeof term === 'string' && key !== 'patient_count') {
+      totalCriteria++
+      const occurrences = countOccurrences(term)
+      if (occurrences > 0) {
+        // Base match score
+        score += 1
+        // Bonus for multiple occurrences, capped at 0.5
+        score += Math.min(occurrences / 5, 0.5)
+      }
+    }
+  })
+
+  // Handle direct query searches differently
+  if (searchTerms.query) {
+    const queryScore = countOccurrences(searchTerms.query)
+    return queryScore > 0 ? 100 * (1 + Math.min(queryScore / 10, 0.5)) : 0
+  }
+
+  // Normalize score to percentage
+  return totalCriteria > 0 ? (score / totalCriteria) * 100 : 0
 }
 
 serve(async (req) => {
