@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 import axiod from 'https://deno.land/x/axiod@0.26.2/mod.ts'
+import * as xml2js from 'https://esm.sh/xml2js@0.4.23'
 
 const NCBI_EMAIL = 'tjibbe-beckers@live.nl'
 const NCBI_API_KEY = '0e15924868078a8b07c4fc709d8a306e6108'
@@ -60,44 +61,27 @@ serve(async (req) => {
     const efetchResponse = await axiod.get(efetchUrl)
     const xmlData = efetchResponse.data
 
-    // Parse XML to extract article data
-    const articles = pmids.map(pmid => {
-      try {
-        const articleMatch = xmlData.match(new RegExp(`<PubmedArticle>.*?<PMID>${pmid}</PMID>.*?</PubmedArticle>`, 's'))
-        if (!articleMatch) return null
+    // Parse XML using xml2js
+    const parserOptions = { explicitArray: false, mergeAttrs: true }
+    const parsedXml = await xml2js.parseStringPromise(xmlData, parserOptions)
 
-        const articleXml = articleMatch[0]
-        const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
-        const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
-        
-        const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
-        const authors = Array.from(authorMatches).map(match => {
-          const lastName = match[1] || ''
-          const foreName = match[2] || ''
-          return `${lastName} ${foreName}`.trim()
-        })
+    // Transform parsed XML to articles
+    const articles = parsedXml.PubmedArticleSet.PubmedArticle.map(article => {
+      const medlineCitation = article.MedlineCitation
+      const articleData = medlineCitation.Article
 
-        const journal = articleXml.match(/<Journal>[\s\S]*?<Title>(.*?)<\/Title>/)?.[1] ||
-                       articleXml.match(/<ISOAbbreviation>(.*?)<\/ISOAbbreviation>/)?.[1] ||
-                       'Unknown Journal'
-        
-        const yearMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(.*?)<\/Year>/)
-        const year = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear()
-
-        return {
-          id: pmid,
-          title: decodeXMLEntities(title),
-          abstract: decodeXMLEntities(abstract),
-          authors,
-          journal: decodeXMLEntities(journal),
-          year,
-          citations: 0
-        }
-      } catch (error) {
-        console.error(`Error processing article ${pmid}:`, error)
-        return null
+      return {
+        id: medlineCitation.PMID,
+        title: articleData.ArticleTitle,
+        abstract: articleData.Abstract?.AbstractText || '',
+        authors: articleData.AuthorList?.Author?.map(author => 
+          `${author.LastName || ''} ${author.ForeName || ''}`.trim()
+        ) || [],
+        journal: medlineCitation.Article.Journal.Title || 'Unknown Journal',
+        year: parseInt(medlineCitation.Article.Journal.PubDate.Year) || new Date().getFullYear(),
+        citations: 0
       }
-    }).filter(Boolean)
+    })
 
     const totalPages = Math.ceil(count / RESULTS_PER_PAGE)
 
@@ -134,12 +118,3 @@ serve(async (req) => {
     )
   }
 })
-
-function decodeXMLEntities(text: string): string {
-  return text
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-}
