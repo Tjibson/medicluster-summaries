@@ -29,7 +29,12 @@ serve(async (req) => {
     
     // Construct the final query with date range
     const dateQuery = `(${dateRange.start}[PDAT] : ${dateRange.end}[PDAT])`
-    const finalQuery = `${dateQuery} AND (${journalQuery}) AND ${keywords}`
+    let finalQuery = `${dateQuery} AND (${journalQuery})`
+    
+    // Only add keywords if they exist
+    if (keywords.trim()) {
+      finalQuery += ` AND ${keywords}`
+    }
 
     console.log('Executing PubMed search with query:', finalQuery)
 

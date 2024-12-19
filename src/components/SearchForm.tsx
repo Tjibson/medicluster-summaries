@@ -37,34 +37,22 @@ export function SearchForm({ onSearch }: SearchFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    const trimmedMedicine = medicine.trim()
-    const trimmedCondition = condition.trim()
-    
-    if (!trimmedMedicine && !trimmedCondition) {
-      toast({
-        title: "Error",
-        description: "Please enter at least a medicine or condition",
-        variant: "destructive",
-      })
-      return
-    }
-
     setIsLoading(true)
 
     try {
       console.log("Building search query...")
-      const medicineKeywords = trimmedMedicine.split(/[ ,]+/).filter(Boolean)
-      const conditionKeywords = trimmedCondition.split(/[ ,]+/).filter(Boolean)
+      const medicineKeywords = medicine.trim().split(/[ ,]+/).filter(Boolean)
+      const conditionKeywords = condition.trim().split(/[ ,]+/).filter(Boolean)
       
-      const medicineQuery = medicineKeywords.length > 0 ? 
-        `(${medicineKeywords.join(" OR ")})` : ""
-      const conditionQuery = conditionKeywords.length > 0 ? 
-        `(${conditionKeywords.join(" OR ")})` : ""
+      let keywordsLogic = ""
       
-      const keywordsLogic = [medicineQuery, conditionQuery]
-        .filter(Boolean)
-        .join(" AND ")
+      if (medicineKeywords.length > 0 && conditionKeywords.length > 0) {
+        keywordsLogic = `(${medicineKeywords.join(" OR ")}) AND (${conditionKeywords.join(" OR ")})`
+      } else if (medicineKeywords.length > 0) {
+        keywordsLogic = `(${medicineKeywords.join(" OR ")})`
+      } else if (conditionKeywords.length > 0) {
+        keywordsLogic = `(${conditionKeywords.join(" OR ")})`
+      }
 
       const { data, error } = await supabase.functions.invoke('search-pubmed', {
         body: {
@@ -125,7 +113,7 @@ export function SearchForm({ onSearch }: SearchFormProps) {
         />
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">Medicine Keywords (separated by spaces or commas)</label>
+          <label className="text-sm font-medium">Medicine Keywords (optional)</label>
           <Input
             value={medicine}
             onChange={(e) => setMedicine(e.target.value)}
@@ -135,7 +123,7 @@ export function SearchForm({ onSearch }: SearchFormProps) {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">Condition Keywords (separated by spaces or commas)</label>
+          <label className="text-sm font-medium">Condition Keywords (optional)</label>
           <Input
             value={condition}
             onChange={(e) => setCondition(e.target.value)}
