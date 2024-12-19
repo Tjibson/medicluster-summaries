@@ -8,32 +8,58 @@ const corsHeaders = {
 }
 
 interface SearchParams {
-  dateRange: {
+  dateRange?: {
     start: string
     end: string
   }
-  journalNames: string[]
-  keywords: string
+  journalNames?: string[]
+  keywords?: string
+  medicine?: string
+  condition?: string
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { dateRange, journalNames, keywords } = await req.json() as SearchParams
+    const params = await req.json() as SearchParams
+    console.log('Received search params:', params)
 
-    // Format the journal query
-    const journalQuery = journalNames.map(journal => `"${journal}"[Journal]`).join(' OR ')
-    
-    // Construct the final query with date range
-    const dateQuery = `(${dateRange.start}[PDAT] : ${dateRange.end}[PDAT])`
-    let finalQuery = `${dateQuery} AND (${journalQuery})`
-    
-    // Only add keywords if they exist
-    if (keywords.trim()) {
-      finalQuery += ` AND ${keywords}`
+    // Format the journal query if journals are provided
+    const journalQuery = params.journalNames?.length 
+      ? params.journalNames.map(journal => `"${journal}"[Journal]`).join(' OR ')
+      : ''
+
+    // Build date query
+    const startDate = params.dateRange?.start || "2024/01/01"
+    const endDate = params.dateRange?.end || "2024/12/31"
+    const dateQuery = `(${startDate}[PDAT] : ${endDate}[PDAT])`
+
+    // Build keywords query
+    let keywordsQuery = ''
+    if (params.medicine || params.condition) {
+      const medicineTerms = params.medicine?.trim().split(/[ ,]+/).filter(Boolean) || []
+      const conditionTerms = params.condition?.trim().split(/[ ,]+/).filter(Boolean) || []
+      
+      if (medicineTerms.length && conditionTerms.length) {
+        keywordsQuery = `(${medicineTerms.join(" OR ")}) AND (${conditionTerms.join(" OR ")})`
+      } else if (medicineTerms.length) {
+        keywordsQuery = `(${medicineTerms.join(" OR ")})`
+      } else if (conditionTerms.length) {
+        keywordsQuery = `(${conditionTerms.join(" OR ")})`
+      }
+    }
+
+    // Construct the final query
+    let finalQuery = dateQuery
+    if (journalQuery) {
+      finalQuery += ` AND (${journalQuery})`
+    }
+    if (keywordsQuery) {
+      finalQuery += ` AND ${keywordsQuery}`
     }
 
     console.log('Executing PubMed search with query:', finalQuery)
@@ -58,7 +84,7 @@ serve(async (req) => {
     }
 
     // Parse the articles
-    const papers = parseArticles(xmlResponse, { keywords })
+    const papers = parseArticles(xmlResponse, { keywords: keywordsQuery })
     console.log(`Successfully processed ${papers.length} papers`)
 
     return new Response(
