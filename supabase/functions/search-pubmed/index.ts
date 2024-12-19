@@ -28,8 +28,10 @@ serve(async (req) => {
     
     searchQuery = searchTerms.join(' AND ')
     
+    // If no specific criteria provided, search for all medical research papers from last year
     if (!searchQuery.trim()) {
-      throw new Error('No search criteria provided')
+      const lastYear = new Date().getFullYear() - 1
+      searchQuery = `"${lastYear}/01/01"[Date - Publication] : "${lastYear}/12/31"[Date - Publication]`
     }
 
     console.log('Final search query:', searchQuery)

@@ -88,12 +88,18 @@ export function SearchForm({ onSearch }: { onSearch: (criteria: any) => void }) 
 
       if (pubmedError) throw pubmedError
 
-      // Save search history in background
+      // Save search history in background, excluding date_range
+      const { population, disease, medicine, working_mechanism, patient_count, trial_type } = searchCriteria
       await supabase
         .from("search_history")
         .insert({
           user_id: session.user.id,
-          ...searchCriteria
+          population,
+          disease,
+          medicine,
+          working_mechanism,
+          patient_count,
+          trial_type
         })
         .single()
 
