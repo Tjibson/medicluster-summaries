@@ -12,9 +12,9 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Received request body:", await req.text())
-    const { medicine } = await req.json()
-    console.log("Extracted medicine:", medicine)
+    const requestData = await req.json()
+    console.log("Received request data:", requestData)
+    const { medicine } = requestData
 
     if (!medicine?.trim()) {
       return new Response(
