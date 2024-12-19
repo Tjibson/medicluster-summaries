@@ -21,87 +21,81 @@ serve(async (req) => {
       )
     }
 
-    // Construct PubMed search query focusing on title and abstract
     const searchQuery = `${medicine}[Title/Abstract]`
-    
-    console.log('Final search query:', searchQuery)
+    console.log('Search query:', searchQuery)
 
-    // Fetch from PubMed with limit of 10 results
     const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
-    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=10&usehistory=y`
-    
-    console.log('Fetching from PubMed:', searchUrl)
-    const searchResponse = await fetch(searchUrl)
-    if (!searchResponse.ok) {
-      throw new Error(`PubMed search failed: ${searchResponse.statusText}`)
-    }
-    
-    const searchText = await searchResponse.text()
-    const pmids = searchText.match(/<Id>(\d+)<\/Id>/g)?.map(id => id.replace(/<\/?Id>/g, '')) || []
-    
-    if (pmids.length === 0) {
-      console.log('No results found')
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 25000) // 25 second timeout
+
+    try {
+      const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=10&usehistory=y`
+      console.log('Fetching from PubMed:', searchUrl)
+      
+      const searchResponse = await fetch(searchUrl, { signal: controller.signal })
+      if (!searchResponse.ok) {
+        throw new Error(`PubMed search failed: ${searchResponse.statusText}`)
+      }
+      
+      const searchText = await searchResponse.text()
+      const pmids = searchText.match(/<Id>(\d+)<\/Id>/g)?.map(id => id.replace(/<\/?Id>/g, '')) || []
+      
+      if (pmids.length === 0) {
+        console.log('No results found')
+        return new Response(
+          JSON.stringify({ success: true, papers: [] }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      console.log(`Found ${pmids.length} PMIDs, fetching details...`)
+      const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
+      const fetchResponse = await fetch(fetchUrl, { signal: controller.signal })
+      
+      if (!fetchResponse.ok) {
+        throw new Error(`Failed to fetch article details: ${fetchResponse.statusText}`)
+      }
+
+      const articlesXml = await fetchResponse.text()
+      const papers = []
+      const articleMatches = articlesXml.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
+
+      for (const articleXml of articleMatches) {
+        try {
+          const id = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)?.[1] || ''
+          const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
+          const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
+
+          papers.push({
+            id,
+            title: decodeXMLEntities(title),
+            abstract: decodeXMLEntities(abstract),
+            citations: 0
+          })
+        } catch (error) {
+          console.error('Error processing article:', error)
+          continue
+        }
+      }
+
+      clearTimeout(timeout)
+      console.log(`Successfully parsed ${papers.length} papers`)
+
       return new Response(
-        JSON.stringify({ success: true, papers: [] }),
+        JSON.stringify({ success: true, papers }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
-    }
 
-    console.log(`Found ${pmids.length} PMIDs, fetching details...`)
-    const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
-    const fetchResponse = await fetch(fetchUrl)
-    
-    if (!fetchResponse.ok) {
-      throw new Error(`Failed to fetch article details: ${fetchResponse.statusText}`)
-    }
-
-    const articlesXml = await fetchResponse.text()
-    
-    // Parse articles
-    const papers = []
-    const articleMatches = articlesXml.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
-
-    for (const articleXml of articleMatches) {
-      try {
-        const id = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)?.[1] || ''
-        const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
-        const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
-        
-        const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
-        const authors = Array.from(authorMatches).map(match => {
-          const lastName = match[1] || ''
-          const foreName = match[2] || ''
-          return `${foreName} ${lastName}`.trim()
-        })
-
-        const journal = articleXml.match(/<Journal>[\s\S]*?<Title>(.*?)<\/Title>/)?.[1] ||
-                       articleXml.match(/<ISOAbbreviation>(.*?)<\/ISOAbbreviation>/)?.[1] ||
-                       'Unknown Journal'
-        
-        const yearMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(.*?)<\/Year>/)?.[1]
-        const year = yearMatch ? parseInt(yearMatch) : new Date().getFullYear()
-
-        papers.push({
-          id,
-          title: decodeXMLEntities(title),
-          authors,
-          journal: decodeXMLEntities(journal),
-          year,
-          abstract: decodeXMLEntities(abstract),
-          citations: 0
-        })
-      } catch (error) {
-        console.error('Error processing article:', error)
-        continue
+    } catch (error) {
+      clearTimeout(timeout)
+      if (error.name === 'AbortError') {
+        return new Response(
+          JSON.stringify({ success: false, message: "Request timed out" }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 408 }
+        )
       }
+      throw error
     }
-
-    console.log(`Successfully parsed ${papers.length} papers`)
-
-    return new Response(
-      JSON.stringify({ success: true, papers }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
 
   } catch (error) {
     console.error('Error:', error.message)
