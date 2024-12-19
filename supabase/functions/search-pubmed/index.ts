@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { fetchGoogleScholarData } from "../utils/googleScholar.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -80,8 +81,8 @@ serve(async (req) => {
     }
 
     // Step 5: Process and format the papers
-    const papers = pmids
-      .map(pmid => {
+    const papers = await Promise.all(pmids
+      .map(async pmid => {
         const paper = summaryData.result[pmid]
         if (!paper) return null
 
@@ -105,6 +106,9 @@ serve(async (req) => {
         // Get abstract from our XML parsing
         const abstract = abstractMap.get(pmid) || 'Abstract not available'
 
+        // Fetch Google Scholar data
+        const scholarData = await fetchGoogleScholarData(title, authors)
+
         return {
           id: pmid,
           title: title || 'No title available',
@@ -112,13 +116,13 @@ serve(async (req) => {
           journal: paper.fulljournalname || paper.source || 'Unknown Journal',
           year,
           abstract,
-          citations: 0,
+          citations: scholarData.citations,
           relevance_score: 100
         }
-      })
+      }))
       .filter(Boolean)
 
-    console.log(`Successfully processed ${papers.length} papers with abstracts`)
+    console.log(`Successfully processed ${papers.length} papers with citations and abstracts`)
 
     return new Response(
       JSON.stringify({ 

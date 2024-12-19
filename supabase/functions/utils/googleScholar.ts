@@ -14,24 +14,27 @@ export async function fetchGoogleScholarData(title: string, authors: string[]) {
     
     if (!response.ok) {
       console.error('Google Scholar request failed:', response.status)
-      return null
+      return { citations: 0 }
     }
     
     const html = await response.text()
     const parser = new DOMParser()
     const doc = parser.parseFromString(html, 'text/html')
     
-    if (!doc) return null
+    if (!doc) return { citations: 0 }
 
-    // Try to find PDF link
-    const pdfLink = doc.querySelector('.gs_or_ggsm a[href*=".pdf"]')?.getAttribute('href')
+    // Find citation count
+    const citedByText = Array.from(doc.querySelectorAll('.gs_fl a'))
+      .find(a => a.textContent?.includes('Cited by'))
+      ?.textContent
     
-    return {
-      pdfUrl: pdfLink || null,
-    }
+    const citations = citedByText ? 
+      parseInt(citedByText.match(/\d+/)?.[0] || '0') : 0
+
+    return { citations }
   } catch (error) {
     console.error('Error fetching Google Scholar data:', error)
-    return null
+    return { citations: 0 }
   }
 }
 
