@@ -6,6 +6,8 @@ import { type Paper } from "@/types/papers"
 import { DateRangeSelect } from "./search/DateRangeSelect"
 import { SearchInputs } from "./search/SearchInputs"
 import { Loader2 } from "lucide-react"
+import { DEFAULT_JOURNALS } from "@/constants/journals"
+import { buildSearchQuery } from "@/utils/searchQueryBuilder"
 
 interface SearchFormProps {
   onSearch: (papers: Paper[], searchCriteria: {
@@ -15,32 +17,6 @@ interface SearchFormProps {
   }) => void
   onSearchStart: () => void
 }
-
-const DEFAULT_JOURNALS = [
-  "ESC heart failure",
-  "JACC. Heart failure",
-  "Journal of the American College of Cardiology",
-  "Circulation",
-  "European journal of heart failure",
-  "JAMA cardiology",
-  "Frontiers in cardiovascular medicine",
-  "Journal of the American Heart Association",
-  "Nature",
-  "The Lancet",
-  "The New England journal of medicine",
-  "JAMA",
-  "BMJ (Clinical research ed.)",
-  "Annals of internal medicine",
-  "European heart journal",
-  "Circulation research",
-  "Nature medicine",
-  "The Lancet. Diabetes & endocrinology",
-  "The Lancet. Oncology",
-  "JAMA internal medicine",
-  "JAMA oncology",
-  "Science translational medicine",
-  "Nature cardiovascular research"
-]
 
 export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
   const [medicine, setMedicine] = useState("")
@@ -66,23 +42,7 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
       const medicineKeywords = medicine.trim().split(/[ ,]+/).filter(Boolean)
       const conditionKeywords = condition.trim().split(/[ ,]+/).filter(Boolean)
       
-      let keywordsLogic = ""
-      
-      if (medicineKeywords.length > 0 && conditionKeywords.length > 0) {
-        // For medicine terms, also search for them as MeSH terms and Supplementary Concepts
-        const medicineSearch = medicineKeywords.map(term => 
-          `(${term}[All Fields] OR ${term}[MeSH Terms] OR ${term}[Supplementary Concept])`
-        ).join(" OR ")
-        
-        keywordsLogic = `(${medicineSearch}) AND (${conditionKeywords.join(" OR ")})`
-      } else if (medicineKeywords.length > 0) {
-        const medicineSearch = medicineKeywords.map(term => 
-          `(${term}[All Fields] OR ${term}[MeSH Terms] OR ${term}[Supplementary Concept])`
-        ).join(" OR ")
-        keywordsLogic = `(${medicineSearch})`
-      } else if (conditionKeywords.length > 0) {
-        keywordsLogic = `(${conditionKeywords.join(" OR ")})`
-      }
+      const keywordsLogic = buildSearchQuery(medicineKeywords, conditionKeywords)
 
       const { data, error } = await supabase.functions.invoke('search-pubmed', {
         body: {

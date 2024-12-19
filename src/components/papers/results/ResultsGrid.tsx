@@ -128,13 +128,18 @@ export function ResultsGrid({
       case "title":
         return a.title.localeCompare(b.title)
       default: // "relevance" is default
-        // Higher relevance score should come first
+        // First sort by citations (higher citations first)
+        const citationDiff = (b.citations || 0) - (a.citations || 0)
+        if (citationDiff !== 0) {
+          return citationDiff
+        }
+        // If citations are equal, sort by relevance score
         const scoreA = a.relevance_score || 0
         const scoreB = b.relevance_score || 0
         if (scoreA !== scoreB) {
           return scoreB - scoreA
         }
-        // If relevance scores are equal, sort by date (newer first)
+        // If both citations and relevance are equal, sort by date
         return b.year - a.year
     }
   })
