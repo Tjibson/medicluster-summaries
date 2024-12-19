@@ -29,12 +29,20 @@ async function searchPubMed(query: string, dateRange?: { start: string; end: str
     }
     
     // Initial search to get PMIDs
-    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=25&usehistory=y`
+    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(searchQuery)}&retmax=100&usehistory=y`
+    console.log('Search URL:', searchUrl)
+    
     const searchResponse = await fetch(searchUrl)
+    if (!searchResponse.ok) {
+      throw new Error(`Search request failed: ${searchResponse.statusText}`)
+    }
+    
     const searchText = await searchResponse.text()
+    console.log('Search response:', searchText)
     
     // Extract PMIDs from search results
     const pmids = searchText.match(/<Id>(\d+)<\/Id>/g)?.map(id => id.replace(/<\/?Id>/g, '')) || []
+    console.log('Found PMIDs:', pmids)
     
     if (pmids.length === 0) {
       console.log('No results found')
@@ -43,8 +51,15 @@ async function searchPubMed(query: string, dateRange?: { start: string; end: str
 
     // Fetch full article details
     const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
+    console.log('Fetch URL:', fetchUrl)
+    
     const fetchResponse = await fetch(fetchUrl)
+    if (!fetchResponse.ok) {
+      throw new Error(`Fetch request failed: ${fetchResponse.statusText}`)
+    }
+    
     const articlesXml = await fetchResponse.text()
+    console.log('Received articles XML length:', articlesXml.length)
     
     // Parse articles from XML
     const articles = parseArticles(articlesXml)
@@ -139,8 +154,8 @@ serve(async (req) => {
 
     // Build search query
     const searchTerms = []
-    if (params.medicine) searchTerms.push(params.medicine)
-    if (params.condition) searchTerms.push(params.condition)
+    if (params.medicine) searchTerms.push(`(${params.medicine})`)
+    if (params.condition) searchTerms.push(`(${params.condition})`)
     
     // Format the journal query if journals are provided
     const journalQuery = params.journalNames?.length 
@@ -149,6 +164,7 @@ serve(async (req) => {
 
     // Construct the final query
     const finalQuery = `${searchTerms.join(' AND ')}${journalQuery}`
+    console.log('Final PubMed query:', finalQuery)
     
     const papers = await searchPubMed(finalQuery, params.dateRange)
 
