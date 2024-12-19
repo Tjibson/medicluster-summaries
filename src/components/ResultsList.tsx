@@ -5,9 +5,9 @@ interface ResultsListProps {
   papers: Paper[]
   isLoading: boolean
   searchCriteria?: {
+    medicine?: string
     population?: string
     disease?: string
-    medicine?: string
     working_mechanism?: string
     patientCount?: string
     trialType?: string
@@ -16,6 +16,8 @@ interface ResultsListProps {
 }
 
 export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListProps) {
+  console.log("ResultsList received papers:", papers)
+  
   return (
     <ResultsContainer
       papers={papers}

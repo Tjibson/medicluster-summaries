@@ -3,9 +3,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
+import { type Paper } from "@/types/papers"
 
-export function SearchForm({ onSearch }: { onSearch: (papers: any[]) => void }) {
+interface SearchFormProps {
+  onSearch: (papers: Paper[], searchCriteria: { medicine: string }) => void
+}
+
+export function SearchForm({ onSearch }: SearchFormProps) {
   const [medicine, setMedicine] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -20,6 +26,8 @@ export function SearchForm({ onSearch }: { onSearch: (papers: any[]) => void }) 
       })
       return
     }
+
+    setIsLoading(true)
 
     try {
       console.log("Submitting search with medicine:", trimmedMedicine)
@@ -37,7 +45,7 @@ export function SearchForm({ onSearch }: { onSearch: (papers: any[]) => void }) 
       }
 
       console.log("Search results:", data.papers)
-      onSearch(data.papers)
+      onSearch(data.papers, { medicine: trimmedMedicine })
 
     } catch (error: any) {
       console.error("Error performing search:", error)
@@ -46,6 +54,8 @@ export function SearchForm({ onSearch }: { onSearch: (papers: any[]) => void }) 
         description: error.message || "Failed to perform search",
         variant: "destructive",
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -63,8 +73,8 @@ export function SearchForm({ onSearch }: { onSearch: (papers: any[]) => void }) 
           />
         </div>
 
-        <Button type="submit" className="w-full">
-          Search PubMed
+        <Button type="submit" className="w-full" disabled={isLoading}>
+          {isLoading ? "Searching..." : "Search PubMed"}
         </Button>
       </form>
     </div>

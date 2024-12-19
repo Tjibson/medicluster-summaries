@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { SearchForm } from "@/components/SearchForm"
 import { ResultsList } from "@/components/ResultsList"
 import { type Paper } from "@/types/papers"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SearchHistory } from "@/components/search/SearchHistory"
-import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { useLocation } from "react-router-dom"
 
@@ -16,37 +15,19 @@ export default function Index() {
   const location = useLocation()
 
   // Handle search results from TopNav search
-  useEffect(() => {
+  useState(() => {
     if (location.state?.searchResults) {
       setSearchResults(location.state.searchResults)
       setSearchCriteria(location.state.searchCriteria)
       // Clear the location state to avoid showing same results on refresh
       window.history.replaceState({}, document.title)
     }
-  }, [location.state])
+  })
 
-  const handleSearch = async (criteria: any) => {
-    setIsLoading(true)
+  const handleSearch = (papers: Paper[], criteria: any) => {
+    setSearchResults(papers)
     setSearchCriteria(criteria)
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('search-pubmed', {
-        body: criteria
-      })
-
-      if (error) throw error
-
-      setSearchResults(data.papers || [])
-    } catch (error) {
-      console.error('Error searching PubMed:', error)
-      toast({
-        title: "Error",
-        description: "Failed to search PubMed papers",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
+    console.log("Setting search results:", papers)
   }
 
   return (
@@ -63,11 +44,14 @@ export default function Index() {
           <SearchHistory onHistoryClick={handleSearch} />
         </TabsContent>
       </Tabs>
-      <ResultsList
-        papers={searchResults}
-        isLoading={isLoading}
-        searchCriteria={searchCriteria}
-      />
+      
+      {searchResults.length > 0 && (
+        <ResultsList
+          papers={searchResults}
+          isLoading={isLoading}
+          searchCriteria={searchCriteria}
+        />
+      )}
     </div>
   )
 }
