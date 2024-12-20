@@ -30,8 +30,8 @@ export function ResultsContainer({
 }: ResultsContainerProps) {
   const [userId, setUserId] = useState<string | null>(null)
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
-  const [sortBy, setSortBy] = useState<SortOption>("relevance")
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
+  const [sortBy, setSortBy] = useState<SortOption>("citations") // Default sort by citations
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc") // Default sort direction descending
   const [papersWithCitations, setPapersWithCitations] = useState<Paper[]>([])
   const [isCitationsLoading, setIsCitationsLoading] = useState(false)
   const [sortedPapers, setSortedPapers] = useState<Paper[]>(papers)
@@ -67,7 +67,7 @@ export function ResultsContainer({
               if (error) throw error
               return {
                 ...paper,
-                citations: data?.citations || 0
+                citations: Number(data?.citations) || 0
               }
             } catch (error) {
               console.error('Error fetching citations:', error)
@@ -77,10 +77,22 @@ export function ResultsContainer({
               }
             }
           }
-          return paper
+          return {
+            ...paper,
+            citations: Number(paper.citations) || 0
+          }
         })
       )
-      setPapersWithCitations(updatedPapers)
+      
+      // Sort papers by citations in descending order immediately after fetching
+      const sortedByCitations = [...updatedPapers].sort((a, b) => {
+        const aCitations = Number(a.citations) || 0
+        const bCitations = Number(b.citations) || 0
+        return bCitations - aCitations // Descending order
+      })
+      
+      setPapersWithCitations(sortedByCitations)
+      setSortedPapers(sortedByCitations)
       setIsCitationsLoading(false)
     }
 
