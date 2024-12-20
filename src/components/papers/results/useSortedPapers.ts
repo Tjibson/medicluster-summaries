@@ -40,10 +40,10 @@ export function useSortedPapers(
           case "citations": {
             const aCitations = Number(a.citations) || 0
             const bCitations = Number(b.citations) || 0
-            return (aCitations - bCitations) * multiplier
+            return (bCitations - aCitations) * multiplier
           }
           case "date":
-            return (a.year - b.year) * multiplier
+            return (b.year - a.year) * multiplier
           case "title": {
             const aTitle = String(a.title).toLowerCase()
             const bTitle = String(b.title).toLowerCase()
@@ -52,7 +52,7 @@ export function useSortedPapers(
           case "relevance": {
             const aScore = a.relevance_score || 0
             const bScore = b.relevance_score || 0
-            return (aScore - bScore) * multiplier
+            return (bScore - aScore) * multiplier
           }
           default:
             return 0
