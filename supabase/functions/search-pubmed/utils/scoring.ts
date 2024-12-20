@@ -2,11 +2,17 @@ export function calculateRelevanceScore(title: any, abstract: string, searchTerm
   let score = 0
   const searchTermLower = searchTerm.toLowerCase()
   
-  // Title matches are worth more - with type guard
-  if (typeof title === 'string' && title) {
-    const titleLower = title.toLowerCase()
+  // Convert title to string if possible and check for matches
+  if (title) {
+    const titleStr = String(title)
+    const titleLower = titleStr.toLowerCase()
     if (titleLower.includes(searchTermLower)) {
       score += 50
+    }
+    
+    // Clinical trial mentions in title boost score
+    if (titleLower.includes('trial')) {
+      score += 20
     }
   }
   
@@ -17,7 +23,7 @@ export function calculateRelevanceScore(title: any, abstract: string, searchTerm
       score += 30
     }
     
-    // Clinical trial mentions boost score
+    // Clinical trial mentions in abstract boost score
     if (abstractLower.includes('trial')) {
       score += 20
     }
