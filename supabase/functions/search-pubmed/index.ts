@@ -101,8 +101,25 @@ serve(async (req) => {
         }).filter(name => name.length > 0)
       }
 
-      // Get current year as default
-      const currentYear = new Date().getFullYear()
+      // Extract publication year with proper fallback
+      let publicationYear = new Date().getFullYear() // Default to current year
+      
+      if (articleData.Journal?.JournalIssue?.PubDate) {
+        const pubDate = articleData.Journal.JournalIssue.PubDate
+        if (typeof pubDate === 'object') {
+          // Try to get year from different possible fields
+          const yearValue = pubDate.Year || 
+                          (pubDate.MedlineDate && pubDate.MedlineDate.match(/\d{4}/)?.[0]) ||
+                          null
+          
+          if (yearValue) {
+            const parsedYear = parseInt(yearValue)
+            if (!isNaN(parsedYear)) {
+              publicationYear = parsedYear
+            }
+          }
+        }
+      }
 
       return {
         id: medlineCitation.PMID,
@@ -110,7 +127,7 @@ serve(async (req) => {
         abstract: abstractText,
         authors,
         journal: articleData.Journal?.Title || articleData.Journal?.ISOAbbreviation || 'Unknown Journal',
-        year: currentYear,
+        year: publicationYear,
         citations: 0
       }
     })
