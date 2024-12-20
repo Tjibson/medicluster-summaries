@@ -2,7 +2,7 @@ import { type Paper } from "@/types/papers"
 import { ResultsContainer } from "./papers/results/ResultsContainer"
 import { type SearchParameters } from "@/constants/searchConfig"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Loader2 } from "lucide-react"
+import { AlertCircle } from "lucide-react"
 
 interface ResultsListProps {
   papers: Paper[]

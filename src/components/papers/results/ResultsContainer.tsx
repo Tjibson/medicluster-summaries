@@ -26,8 +26,8 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
   // Show loading screen while any of the data is being fetched
   if (isLoading || isCitationsLoading || !isRelevanceReady) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 space-y-4 bg-background/50 rounded-lg shadow-sm">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex flex-col items-center justify-center min-h-[400px] p-12 space-y-6 bg-background/50 rounded-lg shadow-sm">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
         <div className="text-center space-y-2">
           <p className="text-lg font-medium">
             {isLoading ? "Searching papers..." : 
