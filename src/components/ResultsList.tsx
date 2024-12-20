@@ -1,16 +1,11 @@
 import { type Paper } from "@/types/papers"
 import { ResultsContainer } from "./papers/results/ResultsContainer"
-
-interface SearchCriteria {
-  dateRange: { start: string; end: string }
-  keywords: string
-  journalNames: string[]
-}
+import { type SearchParameters } from "@/constants/searchConfig"
 
 interface ResultsListProps {
   papers: Paper[]
   isLoading: boolean
-  searchCriteria?: SearchCriteria | null
+  searchCriteria?: SearchParameters | null
 }
 
 export function ResultsList({ papers, isLoading, searchCriteria }: ResultsListProps) {

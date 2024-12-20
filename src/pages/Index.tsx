@@ -3,26 +3,19 @@ import { ResultsList } from "@/components/ResultsList"
 import { SearchForm } from "@/components/SearchForm"
 import { type Paper } from "@/types/papers"
 import { Loader2 } from "lucide-react"
+import { type SearchParameters } from "@/constants/searchConfig"
 
 export default function Index() {
   const [papers, setPapers] = useState<Paper[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [searchCriteria, setSearchCriteria] = useState<{
-    dateRange: { start: string; end: string };
-    keywords: string;
-    journalNames: string[];
-  } | null>(null)
+  const [searchCriteria, setSearchCriteria] = useState<SearchParameters | null>(null)
 
   const handleSearchStart = () => {
     setPapers([])
     setIsLoading(true)
   }
 
-  const handleSearch = async (papers: Paper[], criteria: {
-    dateRange: { start: string; end: string };
-    keywords: string;
-    journalNames: string[];
-  }) => {
+  const handleSearch = async (papers: Paper[], criteria: SearchParameters) => {
     console.log("Search results received:", papers)
     setPapers(papers)
     setSearchCriteria(criteria)
