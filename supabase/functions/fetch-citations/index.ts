@@ -15,8 +15,8 @@ interface Paper {
 
 async function getCitationCountFromPubMed(pmid: string): Promise<number> {
   try {
-    // Use the correct PubMed API endpoint for citation counts
-    const pubmedUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=pubmed&linkname=pubmed_pubmed_citedin&id=${pmid}&retmode=json&api_key=0e15924868078a8b07c4fc709d8a306e6108`
+    // Use PubMed's citation API with proper parameters
+    const pubmedUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=pubmed&db=pubmed&id=${pmid}&linkname=pubmed_pubmed_citedin&retmode=json&api_key=0e15924868078a8b07c4fc709d8a306e6108`
     console.log('PubMed citation URL:', pubmedUrl)
     
     const response = await fetch(pubmedUrl)
@@ -29,14 +29,13 @@ async function getCitationCountFromPubMed(pmid: string): Promise<number> {
     const data = await response.json()
     console.log('PubMed citation response:', JSON.stringify(data))
 
+    // Extract citations from the linksets
     if (!data.linksets?.[0]) return 0
 
-    // Get citations from linksetdbs
-    const citationLinks = data.linksets[0].linksetdbs?.find(
-      (db: any) => db.linkname === 'pubmed_pubmed_citedin'
-    )
-    
-    return citationLinks?.links?.length || 0
+    // Get citations count from the linkset
+    const citations = data.linksets[0].linksets?.[0]?.links?.length || 0
+    console.log(`Found ${citations} citations for PMID ${pmid} in PubMed`)
+    return citations
   } catch (error) {
     console.error('Error fetching PubMed citations:', error)
     return 0
@@ -45,9 +44,9 @@ async function getCitationCountFromPubMed(pmid: string): Promise<number> {
 
 async function getCitationCountFromCrossRef(paper: Paper): Promise<number> {
   try {
-    // Build a more precise query for CrossRef
-    const query = encodeURIComponent(`${paper.title} ${paper.authors[0]}`)
-    const crossrefUrl = `https://api.crossref.org/works?query=${query}&filter=from-pub-date:${paper.year},until-pub-date:${paper.year}&rows=1&select=title,DOI,is-referenced-by-count`
+    // Build a precise query for CrossRef using multiple fields
+    const query = encodeURIComponent(`${paper.title} ${paper.authors[0]} ${paper.year}`)
+    const crossrefUrl = `https://api.crossref.org/works?query=${query}&select=title,DOI,is-referenced-by-count&rows=1`
     
     console.log('CrossRef URL:', crossrefUrl)
     
@@ -67,8 +66,9 @@ async function getCitationCountFromCrossRef(paper: Paper): Promise<number> {
 
     if (!data.message?.items?.[0]) return 0
 
-    // Get the citation count from the first matching result
-    return data.message.items[0]['is-referenced-by-count'] || 0
+    const citations = data.message.items[0]['is-referenced-by-count'] || 0
+    console.log(`Found ${citations} citations in CrossRef for paper:`, paper.title)
+    return citations
   } catch (error) {
     console.error('Error fetching CrossRef citations:', error)
     return 0
