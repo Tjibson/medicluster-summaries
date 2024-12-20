@@ -59,6 +59,7 @@ serve(async (req) => {
 
     const efetchResponse = await fetch(efetchUrl)
     const xmlData = await efetchResponse.text()
+    console.log('Received XML data length:', xmlData.length)
     
     const parser = new xml2js.Parser({ 
       explicitArray: false, 
@@ -66,15 +67,36 @@ serve(async (req) => {
       valueProcessors: [parseFloat]
     })
     const jsonResult = await parser.parseStringPromise(xmlData)
-    const pubmedArticles = jsonResult.PubmedArticleSet?.PubmedArticle || []
+    console.log('Parsed XML to JSON')
+
+    // Ensure we have an array of articles
+    const pubmedArticles = Array.isArray(jsonResult.PubmedArticleSet.PubmedArticle) 
+      ? jsonResult.PubmedArticleSet.PubmedArticle 
+      : [jsonResult.PubmedArticleSet.PubmedArticle]
     
+    console.log('Number of articles to process:', pubmedArticles.length)
+
     const articles = await Promise.all(pubmedArticles.map(async (article: any) => {
       const medlineCitation = article.MedlineCitation
       const articleData = medlineCitation.Article
       
+      console.log('Processing article:', medlineCitation.PMID)
+      console.log('Raw article data:', JSON.stringify(articleData.ArticleTitle))
+
       // Extract article data using our utility functions
-      const title = extractTitle(articleData)
-      console.log('Extracted title:', title)
+      const rawTitle = articleData.ArticleTitle
+      console.log('Raw title:', rawTitle)
+      
+      let title
+      if (typeof rawTitle === 'string') {
+        title = rawTitle
+      } else if (typeof rawTitle === 'object' && rawTitle !== null) {
+        title = rawTitle._ || rawTitle.toString()
+      } else {
+        title = 'No title available'
+      }
+      
+      console.log('Processed title:', title)
       
       const abstract = extractAbstract(articleData)
       const authors = extractAuthors(articleData)
@@ -84,12 +106,11 @@ serve(async (req) => {
       const pmid = medlineCitation.PMID?._ || medlineCitation.PMID || ''
 
       // Calculate relevance score with safe title handling
-      const safeTitle = typeof title === 'string' ? title : 'No title available'
-      const relevance_score = calculateRelevanceScore(safeTitle, term)
+      const relevance_score = calculateRelevanceScore(title, term)
       
       return {
         id: pmid,
-        title: safeTitle,
+        title,
         abstract,
         authors,
         journal,
