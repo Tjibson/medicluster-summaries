@@ -34,7 +34,7 @@ export function ResultsContainer({
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [papersWithCitations, setPapersWithCitations] = useState<Paper[]>([])
   const [isCitationsLoading, setIsCitationsLoading] = useState(false)
-  const [sortedPapers, setSortedPapers] = useState<Paper[]>([])
+  const [sortedPapers, setSortedPapers] = useState<Paper[]>(papers)
 
   useEffect(() => {
     const getUserId = async () => {
@@ -45,6 +45,12 @@ export function ResultsContainer({
     }
     getUserId()
   }, [])
+
+  // Initialize sortedPapers when papers change
+  useEffect(() => {
+    setSortedPapers(papers)
+    setPapersWithCitations([])
+  }, [papers])
 
   useEffect(() => {
     const fetchCitations = async () => {
@@ -74,54 +80,62 @@ export function ResultsContainer({
         })
       )
       setPapersWithCitations(updatedPapers)
+      setSortedPapers(updatedPapers) // Update sortedPapers with citation data
       setIsCitationsLoading(false)
     }
 
     if (papers.length > 0) {
       fetchCitations()
-    } else {
-      setPapersWithCitations([])
     }
   }, [papers])
 
-  // New effect to handle sorting after citations are loaded
+  // Effect to handle sorting
   useEffect(() => {
-    if (!isCitationsLoading && papersWithCitations.length > 0) {
-      const getSortValue = (paper: Paper, sortType: SortOption): number | string => {
-        switch (sortType) {
-          case "citations":
-            return typeof paper.citations === 'number' ? paper.citations : 0
-          case "date":
-            return new Date(paper.year, 0).getTime()
-          case "title":
-            return paper.title.toLowerCase()
-          case "relevance":
-            return paper.relevance_score || 0
-          default:
-            return 0
-        }
+    console.log('Sorting papers:', { sortBy, sortDirection, papersCount: papersWithCitations.length })
+    
+    const papersToSort = papersWithCitations.length > 0 ? papersWithCitations : papers
+    
+    const getSortValue = (paper: Paper, sortType: SortOption): number | string => {
+      switch (sortType) {
+        case "citations":
+          return typeof paper.citations === 'number' ? paper.citations : 0
+        case "date":
+          return new Date(paper.year, 0).getTime()
+        case "title":
+          return paper.title.toLowerCase()
+        case "relevance":
+          return paper.relevance_score || 0
+        default:
+          return 0
       }
-
-      const sorted = [...papersWithCitations].sort((a, b) => {
-        const aValue = getSortValue(a, sortBy)
-        const bValue = getSortValue(b, sortBy)
-        
-        if (typeof aValue === "string" && typeof bValue === "string") {
-          return sortDirection === "asc" 
-            ? aValue.localeCompare(bValue)
-            : bValue.localeCompare(aValue)
-        }
-        
-        const numericA = aValue as number
-        const numericB = bValue as number
-        return sortDirection === "asc" 
-          ? numericA - numericB
-          : numericB - numericA
-      })
-
-      setSortedPapers(sorted)
     }
-  }, [papersWithCitations, sortBy, sortDirection, isCitationsLoading])
+
+    const sorted = [...papersToSort].sort((a, b) => {
+      const aValue = getSortValue(a, sortBy)
+      const bValue = getSortValue(b, sortBy)
+      
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        return sortDirection === "asc" 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue)
+      }
+      
+      const numericA = aValue as number
+      const numericB = bValue as number
+      return sortDirection === "asc" 
+        ? numericA - numericB
+        : numericB - numericA
+    })
+
+    console.log('Sorted papers:', { 
+      sortBy, 
+      sortDirection, 
+      firstPaperCitations: sorted[0]?.citations,
+      lastPaperCitations: sorted[sorted.length - 1]?.citations
+    })
+
+    setSortedPapers(sorted)
+  }, [papersWithCitations, sortBy, sortDirection, papers])
 
   if (isLoading) {
     return <LoadingState />
