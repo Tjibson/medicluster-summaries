@@ -14,15 +14,20 @@ interface PaperCardProps {
 export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
   const pubmedUrl = `https://pubmed.ncbi.nlm.nih.gov/${paper.id}/`
 
-  // Helper function to safely render title
+  // Helper function to safely extract and render title
   const renderTitle = (title: any): string => {
+    if (!title) return 'Untitled Paper'
     if (typeof title === 'string') return title
-    if (title && typeof title === 'object') {
-      if ('_' in title) return title._ as string
+    if (typeof title === 'object') {
+      // Handle cases where title might be an object with specific properties
+      if ('_' in title) return String(title._)
       if ('sub' in title) return String(title.sub)
+      return JSON.stringify(title)
     }
-    return 'Untitled'
+    return String(title)
   }
+
+  const safeTitle = renderTitle(paper.title)
 
   return (
     <Card 
@@ -30,7 +35,7 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
       onClick={() => onClick(paper)}
     >
       <div className="space-y-4">
-        <h3 className="font-semibold text-lg">{renderTitle(paper.title)}</h3>
+        <h3 className="font-semibold text-lg">{safeTitle}</h3>
         
         <div className="flex items-center space-x-2 text-sm text-gray-600">
           <p className="font-medium">Citations: {paper.citations || 0}</p>
@@ -44,7 +49,7 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
           <p>Authors: {paper.authors.join(", ")}</p>
         </div>
 
-        <p className="text-gray-700 text-sm leading-relaxed">
+        <p className="text-gray-700 text-sm leading-relaxed line-clamp-3">
           {typeof paper.abstract === 'string' ? paper.abstract : 'Abstract not available'}
         </p>
 
