@@ -1,6 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import * as xml2js from 'https://esm.sh/xml2js@0.4.23'
-import { extractTitle, extractAbstract, extractAuthors, extractJournalInfo } from './utils/articleParser.ts'
 import { calculateRelevanceScore } from './utils/scoring.ts'
 
 const corsHeaders = {
@@ -14,100 +13,64 @@ serve(async (req) => {
   }
 
   try {
-    const { term, dateRange, journalNames } = await req.json()
-    console.log('Search request:', { term, dateRange, journalNames })
+    const { searchParams, query } = await req.json()
+    console.log('Search request:', { searchParams, query })
 
-    if (!term) {
-      throw new Error('Search term is required')
-    }
-
-    let searchQuery = `${encodeURIComponent(term)} AND (Clinical Trial[Publication Type] OR Trial[Title/Abstract] OR Study[Title/Abstract])`
+    // Step 2: Fetch article IDs from PubMed
+    const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=100&usehistory=y`
+    const searchResponse = await fetch(searchUrl)
+    const searchData = await searchResponse.text()
     
-    if (dateRange) {
-      searchQuery += ` AND ("${dateRange.start}"[Date - Publication] : "${dateRange.end}"[Date - Publication])`
-    }
-    if (journalNames && journalNames.length > 0) {
-      const journalFilter = journalNames.map(j => `"${j}"[Journal]`).join(' OR ')
-      searchQuery += ` AND (${journalFilter})`
-    }
-
-    const esearchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${searchQuery}&retmode=json&retmax=100&sort=relevance`
-    console.log('ESearch URL:', esearchUrl)
-
-    const esearchResponse = await fetch(esearchUrl)
-    const esearchData = await esearchResponse.json()
-    const { count, idlist: pmids } = esearchData.esearchresult
-    console.log('Found PMIDs:', pmids.length, 'Total results:', count)
-
+    // Extract PMIDs from search results
+    const pmids = searchData.match(/<Id>(\d+)<\/Id>/g)?.map(id => id.replace(/<\/?Id>/g, '')) || []
+    
     if (pmids.length === 0) {
       return new Response(
-        JSON.stringify({ 
-          articles: [],
-          pagination: {
-            total: 0,
-            page: 1,
-            totalPages: 0,
-            hasMore: false
-          }
-        }),
+        JSON.stringify({ papers: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const efetchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
-    console.log('EFetch URL:', efetchUrl)
-
-    const efetchResponse = await fetch(efetchUrl)
-    const xmlData = await efetchResponse.text()
-    console.log('Received XML data length:', xmlData.length)
+    // Step 3: Fetch full article details
+    const fetchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
+    const fetchResponse = await fetch(fetchUrl)
+    const xmlData = await fetchResponse.text()
     
-    const parser = new xml2js.Parser({ 
-      explicitArray: false, 
-      mergeAttrs: true,
-      valueProcessors: [parseFloat]
-    })
-    const jsonResult = await parser.parseStringPromise(xmlData)
-    console.log('Parsed XML to JSON')
-
-    // Ensure we have an array of articles
-    const pubmedArticles = Array.isArray(jsonResult.PubmedArticleSet.PubmedArticle) 
-      ? jsonResult.PubmedArticleSet.PubmedArticle 
-      : [jsonResult.PubmedArticleSet.PubmedArticle]
+    // Parse XML to JSON
+    const parser = new xml2js.Parser({ explicitArray: false, mergeAttrs: true })
+    const result = await parser.parseStringPromise(xmlData)
     
-    console.log('Number of articles to process:', pubmedArticles.length)
+    // Step 4: Parse and score articles
+    const articles = Array.isArray(result.PubmedArticleSet.PubmedArticle) 
+      ? result.PubmedArticleSet.PubmedArticle 
+      : [result.PubmedArticleSet.PubmedArticle]
 
-    const articles = await Promise.all(pubmedArticles.map(async (article: any) => {
+    const papers = articles.map(article => {
       const medlineCitation = article.MedlineCitation
       const articleData = medlineCitation.Article
       
-      console.log('Processing article:', medlineCitation.PMID)
-      console.log('Raw article data:', JSON.stringify(articleData.ArticleTitle))
+      const title = typeof articleData.ArticleTitle === 'string' 
+        ? articleData.ArticleTitle 
+        : articleData.ArticleTitle?._ || 'No title available'
+      
+      const abstract = articleData.Abstract?.AbstractText || 'No abstract available'
+      const journal = articleData.Journal?.Title || 'Unknown Journal'
+      const year = parseInt(articleData.Journal?.JournalIssue?.PubDate?.Year) || new Date().getFullYear()
+      const pmid = medlineCitation.PMID?._ || medlineCitation.PMID
+      
+      // Extract authors
+      const authorList = articleData.AuthorList?.Author || []
+      const authors = (Array.isArray(authorList) ? authorList : [authorList])
+        .map((author: any) => {
+          const lastName = author.LastName || ''
+          const foreName = author.ForeName || ''
+          return `${lastName} ${foreName}`.trim()
+        })
+        .filter(Boolean)
 
-      // Extract article data using our utility functions
-      const rawTitle = articleData.ArticleTitle
-      console.log('Raw title:', rawTitle)
-      
-      let title
-      if (typeof rawTitle === 'string') {
-        title = rawTitle
-      } else if (typeof rawTitle === 'object' && rawTitle !== null) {
-        title = rawTitle._ || rawTitle.toString()
-      } else {
-        title = 'No title available'
-      }
-      
-      console.log('Processed title:', title)
-      
-      const abstract = extractAbstract(articleData)
-      const authors = extractAuthors(articleData)
-      const { journal, year } = extractJournalInfo(articleData)
-      
-      // Extract PMID
-      const pmid = medlineCitation.PMID?._ || medlineCitation.PMID || ''
+      // Calculate relevance score
+      const relevance_score = calculateRelevanceScore(title, abstract, searchParams)
 
-      // Calculate relevance score with safe title handling
-      const relevance_score = calculateRelevanceScore(title, term)
-      
       return {
         id: pmid,
         title,
@@ -115,39 +78,23 @@ serve(async (req) => {
         authors,
         journal,
         year,
-        citations: 0,
+        citations: 0, // We'll need to implement citation fetching separately
         relevance_score
       }
-    }))
+    })
 
-    console.log('Processed articles with titles:', articles.map(a => ({ id: a.id, title: a.title })))
+    // Step 5: Sort by relevance score and return
+    const sortedPapers = papers.sort((a, b) => b.relevance_score - a.relevance_score)
 
     return new Response(
-      JSON.stringify({
-        articles,
-        pagination: {
-          total: count,
-          page: 1,
-          totalPages: Math.ceil(count / 100),
-          hasMore: count > 100
-        }
-      }),
+      JSON.stringify({ papers: sortedPapers }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
     console.error('Error in search-pubmed function:', error)
     return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        articles: [],
-        pagination: {
-          total: 0,
-          page: 1,
-          totalPages: 0,
-          hasMore: false
-        }
-      }),
+      JSON.stringify({ error: error.message }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500

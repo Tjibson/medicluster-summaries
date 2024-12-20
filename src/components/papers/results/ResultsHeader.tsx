@@ -1,12 +1,9 @@
 import { SearchCriteria } from "@/components/papers/SearchCriteria"
 import { SortingControls, type SortOption } from "@/components/papers/SortingControls"
+import { type SearchParameters } from "@/constants/searchConfig"
 
 interface ResultsHeaderProps {
-  searchCriteria?: {
-    dateRange?: { start: string; end: string }
-    keywords?: string
-    journalNames?: string[]
-  }
+  searchCriteria?: SearchParameters | null
   sortBy: SortOption
   onSortChange: (value: SortOption) => void
   totalResults?: number
