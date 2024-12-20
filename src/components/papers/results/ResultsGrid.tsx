@@ -1,4 +1,4 @@
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/integrations/supabase/client"
 import { type Paper } from "@/types/papers"
 import { PaperCard } from "../PaperCard"
@@ -125,66 +125,48 @@ export function ResultsGrid({
     }
   }
 
-  try {
-    const sortedPapers = [...papers].sort((a, b) => {
-      switch (sortBy) {
-        case "citations":
-          return (b.citations || 0) - (a.citations || 0)
-        case "date":
-          return b.year - a.year
-        case "title":
-          return a.title.localeCompare(b.title)
-        default: // "relevance" is default
-          // Extract keywords from papers for scoring
-          const keywords = papers.reduce((acc: string[], paper) => {
-            const titleWords = paper.title.toLowerCase().split(/\s+/)
-            // Ensure abstract is a string before processing
-            const abstractText = typeof paper.abstract === 'string' 
-              ? paper.abstract 
-              : String(paper.abstract || '')
-            const abstractWords = abstractText.toLowerCase().split(/\s+/)
-            return [...new Set([...acc, ...titleWords, ...abstractWords])]
-          }, [])
-          
-          const scoreA = calculateRelevanceScore(a, keywords)
-          const scoreB = calculateRelevanceScore(b, keywords)
-          return scoreB - scoreA
-      }
-    })
-
-    if (error) {
-      return <ErrorPage />
-    }
-
-    return (
-      <>
-        <div className="space-y-4">
-          {isLoading ? (
-            <div className="flex justify-center items-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          ) : (
-            sortedPapers.map((paper) => (
-              <PaperCard
-                key={paper.id}
-                paper={paper}
-                onSave={handleSavePaper}
-                onLike={handleLikePaper}
-                onClick={() => onPaperSelect(paper)}
-              />
-            ))
-          )}
-        </div>
-
-        <PaginationControls
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={onPageChange}
-        />
-      </>
-    )
-  } catch (err) {
-    setError(err as Error)
+  if (error) {
     return <ErrorPage />
   }
+
+  const sortedPapers = [...papers].sort((a, b) => {
+    switch (sortBy) {
+      case "citations":
+        return (b.citations || 0) - (a.citations || 0)
+      case "date":
+        return b.year - a.year
+      case "title":
+        return a.title.localeCompare(b.title)
+      default: // "relevance" is default
+        return (b.relevance_score || 0) - (a.relevance_score || 0)
+    }
+  })
+
+  return (
+    <>
+      <div className="space-y-4">
+        {isLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : (
+          sortedPapers.map((paper) => (
+            <PaperCard
+              key={paper.id}
+              paper={paper}
+              onSave={handleSavePaper}
+              onLike={handleLikePaper}
+              onClick={() => onPaperSelect(paper)}
+            />
+          ))
+        )}
+      </div>
+
+      <PaginationControls
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+      />
+    </>
+  )
 }
