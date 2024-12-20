@@ -34,28 +34,25 @@ export function useSortedPapers(
       const papersToSort = [...papersWithCitations]
       
       papersToSort.sort((a, b) => {
+        const multiplier = sortDirection === "asc" ? 1 : -1
+        
         switch (sortBy) {
           case "citations": {
             const aCitations = Number(a.citations) || 0
             const bCitations = Number(b.citations) || 0
-            return sortDirection === "asc" 
-              ? aCitations - bCitations 
-              : bCitations - aCitations
+            return (aCitations - bCitations) * multiplier
           }
           case "date":
-            return sortDirection === "asc" 
-              ? a.year - b.year
-              : b.year - a.year
-          case "title":
-            return sortDirection === "asc"
-              ? a.title.toLowerCase().localeCompare(b.title.toLowerCase())
-              : b.title.toLowerCase().localeCompare(a.title.toLowerCase())
+            return (a.year - b.year) * multiplier
+          case "title": {
+            const aTitle = String(a.title).toLowerCase()
+            const bTitle = String(b.title).toLowerCase()
+            return aTitle.localeCompare(bTitle) * multiplier
+          }
           case "relevance": {
             const aScore = a.relevance_score || 0
             const bScore = b.relevance_score || 0
-            return sortDirection === "asc" 
-              ? aScore - bScore 
-              : bScore - aScore
+            return (aScore - bScore) * multiplier
           }
           default:
             return 0
@@ -67,6 +64,7 @@ export function useSortedPapers(
           id: p.id,
           title: p.title, 
           citations: p.citations,
+          year: p.year,
           sortBy,
           sortDirection 
         }))

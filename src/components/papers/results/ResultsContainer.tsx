@@ -7,6 +7,7 @@ import { LoadingState } from "@/components/papers/LoadingState"
 import { ArticleDetails } from "@/components/papers/ArticleDetails"
 import { type SearchParameters } from "@/constants/searchConfig"
 import { useSortedPapers } from "./useSortedPapers"
+import { useCitations } from "./useCitations"
 
 interface ResultsContainerProps {
   papers: Paper[]
@@ -30,15 +31,15 @@ export function ResultsContainer({
 }: ResultsContainerProps) {
   const [userId, setUserId] = useState<string | null>(null)
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
-  const [sortedPapers, setSortedPapers] = useState<Paper[]>([])
-  const [isSorting, setIsSorting] = useState(false)
+  const { citationsMap, isCitationsLoading } = useCitations(papers)
   
   const { 
+    sortedPapers,
     sortBy, 
     sortDirection, 
     setSortBy, 
     setSortDirection 
-  } = useSortedPapers(papers, {})
+  } = useSortedPapers(papers, citationsMap)
 
   // Get user ID on mount
   useEffect(() => {
@@ -50,34 +51,6 @@ export function ResultsContainer({
     }
     getUserId()
   }, [])
-
-  // Fetch sorted papers when papers array changes
-  useEffect(() => {
-    const fetchSortedPapers = async () => {
-      if (!papers.length) {
-        setSortedPapers([])
-        return
-      }
-
-      setIsSorting(true)
-      try {
-        const { data, error } = await supabase.functions.invoke('fetch-sorted-papers', {
-          body: { papers }
-        })
-
-        if (error) throw error
-        console.log('Received sorted papers:', data.papers)
-        setSortedPapers(data.papers)
-      } catch (error) {
-        console.error('Error fetching sorted papers:', error)
-        setSortedPapers(papers) // Fallback to unsorted papers
-      } finally {
-        setIsSorting(false)
-      }
-    }
-
-    fetchSortedPapers()
-  }, [papers])
 
   if (isLoading) {
     return <LoadingState />
@@ -103,7 +76,7 @@ export function ResultsContainer({
         onPageChange={onPageChange}
         onPaperSelect={setSelectedPaper}
         totalPages={pagination.totalPages}
-        isLoading={isSorting}
+        isLoading={isCitationsLoading}
       />
 
       <ArticleDetails
