@@ -28,6 +28,7 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
   }
 
   const safeTitle = renderTitle(paper.title)
+  console.log('Rendering paper with title:', safeTitle)
 
   return (
     <Card 

@@ -1,24 +1,37 @@
 export function extractTitle(articleData: any): string {
   if (!articleData) return 'No title available'
   
-  // Direct access to ArticleTitle
-  if (typeof articleData.ArticleTitle === 'string') {
-    return articleData.ArticleTitle
-  }
+  try {
+    // Direct string title
+    if (typeof articleData.ArticleTitle === 'string') {
+      console.log('Found direct string title:', articleData.ArticleTitle)
+      return articleData.ArticleTitle
+    }
 
-  // Handle case where ArticleTitle is an object
-  if (articleData.ArticleTitle && typeof articleData.ArticleTitle === 'object') {
-    if ('_' in articleData.ArticleTitle) return String(articleData.ArticleTitle._)
-    if ('sub' in articleData.ArticleTitle) return String(articleData.ArticleTitle.sub)
-    return JSON.stringify(articleData.ArticleTitle)
-  }
+    // Handle object title with _ property
+    if (articleData.ArticleTitle && typeof articleData.ArticleTitle === 'object') {
+      if ('_' in articleData.ArticleTitle) {
+        console.log('Found title in _ property:', articleData.ArticleTitle._)
+        return String(articleData.ArticleTitle._)
+      }
+      if ('sub' in articleData.ArticleTitle) {
+        console.log('Found title in sub property:', articleData.ArticleTitle.sub)
+        return String(articleData.ArticleTitle.sub)
+      }
+    }
 
-  // Try VernacularTitle as fallback
-  if (articleData.VernacularTitle) {
-    return String(articleData.VernacularTitle)
-  }
+    // Fallback to VernacularTitle
+    if (articleData.VernacularTitle) {
+      console.log('Using VernacularTitle:', articleData.VernacularTitle)
+      return String(articleData.VernacularTitle)
+    }
 
-  return 'No title available'
+    console.log('No valid title found in article data:', articleData)
+    return 'No title available'
+  } catch (error) {
+    console.error('Error extracting title:', error)
+    return 'Error extracting title'
+  }
 }
 
 export function extractAbstract(articleData: any): string {
