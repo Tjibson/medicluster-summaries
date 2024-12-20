@@ -6,6 +6,7 @@ import { PaginationControls } from "../PaginationControls"
 import { type SortOption } from "../SortingControls"
 import { useState } from "react"
 import { calculateRelevanceScore } from "@/utils/scoring"
+import { ErrorPage } from "../ErrorPage"
 
 interface ResultsGridProps {
   papers: Paper[]
@@ -28,6 +29,7 @@ export function ResultsGrid({
 }: ResultsGridProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
 
   const handleSavePaper = async (paper: Paper) => {
     if (!userId) {
@@ -123,62 +125,66 @@ export function ResultsGrid({
     }
   }
 
-  const sortedPapers = [...papers].sort((a, b) => {
-    switch (sortBy) {
-      case "citations":
-        return (b.citations || 0) - (a.citations || 0)
-      case "date":
-        return b.year - a.year
-      case "title":
-        return a.title.localeCompare(b.title)
-      default: // "relevance" is default
-        // Extract keywords from papers for scoring
-        const keywords = papers.reduce((acc: string[], paper) => {
-          const titleWords = paper.title.toLowerCase().split(/\s+/)
-          // Ensure abstract is a string before processing
-          const abstractText = typeof paper.abstract === 'string' 
-            ? paper.abstract 
-            : paper.abstract?.toString() || ''
-          const abstractWords = abstractText.toLowerCase().split(/\s+/)
-          return [...new Set([...acc, ...titleWords, ...abstractWords])]
-        }, [])
-        
-        const scoreA = calculateRelevanceScore(a, keywords)
-        const scoreB = calculateRelevanceScore(b, keywords)
-        return scoreB - scoreA
+  try {
+    const sortedPapers = [...papers].sort((a, b) => {
+      switch (sortBy) {
+        case "citations":
+          return (b.citations || 0) - (a.citations || 0)
+        case "date":
+          return b.year - a.year
+        case "title":
+          return a.title.localeCompare(b.title)
+        default: // "relevance" is default
+          // Extract keywords from papers for scoring
+          const keywords = papers.reduce((acc: string[], paper) => {
+            const titleWords = paper.title.toLowerCase().split(/\s+/)
+            // Ensure abstract is a string before processing
+            const abstractText = typeof paper.abstract === 'string' 
+              ? paper.abstract 
+              : String(paper.abstract || '')
+            const abstractWords = abstractText.toLowerCase().split(/\s+/)
+            return [...new Set([...acc, ...titleWords, ...abstractWords])]
+          }, [])
+          
+          const scoreA = calculateRelevanceScore(a, keywords)
+          const scoreB = calculateRelevanceScore(b, keywords)
+          return scoreB - scoreA
+      }
+    })
+
+    if (error) {
+      return <ErrorPage />
     }
-  })
 
-  console.log("Sorted papers with relevance scores:", sortedPapers.map(p => ({
-    title: p.title,
-    score: calculateRelevanceScore(p, [])
-  })))
+    return (
+      <>
+        <div className="space-y-4">
+          {isLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            sortedPapers.map((paper) => (
+              <PaperCard
+                key={paper.id}
+                paper={paper}
+                onSave={handleSavePaper}
+                onLike={handleLikePaper}
+                onClick={() => onPaperSelect(paper)}
+              />
+            ))
+          )}
+        </div>
 
-  return (
-    <>
-      <div className="space-y-4">
-        {isLoading ? (
-          <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        ) : (
-          sortedPapers.map((paper) => (
-            <PaperCard
-              key={paper.id}
-              paper={paper}
-              onSave={handleSavePaper}
-              onLike={handleLikePaper}
-              onClick={() => onPaperSelect(paper)}
-            />
-          ))
-        )}
-      </div>
-
-      <PaginationControls
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={onPageChange}
-      />
-    </>
-  )
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+        />
+      </>
+    )
+  } catch (err) {
+    setError(err as Error)
+    return <ErrorPage />
+  }
 }
