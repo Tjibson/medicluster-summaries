@@ -1,28 +1,23 @@
 export function extractTitle(articleData: any): string {
   if (!articleData) return 'No title available'
   
-  const title = articleData.ArticleTitle
-  
-  // Safety check for title
-  if (typeof title === 'string') return title
-  if (!title) return 'No title available'
-  
-  // Handle case where title is an object with '_' property
-  if (typeof title === 'object') {
-    if ('_' in title) return String(title._)
-    if ('sub' in title) return String(title.sub)
+  // Direct access to ArticleTitle
+  if (typeof articleData.ArticleTitle === 'string') {
+    return articleData.ArticleTitle
   }
-  
-  // If we have an array of title parts, join them
-  if (Array.isArray(title)) {
-    return title.map(part => {
-      if (typeof part === 'string') return part
-      if (typeof part === 'object' && '_' in part) return part._
-      return ''
-    }).filter(Boolean).join(' ')
+
+  // Handle case where ArticleTitle is an object
+  if (articleData.ArticleTitle && typeof articleData.ArticleTitle === 'object') {
+    if ('_' in articleData.ArticleTitle) return String(articleData.ArticleTitle._)
+    if ('sub' in articleData.ArticleTitle) return String(articleData.ArticleTitle.sub)
+    return JSON.stringify(articleData.ArticleTitle)
   }
-  
-  // If all else fails, return a default
+
+  // Try VernacularTitle as fallback
+  if (articleData.VernacularTitle) {
+    return String(articleData.VernacularTitle)
+  }
+
   return 'No title available'
 }
 

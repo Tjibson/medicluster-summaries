@@ -3,17 +3,6 @@ import * as xml2js from 'https://esm.sh/xml2js@0.4.23'
 import { extractTitle, extractAbstract, extractAuthors, extractJournalInfo } from './utils/articleParser.ts'
 import { calculateRelevanceScore } from './utils/scoring.ts'
 
-interface Article {
-  id: string
-  title: string
-  abstract: string
-  authors: string[]
-  journal: string
-  year: number
-  citations: number
-  relevance_score: number
-}
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -71,7 +60,6 @@ serve(async (req) => {
     const efetchResponse = await fetch(efetchUrl)
     const xmlData = await efetchResponse.text()
     
-    // Parse XML to JSON using xml2js
     const parser = new xml2js.Parser({ 
       explicitArray: false, 
       mergeAttrs: true,
@@ -80,14 +68,13 @@ serve(async (req) => {
     const jsonResult = await parser.parseStringPromise(xmlData)
     const pubmedArticles = jsonResult.PubmedArticleSet?.PubmedArticle || []
     
-    // Process articles and fetch citations concurrently
     const articles = await Promise.all(pubmedArticles.map(async (article: any) => {
       const medlineCitation = article.MedlineCitation
       const articleData = medlineCitation.Article
       
       // Extract article data using our utility functions
       const title = extractTitle(articleData)
-      console.log('Article title:', title, 'Type:', typeof title)
+      console.log('Extracted title:', title)
       
       const abstract = extractAbstract(articleData)
       const authors = extractAuthors(articleData)
@@ -96,14 +83,8 @@ serve(async (req) => {
       // Extract PMID
       const pmid = medlineCitation.PMID?._ || medlineCitation.PMID || ''
 
-      // Fetch citations
-      const elinkUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=pubmed&linkname=pubmed_pubmed_citedin&id=${pmid}&retmode=json`
-      const elinkResponse = await fetch(elinkUrl)
-      const elinkData = await elinkResponse.json()
-      const citations = elinkData.linksets?.[0]?.linksetdbs?.[0]?.links?.length || 0
-
-      // Calculate relevance score with safe title
-      const relevance_score = calculateRelevanceScore(title, abstract, term)
+      // Calculate relevance score
+      const relevance_score = calculateRelevanceScore(title, term)
       
       return {
         id: pmid,
@@ -112,28 +93,16 @@ serve(async (req) => {
         authors,
         journal,
         year,
-        citations,
+        citations: 0,
         relevance_score
       }
     }))
 
-    // Sort by citations first, then by relevance score
-    const sortedArticles = articles.sort((a, b) => {
-      const citationDiff = b.citations - a.citations
-      if (citationDiff !== 0) return citationDiff
-      return b.relevance_score - a.relevance_score
-    })
-
-    console.log('Processed and sorted articles:', sortedArticles.map(a => ({
-      id: a.id,
-      title: a.title.substring(0, 50) + '...',
-      citations: a.citations,
-      relevance_score: a.relevance_score
-    })))
+    console.log('Processed articles with titles:', articles.map(a => ({ id: a.id, title: a.title })))
 
     return new Response(
       JSON.stringify({
-        articles: sortedArticles,
+        articles,
         pagination: {
           total: count,
           page: 1,
