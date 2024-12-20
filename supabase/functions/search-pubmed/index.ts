@@ -101,25 +101,26 @@ serve(async (req) => {
         }).filter(name => name.length > 0)
       }
 
-      // Extract publication year with proper fallback
+      // Extract publication date with proper fallback
       let publicationYear = new Date().getFullYear() // Default to current year
+      let publishedDate = null
       
       try {
         if (articleData.Journal?.JournalIssue?.PubDate) {
           const pubDate = articleData.Journal.JournalIssue.PubDate
           
-          // Try different possible year fields
-          if (pubDate.Year) {
-            publicationYear = parseInt(pubDate.Year)
-          } else if (pubDate.MedlineDate) {
-            const yearMatch = pubDate.MedlineDate.match(/\d{4}/)
-            if (yearMatch) {
-              publicationYear = parseInt(yearMatch[0])
-            }
+          // Try to construct a full date
+          const year = pubDate.Year || (pubDate.MedlineDate && pubDate.MedlineDate.match(/\d{4}/)?.[0])
+          const month = pubDate.Month || '01' // Default to January if no month
+          const day = pubDate.Day || '01' // Default to first day if no day
+          
+          if (year) {
+            publicationYear = parseInt(year)
+            publishedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
           }
         }
       } catch (error) {
-        console.error('Error extracting publication year:', error)
+        console.error('Error extracting publication date:', error)
         // Keep using default year if there's an error
       }
 
@@ -130,6 +131,7 @@ serve(async (req) => {
         authors,
         journal: articleData.Journal?.Title || articleData.Journal?.ISOAbbreviation || 'Unknown Journal',
         year: publicationYear,
+        publishedDate: publishedDate,
         citations: 0
       }
     })
