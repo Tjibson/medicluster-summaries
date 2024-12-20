@@ -3,6 +3,7 @@ import * as xml2js from 'https://esm.sh/xml2js@0.4.23'
 import { buildSearchQuery } from './utils/queryBuilder.ts'
 import { parseArticles } from './utils/articleParser.ts'
 import { calculateRelevanceScore } from './utils/scoring.ts'
+import { type SearchParameters } from './types.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -74,7 +75,7 @@ serve(async (req) => {
         .filter(Boolean)
 
       // Calculate relevance score
-      const relevance_score = calculateRelevanceScore(title, abstract, journal, searchParams)
+      const relevance_score = calculateRelevanceScore(title, String(abstract), journal, searchParams)
 
       return {
         id: pmid,
