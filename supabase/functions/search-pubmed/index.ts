@@ -28,6 +28,19 @@ async function getCitationCount(pmid: string): Promise<number> {
   }
 }
 
+// Simple XML parser function
+function extractFromXml(xml: string, tag: string): string[] {
+  const results: string[] = []
+  const regex = new RegExp(`<${tag}[^>]*>(.*?)<\/${tag}>`, 'gs')
+  let match
+  
+  while ((match = regex.exec(xml)) !== null) {
+    results.push(match[1].trim())
+  }
+  
+  return results
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -79,59 +92,60 @@ serve(async (req) => {
 
     const efetchResponse = await fetch(efetchUrl)
     const xmlData = await efetchResponse.text()
-    const parser = new DOMParser()
-    const xmlDoc = parser.parseFromString(xmlData, 'text/xml')
-    const articles = Array.from(xmlDoc.getElementsByTagName('PubmedArticle'))
 
     // Process articles and fetch citations concurrently
-    const processedArticles = await Promise.all(articles.map(async (article) => {
-      const pmid = article.querySelector('PMID')?.textContent || ''
-      const title = article.querySelector('ArticleTitle')?.textContent || ''
-      const abstractText = article.querySelector('Abstract')?.querySelector('AbstractText')?.textContent || ''
-      const authorList = Array.from(article.querySelectorAll('Author')).map(author => {
-        const lastName = author.querySelector('LastName')?.textContent || ''
-        const foreName = author.querySelector('ForeName')?.textContent || ''
+    const articles = await Promise.all(pmids.map(async (pmid) => {
+      // Extract article data using regex
+      const articleXml = xmlData.match(new RegExp(`<PubmedArticle>.*?<PMID.*?>${pmid}</PMID>.*?</PubmedArticle>`, 's'))?.[0] || ''
+      
+      if (!articleXml) {
+        console.error(`No XML found for PMID: ${pmid}`)
+        return null
+      }
+
+      const title = extractFromXml(articleXml, 'ArticleTitle')[0] || 'No title available'
+      const abstract = extractFromXml(articleXml, 'Abstract')[0] || 'No abstract available'
+      const authors = extractFromXml(articleXml, 'LastName').map((lastName, i) => {
+        const foreName = extractFromXml(articleXml, 'ForeName')[i] || ''
         return `${foreName} ${lastName}`.trim()
       })
-      const journal = article.querySelector('Journal')?.querySelector('Title')?.textContent || ''
-      const yearElement = article.querySelector('PubDate')?.querySelector('Year')
-      const year = yearElement ? parseInt(yearElement.textContent || '', 10) : new Date().getFullYear()
+      const journal = extractFromXml(articleXml, 'Title')[0] || extractFromXml(articleXml, 'ISOAbbreviation')[0] || 'Unknown Journal'
+      const yearMatch = articleXml.match(/<Year>(\d{4})<\/Year>/)
+      const year = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear()
 
-      // Fetch citation count for each article
+      // Fetch citation count
       const citations = await getCitationCount(pmid)
-      console.log(`Article ${pmid} has ${citations} citations`)
 
       return {
         id: pmid,
         title,
-        abstract: abstractText,
-        authors: authorList,
+        abstract,
+        authors,
         journal,
         year,
         citations,
-        relevance_score: 0 // Will be calculated below
+        relevance_score: 0
       }
     }))
 
-    // Calculate relevance scores and sort by citations
+    // Filter out null articles and sort by citations
+    const validArticles = articles.filter((article): article is NonNullable<typeof article> => article !== null)
+    
+    // Calculate relevance scores and sort
     const searchTermLower = term.toLowerCase()
-    const articlesWithScores = processedArticles.map(article => {
+    const articlesWithScores = validArticles.map(article => {
       let relevanceScore = 0
       
-      // Title matches are worth more
       if (article.title.toLowerCase().includes(searchTermLower)) {
         relevanceScore += 50
       }
-      // Abstract matches
       if (article.abstract.toLowerCase().includes(searchTermLower)) {
         relevanceScore += 30
       }
-      // Clinical trial mentions boost score
       if (article.title.toLowerCase().includes('trial') || 
           article.abstract.toLowerCase().includes('trial')) {
         relevanceScore += 20
       }
-      // Citations boost score significantly
       relevanceScore += Math.min(article.citations * 2, 100)
       
       return {
