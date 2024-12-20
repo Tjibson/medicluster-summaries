@@ -30,12 +30,12 @@ export function ResultsContainer({
 }: ResultsContainerProps) {
   const [userId, setUserId] = useState<string | null>(null)
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
-  const [sortBy, setSortBy] = useState<SortOption>("citations") // Default sort by citations
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc") // Default sort direction descending
-  const [papersWithCitations, setPapersWithCitations] = useState<Paper[]>([])
+  const [sortBy, setSortBy] = useState<SortOption>("citations")
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
+  const [sortedPapers, setSortedPapers] = useState<Paper[]>([])
   const [isCitationsLoading, setIsCitationsLoading] = useState(false)
-  const [sortedPapers, setSortedPapers] = useState<Paper[]>(papers)
 
+  // Get user ID on mount
   useEffect(() => {
     const getUserId = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -46,17 +46,11 @@ export function ResultsContainer({
     getUserId()
   }, [])
 
-  // Initialize sortedPapers when papers change
-  useEffect(() => {
-    setSortedPapers(papers)
-    setPapersWithCitations([])
-  }, [papers])
-
-  // Fetch citations
+  // Fetch citations for papers that don't have them
   useEffect(() => {
     const fetchCitations = async () => {
       setIsCitationsLoading(true)
-      const updatedPapers = await Promise.all(
+      const papersWithCitations = await Promise.all(
         papers.map(async (paper) => {
           if (paper.citations === undefined || paper.citations === null) {
             try {
@@ -83,71 +77,67 @@ export function ResultsContainer({
           }
         })
       )
-      
-      // Sort papers by citations in descending order immediately after fetching
-      const sortedByCitations = [...updatedPapers].sort((a, b) => {
+
+      // Sort papers by citations in descending order by default
+      const sortedByCitations = [...papersWithCitations].sort((a, b) => {
         const aCitations = Number(a.citations) || 0
         const bCitations = Number(b.citations) || 0
-        return bCitations - aCitations // Descending order
+        return bCitations - aCitations
       })
       
-      setPapersWithCitations(sortedByCitations)
+      console.log('Sorted papers by citations:', sortedByCitations.map(p => ({ title: p.title, citations: p.citations })))
       setSortedPapers(sortedByCitations)
       setIsCitationsLoading(false)
     }
 
     if (papers.length > 0) {
       fetchCitations()
+    } else {
+      setSortedPapers([])
     }
   }, [papers])
 
-  // Effect to handle sorting
+  // Handle sorting when sort options change
   useEffect(() => {
-    console.log('Sorting papers:', { 
-      sortBy, 
-      sortDirection, 
-      papersCount: papersWithCitations.length,
-      papers: papersWithCitations 
-    })
-    
-    const papersToSort = [...(papersWithCitations.length > 0 ? papersWithCitations : papers)]
-    
-    papersToSort.sort((a, b) => {
-      switch (sortBy) {
-        case "citations": {
-          const aCitations = Number(a.citations) || 0
-          const bCitations = Number(b.citations) || 0
-          return sortDirection === "asc" 
-            ? aCitations - bCitations 
-            : bCitations - aCitations
+    const sortPapers = () => {
+      const papersToSort = [...sortedPapers]
+      
+      papersToSort.sort((a, b) => {
+        switch (sortBy) {
+          case "citations": {
+            const aCitations = Number(a.citations) || 0
+            const bCitations = Number(b.citations) || 0
+            return sortDirection === "asc" 
+              ? aCitations - bCitations 
+              : bCitations - aCitations
+          }
+          case "date":
+            return sortDirection === "asc" 
+              ? a.year - b.year
+              : b.year - a.year
+          case "title":
+            return sortDirection === "asc"
+              ? a.title.toLowerCase().localeCompare(b.title.toLowerCase())
+              : b.title.toLowerCase().localeCompare(a.title.toLowerCase())
+          case "relevance": {
+            const aScore = a.relevance_score || 0
+            const bScore = b.relevance_score || 0
+            return sortDirection === "asc" 
+              ? aScore - bScore 
+              : bScore - aScore
+          }
+          default:
+            return 0
         }
-        case "date":
-          return sortDirection === "asc" 
-            ? a.year - b.year
-            : b.year - a.year
-        case "title":
-          return sortDirection === "asc"
-            ? a.title.toLowerCase().localeCompare(b.title.toLowerCase())
-            : b.title.toLowerCase().localeCompare(a.title.toLowerCase())
-        case "relevance": {
-          const aScore = a.relevance_score || 0
-          const bScore = b.relevance_score || 0
-          return sortDirection === "asc" 
-            ? aScore - bScore 
-            : bScore - aScore
-        }
-        default:
-          return 0
-      }
-    })
+      })
 
-    console.log('Sorted papers:', { 
-      firstPaper: papersToSort[0],
-      lastPaper: papersToSort[papersToSort.length - 1]
-    })
+      setSortedPapers(papersToSort)
+    }
 
-    setSortedPapers(papersToSort)
-  }, [papersWithCitations, sortBy, sortDirection, papers])
+    if (sortedPapers.length > 0) {
+      sortPapers()
+    }
+  }, [sortBy, sortDirection])
 
   if (isLoading) {
     return <LoadingState />
