@@ -1,11 +1,32 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
-import axiod from 'https://deno.land/x/axiod@0.26.2/mod.ts'
-import { parseStringPromise } from 'https://esm.sh/xml2js@0.4.23'
 
 const NCBI_EMAIL = 'tjibbe-beckers@live.nl'
 const NCBI_API_KEY = '0e15924868078a8b07c4fc709d8a306e6108'
-const RESULTS_PER_PAGE = 100 // Increased from 25 to ensure we capture important trials
+const RESULTS_PER_PAGE = 100
+
+async function getCitationCount(pmid: string): Promise<number> {
+  const elinkUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=pubmed&linkname=pubmed_pubmed_citedin&id=${pmid}&retmode=json&api_key=${NCBI_API_KEY}`
+  
+  try {
+    console.log(`Fetching citations for PMID: ${pmid}`)
+    const response = await fetch(elinkUrl)
+    const data = await response.json()
+
+    const linksets = data.linksets || []
+    if (linksets.length === 0) return 0
+
+    const linksetdbs = linksets[0].linksetdbs || []
+    const citedInDb = linksetdbs.find((db: any) => db.linkname === 'pubmed_pubmed_citedin')
+    if (!citedInDb || !citedInDb.links) return 0
+
+    console.log(`Found ${citedInDb.links.length} citations for PMID: ${pmid}`)
+    return citedInDb.links.length
+  } catch (error) {
+    console.error(`Error fetching citations for PMID ${pmid}:`, error)
+    return 0
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -20,7 +41,6 @@ serve(async (req) => {
       throw new Error('Search term is required')
     }
 
-    // Enhanced search query to better capture clinical trials
     let searchQuery = `${encodeURIComponent(term)} AND (Clinical Trial[Publication Type] OR Trial[Title/Abstract] OR Study[Title/Abstract])`
     
     if (dateRange) {
@@ -34,8 +54,9 @@ serve(async (req) => {
     const esearchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${searchQuery}&retmode=json&retmax=${RESULTS_PER_PAGE}&email=${NCBI_EMAIL}&api_key=${NCBI_API_KEY}&sort=relevance`
     console.log('ESearch URL:', esearchUrl)
 
-    const esearchResponse = await axiod.get(esearchUrl)
-    const { count, idlist: pmids } = esearchResponse.data.esearchresult
+    const esearchResponse = await fetch(esearchUrl)
+    const esearchData = await esearchResponse.json()
+    const { count, idlist: pmids } = esearchData.esearchresult
     console.log('Found PMIDs:', pmids.length, 'Total results:', count)
 
     if (pmids.length === 0) {
@@ -56,108 +77,82 @@ serve(async (req) => {
     const efetchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml&email=${NCBI_EMAIL}&api_key=${NCBI_API_KEY}`
     console.log('EFetch URL:', efetchUrl)
 
-    const efetchResponse = await axiod.get(efetchUrl)
-    const xmlData = efetchResponse.data
+    const efetchResponse = await fetch(efetchUrl)
+    const xmlData = await efetchResponse.text()
+    const parser = new DOMParser()
+    const xmlDoc = parser.parseFromString(xmlData, 'text/xml')
+    const articles = Array.from(xmlDoc.getElementsByTagName('PubmedArticle'))
 
-    const parserOptions = { explicitArray: false, mergeAttrs: true }
-    const parsedXml = await parseStringPromise(xmlData, parserOptions)
-    const pubmedArticles = parsedXml.PubmedArticleSet?.PubmedArticle || []
+    // Process articles and fetch citations concurrently
+    const processedArticles = await Promise.all(articles.map(async (article) => {
+      const pmid = article.querySelector('PMID')?.textContent || ''
+      const title = article.querySelector('ArticleTitle')?.textContent || ''
+      const abstractText = article.querySelector('Abstract')?.querySelector('AbstractText')?.textContent || ''
+      const authorList = Array.from(article.querySelectorAll('Author')).map(author => {
+        const lastName = author.querySelector('LastName')?.textContent || ''
+        const foreName = author.querySelector('ForeName')?.textContent || ''
+        return `${foreName} ${lastName}`.trim()
+      })
+      const journal = article.querySelector('Journal')?.querySelector('Title')?.textContent || ''
+      const yearElement = article.querySelector('PubDate')?.querySelector('Year')
+      const year = yearElement ? parseInt(yearElement.textContent || '', 10) : new Date().getFullYear()
 
-    const articles = pubmedArticles.map(article => {
-      const medlineCitation = article.MedlineCitation
-      const articleData = medlineCitation.Article
-      
-      // Enhanced title handling
-      let articleTitle = ''
-      if (typeof articleData.ArticleTitle === 'string') {
-        articleTitle = articleData.ArticleTitle
-      } else if (articleData.ArticleTitle && typeof articleData.ArticleTitle === 'object') {
-        articleTitle = articleData.ArticleTitle._ || articleData.ArticleTitle.toString() || ''
+      // Fetch citation count for each article
+      const citations = await getCitationCount(pmid)
+      console.log(`Article ${pmid} has ${citations} citations`)
+
+      return {
+        id: pmid,
+        title,
+        abstract: abstractText,
+        authors: authorList,
+        journal,
+        year,
+        citations,
+        relevance_score: 0 // Will be calculated below
       }
+    }))
 
-      // Enhanced abstract handling
-      let abstractText = ''
-      if (articleData.Abstract && articleData.Abstract.AbstractText) {
-        const abstractData = articleData.Abstract.AbstractText
-        if (typeof abstractData === 'string') {
-          abstractText = abstractData
-        } else if (Array.isArray(abstractData)) {
-          abstractText = abstractData.map(section => {
-            return typeof section === 'string' ? section : section._ || ''
-          }).join('\n')
-        } else if (typeof abstractData === 'object') {
-          abstractText = abstractData._ || abstractData.toString() || ''
-        }
-      }
-
-      let authors: string[] = []
-      if (articleData.AuthorList && articleData.AuthorList.Author) {
-        let authorList = articleData.AuthorList.Author
-        if (!Array.isArray(authorList)) {
-          authorList = [authorList]
-        }
-        authors = authorList.map((auth: any) => {
-          const firstName = auth.ForeName || ''
-          const lastName = auth.LastName || ''
-          return [firstName, lastName].filter(Boolean).join(' ')
-        }).filter(name => name.length > 0)
-      }
-
-      const currentYear = new Date().getFullYear()
-      let publicationYear = currentYear
-      let publishedDate = null
-
-      try {
-        if (articleData.Journal?.JournalIssue?.PubDate) {
-          const pubDate = articleData.Journal.JournalIssue.PubDate
-          const year = pubDate.Year || (pubDate.MedlineDate && pubDate.MedlineDate.match(/\d{4}/)?.[0])
-          if (year) {
-            publicationYear = parseInt(year)
-            const month = pubDate.Month || '01'
-            const day = pubDate.Day || '01'
-            publishedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
-          }
-        }
-      } catch (error) {
-        console.error('Error extracting publication date:', error)
-      }
-
-      // Calculate relevance score based on title and abstract matches
-      const searchTermLower = term.toLowerCase()
-      const titleLower = articleTitle.toLowerCase()
-      const abstractLower = abstractText.toLowerCase()
-      
+    // Calculate relevance scores and sort by citations
+    const searchTermLower = term.toLowerCase()
+    const articlesWithScores = processedArticles.map(article => {
       let relevanceScore = 0
+      
       // Title matches are worth more
-      if (titleLower.includes(searchTermLower)) {
+      if (article.title.toLowerCase().includes(searchTermLower)) {
         relevanceScore += 50
       }
-      if (abstractLower.includes(searchTermLower)) {
+      // Abstract matches
+      if (article.abstract.toLowerCase().includes(searchTermLower)) {
         relevanceScore += 30
       }
       // Clinical trial mentions boost score
-      if (titleLower.includes('trial') || abstractLower.includes('trial')) {
+      if (article.title.toLowerCase().includes('trial') || 
+          article.abstract.toLowerCase().includes('trial')) {
         relevanceScore += 20
       }
-      // Recent papers get a small boost
-      const yearBoost = Math.max(0, 10 - (currentYear - publicationYear))
-      relevanceScore += yearBoost
-
+      // Citations boost score significantly
+      relevanceScore += Math.min(article.citations * 2, 100)
+      
       return {
-        id: medlineCitation.PMID,
-        title: articleTitle,
-        abstract: abstractText,
-        authors,
-        journal: articleData.Journal?.Title || articleData.Journal?.ISOAbbreviation || 'Unknown Journal',
-        year: publicationYear,
-        publishedDate,
-        citations: 0,
+        ...article,
         relevance_score: relevanceScore
       }
     })
 
-    // Sort articles by relevance score
-    const sortedArticles = articles.sort((a, b) => b.relevance_score - a.relevance_score)
+    // Sort by citations first, then by relevance score
+    const sortedArticles = articlesWithScores.sort((a, b) => {
+      const citationDiff = b.citations - a.citations
+      if (citationDiff !== 0) return citationDiff
+      return b.relevance_score - a.relevance_score
+    })
+
+    console.log('Processed and sorted articles:', sortedArticles.map(a => ({
+      id: a.id,
+      title: a.title.substring(0, 50) + '...',
+      citations: a.citations,
+      relevance_score: a.relevance_score
+    })))
 
     return new Response(
       JSON.stringify({
