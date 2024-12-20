@@ -34,7 +34,7 @@ export function ResultsContainer({
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [sortedPapers, setSortedPapers] = useState<Paper[]>([])
   const [isCitationsLoading, setIsCitationsLoading] = useState(false)
-  const [citationsLoaded, setCitationsLoaded] = useState(false)
+  const [citationsMap, setCitationsMap] = useState<Record<string, number>>({})
 
   // Get user ID on mount
   useEffect(() => {
@@ -51,7 +51,9 @@ export function ResultsContainer({
   useEffect(() => {
     const fetchCitations = async () => {
       setIsCitationsLoading(true)
-      const papersWithCitations = await Promise.all(
+      const newCitationsMap: Record<string, number> = {}
+
+      await Promise.all(
         papers.map(async (paper) => {
           if (paper.citations === undefined || paper.citations === null) {
             try {
@@ -60,45 +62,38 @@ export function ResultsContainer({
               })
               
               if (error) throw error
-              return {
-                ...paper,
-                citations: Number(data?.citations) || 0
-              }
+              newCitationsMap[paper.id] = Number(data?.citations) || 0
             } catch (error) {
               console.error('Error fetching citations:', error)
-              return {
-                ...paper,
-                citations: 0
-              }
+              newCitationsMap[paper.id] = 0
             }
-          }
-          return {
-            ...paper,
-            citations: Number(paper.citations) || 0
+          } else {
+            newCitationsMap[paper.id] = Number(paper.citations) || 0
           }
         })
       )
 
-      console.log('Papers with citations:', papersWithCitations)
-      setSortedPapers(papersWithCitations)
+      console.log('Citations map:', newCitationsMap)
+      setCitationsMap(newCitationsMap)
       setIsCitationsLoading(false)
-      setCitationsLoaded(true)
     }
 
     if (papers.length > 0) {
       fetchCitations()
     } else {
-      setSortedPapers([])
-      setCitationsLoaded(true)
+      setCitationsMap({})
     }
   }, [papers])
 
-  // Handle sorting when citations are loaded and sort options change
+  // Update sorted papers when citations are loaded or sort options change
   useEffect(() => {
-    if (!citationsLoaded) return
+    const papersWithCitations = papers.map(paper => ({
+      ...paper,
+      citations: citationsMap[paper.id] || 0
+    }))
 
     const sortPapers = () => {
-      const papersToSort = [...sortedPapers]
+      const papersToSort = [...papersWithCitations]
       
       papersToSort.sort((a, b) => {
         switch (sortBy) {
@@ -130,12 +125,15 @@ export function ResultsContainer({
         }
       })
 
-      console.log('Sorted papers:', papersToSort.map(p => ({ title: p.title, citations: p.citations })))
+      console.log('Sorted papers:', papersToSort.map(p => ({ 
+        title: p.title, 
+        citations: p.citations 
+      })))
       setSortedPapers(papersToSort)
     }
 
     sortPapers()
-  }, [citationsLoaded, sortBy, sortDirection])
+  }, [citationsMap, sortBy, sortDirection, papers])
 
   if (isLoading) {
     return <LoadingState />
