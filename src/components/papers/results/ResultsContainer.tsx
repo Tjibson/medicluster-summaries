@@ -64,7 +64,7 @@ export function ResultsContainer({
         sortDirection={sortDirection}
         onSortChange={setSortBy}
         onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
-        totalResults={pagination.total}
+        totalResults={papers.length}
       />
       
       <ResultsGrid

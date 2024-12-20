@@ -155,7 +155,6 @@ export function ResultsGrid({
         : bValue.localeCompare(aValue)
     }
     
-    // For numerical values (citations, date, relevance)
     const numericA = aValue as number
     const numericB = bValue as number
     return sortDirection === "asc" 
