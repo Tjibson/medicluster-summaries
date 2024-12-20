@@ -6,7 +6,7 @@ export function useSortedPapers(
   papers: Paper[],
   citationsMap: Record<string, number>
 ) {
-  const [sortBy, setSortBy] = useState<SortOption>("citations")
+  const [sortBy, setSortBy] = useState<SortOption>("relevance")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [sortedPapers, setSortedPapers] = useState<Paper[]>([])
 
@@ -65,6 +65,7 @@ export function useSortedPapers(
           title: p.title, 
           citations: p.citations,
           year: p.year,
+          relevance_score: p.relevance_score,
           sortBy,
           sortDirection 
         }))

@@ -60,25 +60,45 @@ export const DEFAULT_SEARCH_PARAMS: SearchParameters = {
 };
 
 export function calculateRelevanceScore(title: string, abstract: string, journal: string, searchParams: SearchParameters): number {
-  let score = 0;
-
-  // Journal weight (30% of total score)
-  const journalWeight = JOURNAL_WEIGHTS[journal as keyof typeof JOURNAL_WEIGHTS] || 1;
-  score += (journalWeight / Math.max(...Object.values(JOURNAL_WEIGHTS))) * 30;
-
-  // Keyword matches (70% of total score)
+  // Calculate keyword score
   const allKeywords = [...searchParams.keywords.medicine, ...searchParams.keywords.condition];
+  const text = `${title.toLowerCase()} ${abstract.toLowerCase()}`;
+  
+  let keywordScore = 0;
+  const maxKeywordScore = Object.values(KEYWORD_WEIGHTS).reduce((a, b) => a + b, 0);
+  
   allKeywords.forEach(keyword => {
     const keywordLower = keyword.toLowerCase();
-    // Title matches worth more (2x)
+    // Check title (2x weight)
     if (title.toLowerCase().includes(keywordLower)) {
-      score += 15;
+      keywordScore += (KEYWORD_WEIGHTS[keywordLower as keyof typeof KEYWORD_WEIGHTS] || 1) * 2;
     }
-    // Abstract matches
-    const matches = (String(abstract).toLowerCase().match(new RegExp(keywordLower, 'g')) || []).length;
-    score += matches * 5;
+    // Check abstract
+    if (abstract.toLowerCase().includes(keywordLower)) {
+      keywordScore += (KEYWORD_WEIGHTS[keywordLower as keyof typeof KEYWORD_WEIGHTS] || 1);
+    }
   });
 
-  // Normalize to 0-100
-  return Math.min(Math.round(score), 100);
+  // Calculate journal score
+  const journalScore = JOURNAL_WEIGHTS[journal as keyof typeof JOURNAL_WEIGHTS] || 0;
+  const maxJournalScore = Math.max(...Object.values(JOURNAL_WEIGHTS));
+
+  // Normalize scores to 0-100
+  const normalizedKeywordScore = (keywordScore / maxKeywordScore) * 100;
+  const normalizedJournalScore = (journalScore / maxJournalScore) * 100;
+
+  // Final weighted score (70% keywords, 30% journal)
+  const finalScore = (0.7 * normalizedKeywordScore) + (0.3 * normalizedJournalScore);
+
+  console.log('Relevance score calculation:', {
+    title,
+    journal,
+    keywordScore,
+    journalScore,
+    normalizedKeywordScore,
+    normalizedJournalScore,
+    finalScore
+  });
+
+  return Math.round(Math.max(0, Math.min(100, finalScore)));
 }
