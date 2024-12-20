@@ -30,12 +30,11 @@ export function ResultsContainer({
 }: ResultsContainerProps) {
   const [userId, setUserId] = useState<string | null>(null)
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
-  // Set initial sort to citations descending
   const [sortBy, setSortBy] = useState<SortOption>("citations")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [sortedPapers, setSortedPapers] = useState<Paper[]>([])
-  const [isCitationsLoading, setIsCitationsLoading] = useState(false)
   const [citationsMap, setCitationsMap] = useState<Record<string, number>>({})
+  const [isCitationsLoading, setIsCitationsLoading] = useState(false)
 
   // Get user ID on mount
   useEffect(() => {
@@ -48,16 +47,33 @@ export function ResultsContainer({
     getUserId()
   }, [])
 
-  // Fetch citations for papers that don't have them
+  // Initial paper setup with placeholder citations
   useEffect(() => {
-    const fetchCitations = async () => {
-      console.log('Starting citations fetch for papers:', papers.length)
-      setIsCitationsLoading(true)
-      const newCitationsMap: Record<string, number> = {}
+    if (papers.length > 0) {
+      console.log('Setting initial papers with placeholder citations')
+      const initialPapers = papers.map(paper => ({
+        ...paper,
+        citations: paper.citations || 0
+      }))
+      setSortedPapers(initialPapers)
+      fetchCitations(papers)
+    } else {
+      setSortedPapers([])
+    }
+  }, [papers])
 
-      try {
+  // Fetch citations asynchronously
+  const fetchCitations = async (papersToFetch: Paper[]) => {
+    console.log('Starting citations fetch for papers:', papersToFetch.length)
+    setIsCitationsLoading(true)
+    const newCitationsMap: Record<string, number> = {}
+
+    try {
+      const batchSize = 5
+      for (let i = 0; i < papersToFetch.length; i += batchSize) {
+        const batch = papersToFetch.slice(i, i + batchSize)
         await Promise.all(
-          papers.map(async (paper) => {
+          batch.map(async (paper) => {
             if (paper.citations === undefined || paper.citations === null) {
               try {
                 const { data, error } = await supabase.functions.invoke('fetch-citations', {
@@ -67,6 +83,12 @@ export function ResultsContainer({
                 if (error) throw error
                 newCitationsMap[paper.id] = Number(data?.citations) || 0
                 console.log(`Fetched citations for paper ${paper.id}:`, data?.citations)
+                
+                // Update citations map progressively
+                setCitationsMap(prev => ({
+                  ...prev,
+                  [paper.id]: Number(data?.citations) || 0
+                }))
               } catch (error) {
                 console.error('Error fetching citations for paper:', paper.id, error)
                 newCitationsMap[paper.id] = 0
@@ -76,40 +98,24 @@ export function ResultsContainer({
             }
           })
         )
-
-        console.log('Completed fetching all citations. Citations map:', newCitationsMap)
-        setCitationsMap(newCitationsMap)
-      } catch (error) {
-        console.error('Error in fetchCitations:', error)
-      } finally {
-        setIsCitationsLoading(false)
       }
-    }
 
-    if (papers.length > 0) {
-      fetchCitations()
-    } else {
-      setCitationsMap({})
-      setSortedPapers([])
+      console.log('Completed fetching all citations. Citations map:', newCitationsMap)
+    } catch (error) {
+      console.error('Error in fetchCitations:', error)
+    } finally {
+      setIsCitationsLoading(false)
     }
-  }, [papers])
+  }
 
-  // Update sorted papers when citations are loaded or sort options change
+  // Sort papers whenever citations update
   useEffect(() => {
     console.log('Sorting papers with citations map:', citationsMap)
     
-    const papersWithCitations = papers.map(paper => ({
+    const papersWithCitations = sortedPapers.map(paper => ({
       ...paper,
-      citations: citationsMap[paper.id] || 0
+      citations: citationsMap[paper.id] || paper.citations || 0
     }))
-
-    console.log('Papers with citations before sorting:', 
-      papersWithCitations.map(p => ({ 
-        id: p.id, 
-        title: p.title, 
-        citations: p.citations 
-      }))
-    )
 
     const sortPapers = () => {
       const papersToSort = [...papersWithCitations]
@@ -156,13 +162,10 @@ export function ResultsContainer({
       setSortedPapers(papersToSort)
     }
 
-    // Only sort if we have citations data or no papers
-    if (Object.keys(citationsMap).length > 0 || papers.length === 0) {
-      sortPapers()
-    }
-  }, [citationsMap, sortBy, sortDirection, papers])
+    sortPapers()
+  }, [citationsMap, sortBy, sortDirection])
 
-  if (isLoading || isCitationsLoading) {
+  if (isLoading) {
     return <LoadingState />
   }
 
