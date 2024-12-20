@@ -83,12 +83,13 @@ serve(async (req) => {
       // Extract PMID
       const pmid = medlineCitation.PMID?._ || medlineCitation.PMID || ''
 
-      // Calculate relevance score
-      const relevance_score = calculateRelevanceScore(title, term)
+      // Calculate relevance score with safe title handling
+      const safeTitle = typeof title === 'string' ? title : 'No title available'
+      const relevance_score = calculateRelevanceScore(safeTitle, term)
       
       return {
         id: pmid,
-        title,
+        title: safeTitle,
         abstract,
         authors,
         journal,
