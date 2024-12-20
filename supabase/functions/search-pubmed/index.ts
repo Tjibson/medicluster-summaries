@@ -72,15 +72,18 @@ serve(async (req) => {
       const articleData = medlineCitation.Article
       const articleTitle = articleData.ArticleTitle || ''
 
-      // Handle abstract text with different possible formats
+      // Enhanced abstract text handling
       let abstractText = ''
       if (articleData.Abstract && articleData.Abstract.AbstractText) {
-        if (typeof articleData.Abstract.AbstractText === 'string') {
-          abstractText = articleData.Abstract.AbstractText
-        } else if (Array.isArray(articleData.Abstract.AbstractText)) {
-          abstractText = articleData.Abstract.AbstractText.join('\n')
-        } else if (articleData.Abstract.AbstractText._) {
-          abstractText = articleData.Abstract.AbstractText._
+        const abstractData = articleData.Abstract.AbstractText
+        if (typeof abstractData === 'string') {
+          abstractText = abstractData
+        } else if (Array.isArray(abstractData)) {
+          abstractText = abstractData.map(section => {
+            return typeof section === 'string' ? section : section._ || ''
+          }).join('\n')
+        } else if (typeof abstractData === 'object') {
+          abstractText = abstractData._ || abstractData.toString() || ''
         }
       }
 
@@ -88,12 +91,9 @@ serve(async (req) => {
       let authors: string[] = []
       if (articleData.AuthorList && articleData.AuthorList.Author) {
         let authorList = articleData.AuthorList.Author
-        
-        // If authorList is not an array, wrap it in an array
         if (!Array.isArray(authorList)) {
           authorList = [authorList]
         }
-
         authors = authorList.map((auth: any) => {
           const firstName = auth.ForeName || ''
           const lastName = auth.LastName || ''
@@ -101,27 +101,24 @@ serve(async (req) => {
         }).filter(name => name.length > 0)
       }
 
-      // Extract publication date with proper fallback
-      let publicationYear = new Date().getFullYear() // Default to current year
+      // Extract publication date
+      const currentYear = new Date().getFullYear()
+      let publicationYear = currentYear
       let publishedDate = null
-      
+
       try {
         if (articleData.Journal?.JournalIssue?.PubDate) {
           const pubDate = articleData.Journal.JournalIssue.PubDate
-          
-          // Try to construct a full date
           const year = pubDate.Year || (pubDate.MedlineDate && pubDate.MedlineDate.match(/\d{4}/)?.[0])
-          const month = pubDate.Month || '01' // Default to January if no month
-          const day = pubDate.Day || '01' // Default to first day if no day
-          
           if (year) {
             publicationYear = parseInt(year)
+            const month = pubDate.Month || '01'
+            const day = pubDate.Day || '01'
             publishedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
           }
         }
       } catch (error) {
         console.error('Error extracting publication date:', error)
-        // Keep using default year if there's an error
       }
 
       return {
@@ -131,7 +128,7 @@ serve(async (req) => {
         authors,
         journal: articleData.Journal?.Title || articleData.Journal?.ISOAbbreviation || 'Unknown Journal',
         year: publicationYear,
-        publishedDate: publishedDate,
+        publishedDate,
         citations: 0
       }
     })
