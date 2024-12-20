@@ -3,14 +3,21 @@ import * as xml2js from 'https://esm.sh/xml2js@0.4.23'
 import { extractTitle, extractAbstract, extractAuthors, extractJournalInfo } from './utils/articleParser.ts'
 import { calculateRelevanceScore } from './utils/scoring.ts'
 
+interface Article {
+  id: string
+  title: string
+  abstract: string
+  authors: string[]
+  journal: string
+  year: number
+  citations: number
+  relevance_score: number
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-
-const NCBI_EMAIL = 'tjibbe-beckers@live.nl'
-const NCBI_API_KEY = '0e15924868078a8b07c4fc709d8a306e6108'
-const RESULTS_PER_PAGE = 100
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -35,7 +42,7 @@ serve(async (req) => {
       searchQuery += ` AND (${journalFilter})`
     }
 
-    const esearchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${searchQuery}&retmode=json&retmax=${RESULTS_PER_PAGE}&email=${NCBI_EMAIL}&api_key=${NCBI_API_KEY}&sort=relevance`
+    const esearchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${searchQuery}&retmode=json&retmax=100&sort=relevance`
     console.log('ESearch URL:', esearchUrl)
 
     const esearchResponse = await fetch(esearchUrl)
@@ -58,7 +65,7 @@ serve(async (req) => {
       )
     }
 
-    const efetchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml&email=${NCBI_EMAIL}&api_key=${NCBI_API_KEY}`
+    const efetchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
     console.log('EFetch URL:', efetchUrl)
 
     const efetchResponse = await fetch(efetchUrl)
@@ -90,12 +97,12 @@ serve(async (req) => {
       const pmid = medlineCitation.PMID?._ || medlineCitation.PMID || ''
 
       // Fetch citations
-      const elinkUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=pubmed&linkname=pubmed_pubmed_citedin&id=${pmid}&retmode=json&api_key=${NCBI_API_KEY}`
+      const elinkUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=pubmed&linkname=pubmed_pubmed_citedin&id=${pmid}&retmode=json`
       const elinkResponse = await fetch(elinkUrl)
       const elinkData = await elinkResponse.json()
       const citations = elinkData.linksets?.[0]?.linksetdbs?.[0]?.links?.length || 0
 
-      // Calculate relevance score
+      // Calculate relevance score with safe title
       const relevance_score = calculateRelevanceScore(title, abstract, term)
       
       return {
@@ -130,8 +137,8 @@ serve(async (req) => {
         pagination: {
           total: count,
           page: 1,
-          totalPages: Math.ceil(count / RESULTS_PER_PAGE),
-          hasMore: count > RESULTS_PER_PAGE
+          totalPages: Math.ceil(count / 100),
+          hasMore: count > 100
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

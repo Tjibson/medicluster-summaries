@@ -1,15 +1,15 @@
-// Helper function to safely render title
 export function extractTitle(articleData: any): string {
   if (!articleData) return 'No title available'
   
   const title = articleData.ArticleTitle
   
+  // Safety check for title
   if (typeof title === 'string') return title
   if (!title) return 'No title available'
   
   // Handle case where title is an object with '_' property
   if (typeof title === 'object') {
-    if ('_' in title) return title._ as string
+    if ('_' in title) return String(title._)
     if ('sub' in title) return String(title.sub)
   }
   
@@ -22,6 +22,7 @@ export function extractTitle(articleData: any): string {
     }).filter(Boolean).join(' ')
   }
   
+  // If all else fails, return a default
   return 'No title available'
 }
 

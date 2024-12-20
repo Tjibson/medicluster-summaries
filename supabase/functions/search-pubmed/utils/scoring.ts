@@ -1,33 +1,34 @@
 export function calculateRelevanceScore(title: any, abstract: string, searchTerm: string): number {
+  // Ensure title is a string
+  if (typeof title !== 'string') {
+    console.warn('Title is not a string:', title);
+    return 0;
+  }
+
   let score = 0
   const searchTermLower = searchTerm.toLowerCase()
-  
-  // Convert title to string if possible and check for matches
-  if (title) {
-    const titleStr = String(title)
-    const titleLower = titleStr.toLowerCase()
-    if (titleLower.includes(searchTermLower)) {
-      score += 50
-    }
-    
-    // Clinical trial mentions in title boost score
-    if (titleLower.includes('trial')) {
-      score += 20
-    }
+  const titleLower = title.toLowerCase()
+  const abstractLower = typeof abstract === 'string' ? abstract.toLowerCase() : ''
+
+  // Title matches are worth more
+  if (titleLower.includes(searchTermLower)) {
+    score += 50
   }
-  
-  // Abstract matches - with type guard
-  if (typeof abstract === 'string' && abstract) {
-    const abstractLower = abstract.toLowerCase()
-    if (abstractLower.includes(searchTermLower)) {
-      score += 30
-    }
-    
-    // Clinical trial mentions in abstract boost score
-    if (abstractLower.includes('trial')) {
-      score += 20
-    }
+
+  // Clinical trial mentions in title boost score
+  if (titleLower.includes('trial')) {
+    score += 20
   }
-  
+
+  // Abstract matches if abstract is available
+  if (abstractLower && abstractLower.includes(searchTermLower)) {
+    score += 30
+  }
+
+  // Clinical trial mentions in abstract boost score
+  if (abstractLower && abstractLower.includes('trial')) {
+    score += 20
+  }
+
   return score
 }
