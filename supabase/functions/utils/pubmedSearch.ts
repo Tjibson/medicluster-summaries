@@ -5,7 +5,7 @@ export async function searchPubMed(searchQuery: string, limit: number = 25) {
     console.log('Fetching PubMed search results...')
     // Remove any malformed URL characters and properly encode the query
     const sanitizedQuery = searchQuery.replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
-    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(sanitizedQuery)}&retmax=${limit}&usehistory=y`
+    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(sanitizedQuery)}&retmax=${limit}&usehistory=y&sort=relevance`
     
     console.log('Search URL:', searchUrl)
     const searchResponse = await fetch(searchUrl, {
