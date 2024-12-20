@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client"
 import { type Paper } from "@/types/papers"
 import { useToast } from "@/components/ui/use-toast"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Plus } from "lucide-react"
 
 interface AddToListDialogProps {
   paper: Paper | null
@@ -104,6 +105,26 @@ export function AddToListDialog({ paper, isOpen, onClose, onSave }: AddToListDia
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          {lists.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium mb-2">Select List</h4>
+              <ScrollArea className="h-[200px]">
+                <div className="space-y-2">
+                  {lists.map((list) => (
+                    <Button
+                      key={list.id}
+                      variant="outline"
+                      className="w-full justify-between"
+                      onClick={() => handleSelectList(list.id)}
+                    >
+                      {list.name}
+                      <Plus className="h-4 w-4 ml-2" />
+                    </Button>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
           <div>
             <h4 className="text-sm font-medium mb-2">Create New List</h4>
             <div className="flex space-x-2">
@@ -112,28 +133,12 @@ export function AddToListDialog({ paper, isOpen, onClose, onSave }: AddToListDia
                 onChange={(e) => setNewListName(e.target.value)}
                 placeholder="Enter list name"
               />
-              <Button onClick={handleCreateList}>Create</Button>
+              <Button onClick={handleCreateList}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create
+              </Button>
             </div>
           </div>
-          {lists.length > 0 && (
-            <div>
-              <h4 className="text-sm font-medium mb-2">Or Select Existing List</h4>
-              <ScrollArea className="h-[200px]">
-                <div className="space-y-2">
-                  {lists.map((list) => (
-                    <Button
-                      key={list.id}
-                      variant="outline"
-                      className="w-full justify-start"
-                      onClick={() => handleSelectList(list.id)}
-                    >
-                      {list.name}
-                    </Button>
-                  ))}
-                </div>
-              </ScrollArea>
-            </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>
