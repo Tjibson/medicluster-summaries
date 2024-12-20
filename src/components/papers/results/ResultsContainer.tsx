@@ -34,6 +34,7 @@ export function ResultsContainer({
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [papersWithCitations, setPapersWithCitations] = useState<Paper[]>([])
   const [isCitationsLoading, setIsCitationsLoading] = useState(false)
+  const [sortedPapers, setSortedPapers] = useState<Paper[]>([])
 
   useEffect(() => {
     const getUserId = async () => {
@@ -83,6 +84,45 @@ export function ResultsContainer({
     }
   }, [papers])
 
+  // New effect to handle sorting after citations are loaded
+  useEffect(() => {
+    if (!isCitationsLoading && papersWithCitations.length > 0) {
+      const getSortValue = (paper: Paper, sortType: SortOption): number | string => {
+        switch (sortType) {
+          case "citations":
+            return typeof paper.citations === 'number' ? paper.citations : 0
+          case "date":
+            return new Date(paper.year, 0).getTime()
+          case "title":
+            return paper.title.toLowerCase()
+          case "relevance":
+            return paper.relevance_score || 0
+          default:
+            return 0
+        }
+      }
+
+      const sorted = [...papersWithCitations].sort((a, b) => {
+        const aValue = getSortValue(a, sortBy)
+        const bValue = getSortValue(b, sortBy)
+        
+        if (typeof aValue === "string" && typeof bValue === "string") {
+          return sortDirection === "asc" 
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue)
+        }
+        
+        const numericA = aValue as number
+        const numericB = bValue as number
+        return sortDirection === "asc" 
+          ? numericA - numericB
+          : numericB - numericA
+      })
+
+      setSortedPapers(sorted)
+    }
+  }, [papersWithCitations, sortBy, sortDirection, isCitationsLoading])
+
   if (isLoading) {
     return <LoadingState />
   }
@@ -99,7 +139,7 @@ export function ResultsContainer({
       />
       
       <ResultsGrid
-        papers={papersWithCitations}
+        papers={sortedPapers}
         userId={userId}
         sortBy={sortBy}
         sortDirection={sortDirection}

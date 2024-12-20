@@ -4,7 +4,6 @@ import { type Paper } from "@/types/papers"
 import { PaperCard } from "../PaperCard"
 import { PaginationControls } from "../PaginationControls"
 import { type SortOption, type SortDirection } from "../SortingControls"
-import { ErrorPage } from "../ErrorPage"
 
 interface ResultsGridProps {
   papers: Paper[]
@@ -125,38 +124,6 @@ export function ResultsGrid({
     }
   }
 
-  const getSortValue = (paper: Paper, sortType: SortOption): number | string => {
-    switch (sortType) {
-      case "citations":
-        return typeof paper.citations === 'number' ? paper.citations : 0
-      case "date":
-        return new Date(paper.year, 0).getTime()
-      case "title":
-        return paper.title.toLowerCase()
-      case "relevance":
-        return paper.relevance_score || 0
-      default:
-        return 0
-    }
-  }
-
-  const sortedPapers = [...papers].sort((a, b) => {
-    const aValue = getSortValue(a, sortBy)
-    const bValue = getSortValue(b, sortBy)
-    
-    if (typeof aValue === "string" && typeof bValue === "string") {
-      return sortDirection === "asc" 
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue)
-    }
-    
-    const numericA = aValue as number
-    const numericB = bValue as number
-    return sortDirection === "asc" 
-      ? numericA - numericB
-      : numericB - numericA
-  })
-
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-8">
@@ -168,7 +135,7 @@ export function ResultsGrid({
   return (
     <>
       <div className="space-y-4">
-        {sortedPapers.map((paper) => (
+        {papers.map((paper) => (
           <PaperCard
             key={paper.id}
             paper={paper}
