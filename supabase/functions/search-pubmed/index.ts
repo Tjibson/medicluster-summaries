@@ -3,17 +3,6 @@ import * as xml2js from 'https://esm.sh/xml2js@0.4.23'
 import { extractTitle, extractAbstract, extractAuthors, extractJournalInfo } from './utils/articleParser.ts'
 import { calculateRelevanceScore } from './utils/scoring.ts'
 
-interface Paper {
-  id: string
-  title: string
-  abstract: string
-  authors: string[]
-  journal: string
-  year: number
-  citations: number
-  relevance_score: number
-}
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -91,6 +80,8 @@ serve(async (req) => {
       
       // Extract article data using our utility functions
       const title = extractTitle(articleData)
+      console.log('Article title:', title, 'Type:', typeof title)
+      
       const abstract = extractAbstract(articleData)
       const authors = extractAuthors(articleData)
       const { journal, year } = extractJournalInfo(articleData)
