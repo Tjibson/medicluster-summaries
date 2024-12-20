@@ -33,7 +33,7 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
         <h3 className="font-semibold text-lg">{renderTitle(paper.title)}</h3>
         
         <div className="flex items-center space-x-2 text-sm text-gray-600">
-          <p>Citations: {paper.citations || 0}</p>
+          <p className="font-medium">Citations: {paper.citations || 0}</p>
           <span>•</span>
           <p>{paper.year}</p>
           <span>•</span>

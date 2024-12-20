@@ -130,7 +130,7 @@ export function ResultsGrid({
         return b.year - a.year
       case "title":
         return a.title.localeCompare(b.title)
-      default: // "relevance" is default
+      default: // "relevance" is default, but we'll prioritize citations within relevance
         const citationDiff = (b.citations || 0) - (a.citations || 0)
         if (citationDiff !== 0) {
           return citationDiff
@@ -143,6 +143,8 @@ export function ResultsGrid({
         return b.year - a.year
     }
   })
+
+  console.log("Sorted papers with citations:", sortedPapers)
 
   return (
     <>
