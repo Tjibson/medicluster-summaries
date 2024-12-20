@@ -6,15 +6,12 @@ import { ResultsGrid } from "./ResultsGrid"
 import { LoadingState } from "@/components/papers/LoadingState"
 import { ArticleDetails } from "@/components/papers/ArticleDetails"
 import { type SortOption } from "../SortingControls"
+import { type SearchParameters } from "@/constants/searchConfig"
 
 interface ResultsContainerProps {
   papers: Paper[]
   isLoading: boolean
-  searchCriteria?: {
-    dateRange: { start: string; end: string }
-    keywords: string
-    journalNames: string[]
-  } | null
+  searchCriteria?: SearchParameters | null
   pagination?: {
     total: number
     page: number

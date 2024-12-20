@@ -1,6 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import * as xml2js from 'https://esm.sh/xml2js@0.4.23'
-import { calculateRelevanceScore } from './utils/scoring.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,15 +12,44 @@ serve(async (req) => {
   }
 
   try {
-    const { searchParams, query } = await req.json()
-    console.log('Search request:', { searchParams, query })
+    const { searchParams } = await req.json()
+    console.log('Search request:', { searchParams })
+
+    // Step 1: Construct search query with Boolean logic
+    const medicineQuery = searchParams.keywords.medicine.length > 0 
+      ? `(${searchParams.keywords.medicine.join(" OR ")})`
+      : ""
+    
+    const conditionQuery = searchParams.keywords.condition.length > 0
+      ? `(${searchParams.keywords.condition.join(" OR ")})`
+      : ""
+    
+    const journalQuery = searchParams.journalNames.length > 0
+      ? `(${searchParams.journalNames.map(journal => `"${journal}"[Journal]`).join(" OR ")})`
+      : ""
+    
+    const articleTypesQuery = searchParams.articleTypes.length > 0
+      ? `(${searchParams.articleTypes.map(type => `"${type}"[Publication Type]`).join(" OR ")})`
+      : ""
+    
+    const dateQuery = `("${searchParams.dateRange.start}"[Date - Publication] : "${searchParams.dateRange.end}"[Date - Publication])`
+    
+    // Combine all query parts
+    const query = [
+      medicineQuery,
+      conditionQuery,
+      journalQuery,
+      articleTypesQuery,
+      dateQuery
+    ].filter(Boolean).join(" AND ")
+
+    console.log("Constructed PubMed query:", query)
 
     // Step 2: Fetch article IDs from PubMed
     const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=100&usehistory=y`
     const searchResponse = await fetch(searchUrl)
     const searchData = await searchResponse.text()
     
-    // Extract PMIDs from search results
     const pmids = searchData.match(/<Id>(\d+)<\/Id>/g)?.map(id => id.replace(/<\/?Id>/g, '')) || []
     
     if (pmids.length === 0) {
@@ -69,7 +97,7 @@ serve(async (req) => {
         .filter(Boolean)
 
       // Calculate relevance score
-      const relevance_score = calculateRelevanceScore(title, abstract, searchParams)
+      const relevance_score = calculateRelevanceScore(title, abstract, journal, searchParams)
 
       return {
         id: pmid,
@@ -78,7 +106,7 @@ serve(async (req) => {
         authors,
         journal,
         year,
-        citations: 0, // We'll need to implement citation fetching separately
+        citations: 0,
         relevance_score
       }
     })
@@ -102,3 +130,41 @@ serve(async (req) => {
     )
   }
 })
+
+function calculateRelevanceScore(title: string, abstract: string, journal: string, searchParams: any): number {
+  let score = 0;
+  const text = `${title} ${abstract}`.toLowerCase();
+
+  // Score based on journal weight
+  const journalWeights: Record<string, number> = {
+    "The New England Journal of Medicine": 5,
+    "The Lancet": 5,
+    "Nature": 4,
+    "Journal of the American College of Cardiology": 4,
+    "Circulation": 4,
+    "JAMA cardiology": 4,
+    "European journal of heart failure": 3,
+    "ESC heart failure": 3,
+    "JACC. Heart failure": 3,
+    "Frontiers in cardiovascular medicine": 2,
+    "Journal of the American Heart Association": 2,
+  };
+
+  const journalWeight = journalWeights[journal] || 1;
+  score += journalWeight * 10;
+
+  // Score based on keyword matches
+  const allKeywords = [...searchParams.keywords.medicine, ...searchParams.keywords.condition];
+  allKeywords.forEach(keyword => {
+    const keywordLower = keyword.toLowerCase();
+    // Title matches worth more
+    if (title.toLowerCase().includes(keywordLower)) {
+      score += 15;
+    }
+    // Abstract matches
+    const matches = (text.match(new RegExp(keywordLower, 'g')) || []).length;
+    score += matches * 5;
+  });
+
+  return Math.min(100, score); // Cap at 100
+}
