@@ -11,9 +11,10 @@ import { DEFAULT_SEARCH_PARAMS, type SearchParameters } from "@/constants/search
 interface SearchFormProps {
   onSearch: (papers: Paper[], searchCriteria: SearchParameters) => void
   onSearchStart: () => void
+  onError: (error: Error) => void
 }
 
-export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
+export function SearchForm({ onSearch, onSearchStart, onError }: SearchFormProps) {
   const [medicine, setMedicine] = useState("")
   const [condition, setCondition] = useState("")
   const [selectedArticleTypes, setSelectedArticleTypes] = useState<string[]>([])
@@ -28,6 +29,10 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
     onSearchStart()
 
     try {
+      if (!medicine.trim() && !condition.trim()) {
+        throw new Error("Please enter at least one search term (medicine or condition)")
+      }
+
       const searchParams: SearchParameters = {
         dateRange: {
           start: startDate.toISOString().split('T')[0],
@@ -41,15 +46,27 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
         articleTypes: selectedArticleTypes as typeof DEFAULT_SEARCH_PARAMS.articleTypes,
       }
 
+      console.log("Submitting search with params:", searchParams)
+
       const { data, error } = await supabase.functions.invoke('search-pubmed', {
         body: { searchParams }
       })
 
-      if (error) throw error
+      if (error) {
+        console.error("Supabase function error:", error)
+        throw new Error(error.message || "Failed to perform search")
+      }
 
+      if (!data || !Array.isArray(data.papers)) {
+        console.error("Invalid response format:", data)
+        throw new Error("Invalid response from search service")
+      }
+
+      console.log("Search results received:", data.papers)
       onSearch(data.papers, searchParams)
     } catch (error: any) {
       console.error("Error performing search:", error)
+      onError(error)
       toast({
         title: "Error",
         description: error.message || "Failed to perform search",

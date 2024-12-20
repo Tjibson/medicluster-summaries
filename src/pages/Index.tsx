@@ -2,16 +2,17 @@ import { useState } from "react"
 import { ResultsList } from "@/components/ResultsList"
 import { SearchForm } from "@/components/SearchForm"
 import { type Paper } from "@/types/papers"
-import { Loader2 } from "lucide-react"
 import { type SearchParameters } from "@/constants/searchConfig"
 
 export default function Index() {
   const [papers, setPapers] = useState<Paper[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchCriteria, setSearchCriteria] = useState<SearchParameters | null>(null)
+  const [error, setError] = useState<Error | null>(null)
 
   const handleSearchStart = () => {
     setPapers([])
+    setError(null)
     setIsLoading(true)
   }
 
@@ -22,24 +23,24 @@ export default function Index() {
     setIsLoading(false)
   }
 
+  const handleError = (error: Error) => {
+    setError(error)
+    setIsLoading(false)
+  }
+
   return (
     <div className="container mx-auto max-w-7xl space-y-8">
       <SearchForm 
         onSearch={handleSearch} 
         onSearchStart={handleSearchStart}
+        onError={handleError}
       />
-      {isLoading && (
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      )}
-      {!isLoading && (
-        <ResultsList 
-          papers={papers} 
-          isLoading={isLoading} 
-          searchCriteria={searchCriteria}
-        />
-      )}
+      <ResultsList 
+        papers={papers} 
+        isLoading={isLoading} 
+        searchCriteria={searchCriteria}
+        error={error}
+      />
     </div>
   )
 }
