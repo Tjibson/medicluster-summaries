@@ -80,7 +80,7 @@ export function calculateRelevanceScore(
     ? abstract._ 
     : '';
 
-  // Calculate keyword score (60% weight)
+  // Calculate keyword score (base 60% weight, can be reduced based on citations)
   const allKeywords = [...searchParams.keywords.medicine, ...searchParams.keywords.condition];
   const text = `${titleText.toLowerCase()} ${abstractText.toLowerCase()}`;
   
@@ -103,19 +103,32 @@ export function calculateRelevanceScore(
   const journalScore = JOURNAL_WEIGHTS[journal as keyof typeof JOURNAL_WEIGHTS] || 0;
   const maxJournalScore = Math.max(...Object.values(JOURNAL_WEIGHTS));
 
-  // Calculate citation score (20% weight)
+  // Calculate citation score (20% base weight + potential bonus)
   const maxCitations = 1000; // Cap for normalization
   const citationScore = citations > 0 ? Math.min(Math.log10(citations + 1) / Math.log10(maxCitations + 1), 1) * 100 : 0;
+
+  // Determine citation bonus and keyword weight reduction
+  let citationBonus = 0;
+  let keywordWeight = 0.6; // Start with 60% weight for keywords
+
+  if (citations >= 500) {
+    citationBonus = 10; // +10% total (5% + 5%)
+    keywordWeight = 0.5; // Reduce keyword weight by 10%
+  } else if (citations >= 200) {
+    citationBonus = 5; // +5% total
+    keywordWeight = 0.55; // Reduce keyword weight by 5%
+  }
 
   // Normalize scores to 0-100
   const normalizedKeywordScore = (keywordScore / maxKeywordScore) * 100;
   const normalizedJournalScore = (journalScore / maxJournalScore) * 100;
 
-  // Final weighted score (60% keywords, 20% journal, 20% citations)
+  // Final weighted score with citation bonus
   const finalScore = (
-    0.6 * normalizedKeywordScore +
+    keywordWeight * normalizedKeywordScore +
     0.2 * normalizedJournalScore +
-    0.2 * citationScore
+    0.2 * citationScore +
+    citationBonus
   );
 
   console.log('Relevance score calculation:', {
@@ -125,6 +138,8 @@ export function calculateRelevanceScore(
     keywordScore,
     journalScore,
     citationScore,
+    citationBonus,
+    keywordWeight,
     normalizedKeywordScore,
     normalizedJournalScore,
     finalScore
