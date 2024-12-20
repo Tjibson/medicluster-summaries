@@ -11,6 +11,7 @@ interface ResultsGridProps {
   papers: Paper[]
   userId: string | null
   sortBy: SortOption
+  sortDirection: SortDirection
   currentPage: number
   onPageChange: (page: number) => void
   onPaperSelect: (paper: Paper) => void
@@ -20,7 +21,8 @@ interface ResultsGridProps {
 export function ResultsGrid({ 
   papers, 
   userId, 
-  sortBy, 
+  sortBy,
+  sortDirection,
   currentPage, 
   onPageChange,
   onPaperSelect,
@@ -29,7 +31,6 @@ export function ResultsGrid({
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
 
   const handleSavePaper = async (paper: Paper) => {
     if (!userId) {
@@ -161,10 +162,6 @@ export function ResultsGrid({
       ? numericA - numericB
       : numericB - numericA
   })
-
-  const toggleSortDirection = () => {
-    setSortDirection(prev => prev === "asc" ? "desc" : "asc")
-  }
 
   return (
     <>

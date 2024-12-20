@@ -1,15 +1,24 @@
 import { SearchCriteria } from "@/components/papers/SearchCriteria"
-import { SortingControls, type SortOption } from "@/components/papers/SortingControls"
+import { SortingControls, type SortOption, type SortDirection } from "@/components/papers/SortingControls"
 import { type SearchParameters } from "@/constants/searchConfig"
 
 interface ResultsHeaderProps {
   searchCriteria?: SearchParameters | null
   sortBy: SortOption
+  sortDirection: SortDirection
   onSortChange: (value: SortOption) => void
+  onDirectionChange: () => void
   totalResults?: number
 }
 
-export function ResultsHeader({ searchCriteria, sortBy, onSortChange, totalResults }: ResultsHeaderProps) {
+export function ResultsHeader({ 
+  searchCriteria, 
+  sortBy, 
+  sortDirection,
+  onSortChange,
+  onDirectionChange,
+  totalResults 
+}: ResultsHeaderProps) {
   return (
     <div className="space-y-4">
       {searchCriteria && <SearchCriteria criteria={searchCriteria} />}
@@ -19,7 +28,12 @@ export function ResultsHeader({ searchCriteria, sortBy, onSortChange, totalResul
             Found {totalResults} results
           </p>
         )}
-        <SortingControls sortBy={sortBy} onSortChange={onSortChange} />
+        <SortingControls 
+          sortBy={sortBy} 
+          sortDirection={sortDirection}
+          onSortChange={onSortChange}
+          onDirectionChange={onDirectionChange}
+        />
       </div>
     </div>
   )

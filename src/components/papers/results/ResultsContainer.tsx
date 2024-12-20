@@ -71,6 +71,7 @@ export function ResultsContainer({
         papers={papersWithCitations}
         userId={userId}
         sortBy={sortBy}
+        sortDirection={sortDirection}
         currentPage={pagination.page}
         onPageChange={onPageChange}
         onPaperSelect={setSelectedPaper}
