@@ -7,7 +7,6 @@ import { DateRangeSelect } from "./search/DateRangeSelect"
 import { SearchInputs } from "./search/SearchInputs"
 import { Loader2 } from "lucide-react"
 import { DEFAULT_JOURNALS } from "@/constants/journals"
-import { buildSearchQuery } from "@/utils/searchQueryBuilder"
 
 interface SearchFormProps {
   onSearch: (papers: Paper[], searchCriteria: {
@@ -64,7 +63,7 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
         throw new Error("Invalid response format")
       }
 
-      // Transform PubMed articles to match Paper type
+      // Transform PubMed articles and get their PMIDs
       const papers: Paper[] = data.articles.map((article: any) => ({
         id: article.id,
         title: article.title,
@@ -72,10 +71,27 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
         authors: article.authors,
         journal: article.journal,
         year: article.year,
-        citations: 0 // PubMed API doesn't provide citation count
+        citations: 0
       }))
 
-      console.log("Transformed papers:", papers)
+      // Fetch citation counts
+      const { data: citationsData, error: citationsError } = await supabase.functions.invoke('fetch-citations', {
+        body: { pmids: papers.map(paper => paper.id) }
+      })
+
+      if (citationsError) {
+        console.error("Error fetching citations:", citationsError)
+      } else if (citationsData?.citations) {
+        // Update papers with citation counts
+        papers.forEach(paper => {
+          const citationInfo = citationsData.citations.find((c: any) => c.pmid === paper.id)
+          if (citationInfo) {
+            paper.citations = citationInfo.citations
+          }
+        })
+      }
+
+      console.log("Papers with citations:", papers)
       onSearch(papers, {
         dateRange: {
           start: startDate.toISOString().split('T')[0],
