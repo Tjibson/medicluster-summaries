@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/integrations/supabase/client"
-import { PapersList } from "@/components/papers/PapersList"
+import { PaperCard } from "@/components/papers/PaperCard"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Download } from "lucide-react"
+import { Download, Edit2, Trash2 } from "lucide-react"
 import { type SavedPaper } from "@/types/papers"
 import { ListPreview } from "@/components/papers/ListPreview"
+import { EditListDialog } from "@/components/papers/EditListDialog"
 
 interface List {
   id: string
@@ -17,6 +18,7 @@ interface List {
 export default function Lists() {
   const [lists, setLists] = useState<List[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [editingList, setEditingList] = useState<List | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -65,48 +67,52 @@ export default function Lists() {
     }
   }
 
-  const handleRemove = async (paperId: string) => {
+  const handleRemoveList = async (listId: string) => {
     try {
       const { error } = await supabase
-        .from("saved_papers")
+        .from("lists")
         .delete()
-        .eq("id", paperId)
+        .eq("id", listId)
 
       if (error) throw error
 
-      setLists(lists.map(list => ({
-        ...list,
-        papers: list.papers.filter(paper => paper.id !== paperId)
-      })))
-
+      setLists(lists.filter(list => list.id !== listId))
       toast({
         title: "Success",
-        description: "Paper removed from list",
+        description: "List removed successfully",
       })
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to remove paper",
+        description: "Failed to remove list",
         variant: "destructive",
       })
     }
   }
 
-  const handleDownload = async (paperId: string) => {
-    const paper = lists
-      .flatMap(list => list.papers)
-      .find(p => p.id === paperId)
-    
-    if (!paper?.pdfUrl) {
+  const handleEditList = async (listId: string, newName: string) => {
+    try {
+      const { error } = await supabase
+        .from("lists")
+        .update({ name: newName })
+        .eq("id", listId)
+
+      if (error) throw error
+
+      setLists(lists.map(list => 
+        list.id === listId ? { ...list, name: newName } : list
+      ))
+      toast({
+        title: "Success",
+        description: "List name updated successfully",
+      })
+    } catch (error) {
       toast({
         title: "Error",
-        description: "PDF not available for this paper",
+        description: "Failed to update list name",
         variant: "destructive",
       })
-      return
     }
-    
-    window.open(paper.pdfUrl, '_blank')
   }
 
   const handleDownloadListSummary = async (listId: string) => {
@@ -181,7 +187,27 @@ export default function Lists() {
           <div key={list.id} className="space-y-4">
             <div className="flex justify-between items-start">
               <div className="space-y-4 flex-1 mr-4">
-                <h2 className="text-xl font-semibold">{list.name}</h2>
+                <div className="flex items-center space-x-4">
+                  <h2 className="text-xl font-semibold">{list.name}</h2>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setEditingList(list)}
+                      className="h-8 w-8"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveList(list.id)}
+                      className="h-8 w-8 text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
                 <ListPreview papers={list.papers} />
               </div>
               <Button
@@ -192,16 +218,25 @@ export default function Lists() {
                 Download Summary
               </Button>
             </div>
-            <PapersList
-              papers={list.papers}
-              isLoading={false}
-              emptyMessage={`No papers in ${list.name}`}
-              onRemove={handleRemove}
-              onDownload={handleDownload}
-            />
+            <div className="space-y-4">
+              {list.papers.map((paper) => (
+                <PaperCard
+                  key={paper.id}
+                  paper={paper}
+                  onSave={() => {}}
+                  onLike={() => {}}
+                  onClick={() => {}}
+                />
+              ))}
+            </div>
           </div>
         ))}
       </div>
+      <EditListDialog
+        list={editingList}
+        onClose={() => setEditingList(null)}
+        onSave={handleEditList}
+      />
     </div>
   )
 }
