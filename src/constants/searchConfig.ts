@@ -59,10 +59,30 @@ export const DEFAULT_SEARCH_PARAMS: SearchParameters = {
   articleTypes: [...ARTICLE_TYPES],
 };
 
-export function calculateRelevanceScore(title: string, abstract: string, journal: string, citations: number, searchParams: SearchParameters): number {
+export function calculateRelevanceScore(
+  title: string | { _: string } | undefined,
+  abstract: string | { _: string } | undefined,
+  journal: string,
+  citations: number,
+  searchParams: SearchParameters
+): number {
+  // Safely extract title text
+  const titleText = typeof title === 'string' 
+    ? title 
+    : typeof title === 'object' && title?._
+    ? title._ 
+    : '';
+
+  // Safely extract abstract text
+  const abstractText = typeof abstract === 'string' 
+    ? abstract 
+    : typeof abstract === 'object' && abstract?._ 
+    ? abstract._ 
+    : '';
+
   // Calculate keyword score (60% weight)
   const allKeywords = [...searchParams.keywords.medicine, ...searchParams.keywords.condition];
-  const text = `${title.toLowerCase()} ${abstract.toLowerCase()}`;
+  const text = `${titleText.toLowerCase()} ${abstractText.toLowerCase()}`;
   
   let keywordScore = 0;
   const maxKeywordScore = Object.values(KEYWORD_WEIGHTS).reduce((a, b) => a + b, 0);
@@ -70,11 +90,11 @@ export function calculateRelevanceScore(title: string, abstract: string, journal
   allKeywords.forEach(keyword => {
     const keywordLower = keyword.toLowerCase();
     // Check title (2x weight)
-    if (title.toLowerCase().includes(keywordLower)) {
+    if (titleText.toLowerCase().includes(keywordLower)) {
       keywordScore += (KEYWORD_WEIGHTS[keywordLower as keyof typeof KEYWORD_WEIGHTS] || 1) * 2;
     }
     // Check abstract
-    if (abstract.toLowerCase().includes(keywordLower)) {
+    if (abstractText.toLowerCase().includes(keywordLower)) {
       keywordScore += (KEYWORD_WEIGHTS[keywordLower as keyof typeof KEYWORD_WEIGHTS] || 1);
     }
   });
@@ -99,7 +119,7 @@ export function calculateRelevanceScore(title: string, abstract: string, journal
   );
 
   console.log('Relevance score calculation:', {
-    title,
+    title: titleText,
     journal,
     citations,
     keywordScore,
