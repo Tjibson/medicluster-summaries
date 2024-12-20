@@ -1,7 +1,6 @@
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ARTICLE_TYPES } from "@/constants/searchConfig"
-import { Button } from "@/components/ui/button"
 
 interface SearchInputsProps {
   medicine: string
@@ -20,19 +19,6 @@ export function SearchInputs({
   onConditionChange,
   onArticleTypesChange,
 }: SearchInputsProps) {
-  const handleArticleTypeChange = (value: string) => {
-    switch (value) {
-      case "all":
-        onArticleTypesChange([...ARTICLE_TYPES])
-        break
-      case "none":
-        onArticleTypesChange([])
-        break
-      default:
-        onArticleTypesChange([value])
-    }
-  }
-
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -58,27 +44,13 @@ export function SearchInputs({
       <div className="space-y-2">
         <label className="text-sm font-medium">Article Types</label>
         <Select
-          value={
-            selectedArticleTypes.length === 0
-              ? "none"
-              : selectedArticleTypes.length === ARTICLE_TYPES.length
-              ? "all"
-              : selectedArticleTypes[0]
-          }
-          onValueChange={handleArticleTypeChange}
+          value={selectedArticleTypes[0]}
+          onValueChange={(value) => onArticleTypesChange([value])}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Select article type">
-              {selectedArticleTypes.length === 0
-                ? "No types selected"
-                : selectedArticleTypes.length === ARTICLE_TYPES.length
-                ? "All types"
-                : selectedArticleTypes[0]}
-            </SelectValue>
+            <SelectValue placeholder="Select article type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
-            <SelectItem value="none">No types</SelectItem>
             {ARTICLE_TYPES.map((type) => (
               <SelectItem key={type} value={type}>
                 {type}
