@@ -1,6 +1,6 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { ArrowUpDown } from "lucide-react"
+import { ArrowUpDown, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export type SortOption = "citations" | "date" | "relevance" | "title"
@@ -11,22 +11,33 @@ interface SortingControlsProps {
   sortDirection: SortDirection
   onSortChange: (value: SortOption) => void
   onDirectionChange: () => void
+  isRelevanceReady?: boolean
 }
 
 export function SortingControls({ 
   sortBy, 
   sortDirection, 
   onSortChange, 
-  onDirectionChange 
+  onDirectionChange,
+  isRelevanceReady = true
 }: SortingControlsProps) {
   return (
     <div className="flex justify-end mb-4 gap-2 items-center">
-      <Select value={sortBy} onValueChange={(value) => onSortChange(value as SortOption)}>
+      <Select 
+        value={sortBy} 
+        onValueChange={(value) => onSortChange(value as SortOption)}
+      >
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder="Sort by..." />
+          {sortBy === "relevance" && !isRelevanceReady && (
+            <Loader2 className="h-4 w-4 animate-spin ml-2" />
+          )}
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="relevance">Relevance</SelectItem>
+          <SelectItem value="relevance">
+            Relevance
+            {!isRelevanceReady && " (Loading...)"}
+          </SelectItem>
           <SelectItem value="citations">Citations</SelectItem>
           <SelectItem value="date">Date Published</SelectItem>
           <SelectItem value="title">Title</SelectItem>

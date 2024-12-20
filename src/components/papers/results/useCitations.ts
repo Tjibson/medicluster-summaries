@@ -5,18 +5,21 @@ import { type Paper } from "@/types/papers"
 export function useCitations(papers: Paper[]) {
   const [citationsMap, setCitationsMap] = useState<Record<string, number>>({})
   const [isCitationsLoading, setIsCitationsLoading] = useState(false)
+  const [isComplete, setIsComplete] = useState(false)
 
   useEffect(() => {
     if (papers.length > 0) {
       fetchCitations(papers)
     } else {
       setCitationsMap({})
+      setIsComplete(true)
     }
   }, [papers])
 
   const fetchCitations = async (papersToFetch: Paper[]) => {
     console.log('Starting citations fetch for papers:', papersToFetch.length)
     setIsCitationsLoading(true)
+    setIsComplete(false)
 
     try {
       const batchSize = 5
@@ -57,8 +60,9 @@ export function useCitations(papers: Paper[]) {
       console.error('Error in fetchCitations:', error)
     } finally {
       setIsCitationsLoading(false)
+      setIsComplete(true)
     }
   }
 
-  return { citationsMap, isCitationsLoading }
+  return { citationsMap, isCitationsLoading, isComplete }
 }

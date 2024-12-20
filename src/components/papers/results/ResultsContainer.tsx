@@ -1,89 +1,60 @@
-import { useState, useEffect } from "react"
-import { supabase } from "@/integrations/supabase/client"
-import { type Paper } from "@/types/papers"
-import { ResultsHeader } from "./ResultsHeader"
-import { ResultsGrid } from "./ResultsGrid"
-import { LoadingState } from "@/components/papers/LoadingState"
-import { ArticleDetails } from "@/components/papers/ArticleDetails"
-import { type SearchParameters } from "@/constants/searchConfig"
-import { useSortedPapers } from "./useSortedPapers"
 import { useCitations } from "./useCitations"
+import { useSortedPapers } from "./useSortedPapers"
+import { SortingControls } from "../SortingControls"
+import { PaperCard } from "../PaperCard"
+import { type Paper } from "@/types/papers"
+import { type SearchParameters } from "@/constants/searchConfig"
+import { Loader2 } from "lucide-react"
 
 interface ResultsContainerProps {
   papers: Paper[]
   isLoading: boolean
   searchCriteria?: SearchParameters | null
-  pagination?: {
-    total: number
-    page: number
-    totalPages: number
-    hasMore: boolean
-  }
-  onPageChange?: (page: number) => void
 }
 
-export function ResultsContainer({ 
-  papers, 
-  isLoading, 
-  searchCriteria,
-  pagination = { total: 0, page: 1, totalPages: 1, hasMore: false },
-  onPageChange = () => {}
-}: ResultsContainerProps) {
-  const [userId, setUserId] = useState<string | null>(null)
-  const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
-  const { citationsMap, isCitationsLoading } = useCitations(papers)
-  
+export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsContainerProps) {
+  const { citationsMap, isCitationsLoading, isComplete } = useCitations(papers)
   const { 
-    sortedPapers,
+    sortedPapers, 
     sortBy, 
     sortDirection, 
     setSortBy, 
-    setSortDirection 
-  } = useSortedPapers(papers, citationsMap)
+    setSortDirection,
+    isRelevanceReady 
+  } = useSortedPapers(papers, citationsMap, searchCriteria, isComplete)
 
-  // Get user ID on mount
-  useEffect(() => {
-    const getUserId = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
-        setUserId(session.user.id)
-      }
-    }
-    getUserId()
-  }, [])
-
-  if (isLoading) {
-    return <LoadingState />
+  if (isLoading || isCitationsLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">
+          {isCitationsLoading ? "Loading citations..." : "Loading papers..."}
+        </span>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-4">
-      <ResultsHeader 
-        searchCriteria={searchCriteria}
+      <SortingControls
         sortBy={sortBy}
         sortDirection={sortDirection}
         onSortChange={setSortBy}
         onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
-        totalResults={papers.length}
+        isRelevanceReady={isRelevanceReady}
       />
       
-      <ResultsGrid
-        papers={sortedPapers}
-        userId={userId}
-        sortBy={sortBy}
-        sortDirection={sortDirection}
-        currentPage={pagination.page}
-        onPageChange={onPageChange}
-        onPaperSelect={setSelectedPaper}
-        totalPages={pagination.totalPages}
-        isLoading={isCitationsLoading}
-      />
-
-      <ArticleDetails
-        paper={selectedPaper}
-        isOpen={!!selectedPaper}
-        onClose={() => setSelectedPaper(null)}
-      />
+      <div className="space-y-4">
+        {sortedPapers.map((paper) => (
+          <PaperCard
+            key={paper.id}
+            paper={paper}
+            onSave={() => {}}
+            onLike={() => {}}
+            onClick={() => {}}
+          />
+        ))}
+      </div>
     </div>
   )
 }
