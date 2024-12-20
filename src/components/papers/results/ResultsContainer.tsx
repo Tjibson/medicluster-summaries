@@ -23,13 +23,21 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
     isRelevanceReady 
   } = useSortedPapers(papers, citationsMap, searchCriteria, isComplete)
 
-  if (isLoading || isCitationsLoading) {
+  // Show loading screen while any of the data is being fetched
+  if (isLoading || isCitationsLoading || !isRelevanceReady) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">
-          {isCitationsLoading ? "Loading citations..." : "Loading papers..."}
-        </span>
+      <div className="flex flex-col items-center justify-center p-12 space-y-4 bg-background/50 rounded-lg shadow-sm">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-center space-y-2">
+          <p className="text-lg font-medium">
+            {isLoading ? "Searching papers..." : 
+             isCitationsLoading ? "Loading citations..." : 
+             "Calculating relevance scores..."}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            This may take a few moments
+          </p>
+        </div>
       </div>
     )
   }
