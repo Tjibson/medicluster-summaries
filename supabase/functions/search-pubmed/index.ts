@@ -1,9 +1,21 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { corsHeaders } from '../_shared/cors.ts'
-import { parseXML, extractArticleData } from './utils/xmlParser.ts'
-import { getCitationCount } from './utils/citations.ts'
-import { calculateRelevanceScore } from './utils/scoring.ts'
-import { type Paper } from './types'
+import * as xml2js from 'https://esm.sh/xml2js@0.4.23'
+
+interface Paper {
+  id: string
+  title: string
+  abstract: string
+  authors: string[]
+  journal: string
+  year: number
+  citations: number
+  relevance_score: number
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 const NCBI_EMAIL = 'tjibbe-beckers@live.nl'
 const NCBI_API_KEY = '0e15924868078a8b07c4fc709d8a306e6108'
@@ -62,15 +74,78 @@ serve(async (req) => {
     const xmlData = await efetchResponse.text()
     
     // Parse XML to JSON using xml2js
-    const jsonResult = await parseXML(xmlData)
+    const parser = new xml2js.Parser({ 
+      explicitArray: false, 
+      mergeAttrs: true,
+      valueProcessors: [parseFloat]
+    })
+    const jsonResult = await parser.parseStringPromise(xmlData)
     const pubmedArticles = jsonResult.PubmedArticleSet?.PubmedArticle || []
     
     // Process articles and fetch citations concurrently
     const articles = await Promise.all(pubmedArticles.map(async (article: any) => {
-      const paperData = extractArticleData(article)
-      paperData.citations = await getCitationCount(paperData.id)
-      paperData.relevance_score = calculateRelevanceScore(paperData, term)
-      return paperData
+      const medlineCitation = article.MedlineCitation
+      const articleData = medlineCitation.Article
+      
+      // Extract title
+      const title = articleData.ArticleTitle || 'No title available'
+      
+      // Extract abstract
+      let abstract = 'No abstract available'
+      if (articleData.Abstract?.AbstractText) {
+        if (typeof articleData.Abstract.AbstractText === 'string') {
+          abstract = articleData.Abstract.AbstractText
+        } else if (Array.isArray(articleData.Abstract.AbstractText)) {
+          abstract = articleData.Abstract.AbstractText.join('\n')
+        } else if (articleData.Abstract.AbstractText._) {
+          abstract = articleData.Abstract.AbstractText._
+        }
+      }
+      
+      // Extract authors
+      let authors: string[] = []
+      if (articleData.AuthorList?.Author) {
+        const authorList = Array.isArray(articleData.AuthorList.Author) 
+          ? articleData.AuthorList.Author 
+          : [articleData.AuthorList.Author]
+        
+        authors = authorList.map((auth: any) => {
+          const firstName = auth.ForeName || ''
+          const lastName = auth.LastName || ''
+          return [firstName, lastName].filter(Boolean).join(' ')
+        })
+      }
+      
+      // Extract journal and year
+      const journal = articleData.Journal?.Title || 
+                     articleData.Journal?.ISOAbbreviation || 
+                     'Unknown Journal'
+      
+      const year = articleData.Journal?.JournalIssue?.PubDate?.Year || 
+                   new Date().getFullYear()
+      
+      // Extract PMID
+      const pmid = medlineCitation.PMID?._ || medlineCitation.PMID || ''
+
+      // Fetch citations
+      const elinkUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=pubmed&linkname=pubmed_pubmed_citedin&id=${pmid}&retmode=json&api_key=${NCBI_API_KEY}`
+      const elinkResponse = await fetch(elinkUrl)
+      const elinkData = await elinkResponse.json()
+      const citations = elinkData.linksets?.[0]?.linksetdbs?.[0]?.links?.length || 0
+
+      // Calculate relevance score
+      const relevanceScore = calculateRelevanceScore(title, abstract, term)
+      
+      return {
+        id: pmid,
+        title,
+        abstract,
+        authors,
+        journal,
+        year: parseInt(year),
+        citations,
+        relevance_score: relevanceScore
+      }
     }))
 
     // Sort by citations first, then by relevance score
@@ -120,3 +195,26 @@ serve(async (req) => {
     )
   }
 })
+
+function calculateRelevanceScore(title: string, abstract: string, searchTerm: string): number {
+  let score = 0
+  const searchTermLower = searchTerm.toLowerCase()
+  
+  // Title matches are worth more
+  if (title.toLowerCase().includes(searchTermLower)) {
+    score += 50
+  }
+  
+  // Abstract matches
+  if (abstract.toLowerCase().includes(searchTermLower)) {
+    score += 30
+  }
+  
+  // Clinical trial mentions boost score
+  if (title.toLowerCase().includes('trial') || 
+      abstract.toLowerCase().includes('trial')) {
+    score += 20
+  }
+  
+  return score
+}
