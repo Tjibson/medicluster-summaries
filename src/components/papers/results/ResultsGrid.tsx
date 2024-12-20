@@ -135,7 +135,11 @@ export function ResultsGrid({
         // Extract keywords from papers for scoring
         const keywords = papers.reduce((acc: string[], paper) => {
           const titleWords = paper.title.toLowerCase().split(/\s+/)
-          const abstractWords = (paper.abstract || '').toLowerCase().split(/\s+/)
+          // Ensure abstract is a string before processing
+          const abstractText = typeof paper.abstract === 'string' 
+            ? paper.abstract 
+            : paper.abstract?.toString() || ''
+          const abstractWords = abstractText.toLowerCase().split(/\s+/)
           return [...new Set([...acc, ...titleWords, ...abstractWords])]
         }, [])
         
