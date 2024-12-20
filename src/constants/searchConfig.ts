@@ -62,24 +62,23 @@ export const DEFAULT_SEARCH_PARAMS: SearchParameters = {
 export function calculateRelevanceScore(title: string, abstract: string, journal: string, searchParams: SearchParameters): number {
   let score = 0;
 
-  // Journal weight
+  // Journal weight (30% of total score)
   const journalWeight = JOURNAL_WEIGHTS[journal as keyof typeof JOURNAL_WEIGHTS] || 1;
-  score += journalWeight * 10;
+  score += (journalWeight / Math.max(...Object.values(JOURNAL_WEIGHTS))) * 30;
 
-  // Keywords in title (higher weight)
-  const titleLower = title.toLowerCase();
-  [...searchParams.keywords.medicine, ...searchParams.keywords.condition].forEach(keyword => {
-    if (titleLower.includes(keyword.toLowerCase())) {
+  // Keyword matches (70% of total score)
+  const allKeywords = [...searchParams.keywords.medicine, ...searchParams.keywords.condition];
+  allKeywords.forEach(keyword => {
+    const keywordLower = keyword.toLowerCase();
+    // Title matches worth more (2x)
+    if (title.toLowerCase().includes(keywordLower)) {
       score += 15;
     }
-  });
-
-  // Keywords in abstract
-  const abstractLower = abstract.toLowerCase();
-  [...searchParams.keywords.medicine, ...searchParams.keywords.condition].forEach(keyword => {
-    const matches = (abstractLower.match(new RegExp(keyword.toLowerCase(), 'g')) || []).length;
+    // Abstract matches
+    const matches = (String(abstract).toLowerCase().match(new RegExp(keywordLower, 'g')) || []).length;
     score += matches * 5;
   });
 
-  return Math.min(100, score); // Cap at 100
+  // Normalize to 0-100
+  return Math.min(Math.round(score), 100);
 }
