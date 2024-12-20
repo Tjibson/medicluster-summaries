@@ -44,13 +44,18 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
 
   return (
     <div className="space-y-4">
-      <SortingControls
-        sortBy={sortBy}
-        sortDirection={sortDirection}
-        onSortChange={setSortBy}
-        onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
-        isRelevanceReady={isRelevanceReady}
-      />
+      <div className="flex justify-between items-center">
+        <p className="text-sm text-muted-foreground">
+          Showing {sortedPapers.length} articles
+        </p>
+        <SortingControls
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+          onSortChange={setSortBy}
+          onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
+          isRelevanceReady={isRelevanceReady}
+        />
+      </div>
       
       <div className="space-y-4">
         {sortedPapers.map((paper) => (
