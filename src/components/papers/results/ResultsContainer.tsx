@@ -80,7 +80,7 @@ export function ResultsContainer({
         })
       )
       setPapersWithCitations(updatedPapers)
-      setSortedPapers(updatedPapers) // Update sortedPapers with citation data
+      setSortedPapers(updatedPapers)
       setIsCitationsLoading(false)
     }
 
@@ -89,42 +89,37 @@ export function ResultsContainer({
     }
   }, [papers])
 
-  // Effect to handle sorting
+  // Effect to handle sorting using simplified logic
   useEffect(() => {
     console.log('Sorting papers:', { sortBy, sortDirection, papersCount: papersWithCitations.length })
     
     const papersToSort = papersWithCitations.length > 0 ? papersWithCitations : papers
     
-    const getSortValue = (paper: Paper, sortType: SortOption): number | string => {
-      switch (sortType) {
+    const sorted = [...papersToSort].sort((a, b) => {
+      switch (sortBy) {
         case "citations":
-          return typeof paper.citations === 'number' ? paper.citations : 0
+          const aCitations = typeof a.citations === 'number' ? a.citations : 0
+          const bCitations = typeof b.citations === 'number' ? b.citations : 0
+          return sortDirection === "asc" ? aCitations - bCitations : bCitations - aCitations
+        
         case "date":
-          return new Date(paper.year, 0).getTime()
+          return sortDirection === "asc" 
+            ? a.year - b.year
+            : b.year - a.year
+        
         case "title":
-          return paper.title.toLowerCase()
+          return sortDirection === "asc"
+            ? a.title.toLowerCase().localeCompare(b.title.toLowerCase())
+            : b.title.toLowerCase().localeCompare(a.title.toLowerCase())
+        
         case "relevance":
-          return paper.relevance_score || 0
+          const aScore = a.relevance_score || 0
+          const bScore = b.relevance_score || 0
+          return sortDirection === "asc" ? aScore - bScore : bScore - aScore
+        
         default:
           return 0
       }
-    }
-
-    const sorted = [...papersToSort].sort((a, b) => {
-      const aValue = getSortValue(a, sortBy)
-      const bValue = getSortValue(b, sortBy)
-      
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        return sortDirection === "asc" 
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue)
-      }
-      
-      const numericA = aValue as number
-      const numericB = bValue as number
-      return sortDirection === "asc" 
-        ? numericA - numericB
-        : numericB - numericA
     })
 
     console.log('Sorted papers:', { 
