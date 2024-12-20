@@ -34,6 +34,7 @@ export function ResultsContainer({
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [sortedPapers, setSortedPapers] = useState<Paper[]>([])
   const [isCitationsLoading, setIsCitationsLoading] = useState(false)
+  const [citationsLoaded, setCitationsLoaded] = useState(false)
 
   // Get user ID on mount
   useEffect(() => {
@@ -78,27 +79,24 @@ export function ResultsContainer({
         })
       )
 
-      // Sort papers by citations in descending order by default
-      const sortedByCitations = [...papersWithCitations].sort((a, b) => {
-        const aCitations = Number(a.citations) || 0
-        const bCitations = Number(b.citations) || 0
-        return bCitations - aCitations
-      })
-      
-      console.log('Sorted papers by citations:', sortedByCitations.map(p => ({ title: p.title, citations: p.citations })))
-      setSortedPapers(sortedByCitations)
+      console.log('Papers with citations:', papersWithCitations)
+      setSortedPapers(papersWithCitations)
       setIsCitationsLoading(false)
+      setCitationsLoaded(true)
     }
 
     if (papers.length > 0) {
       fetchCitations()
     } else {
       setSortedPapers([])
+      setCitationsLoaded(true)
     }
   }, [papers])
 
-  // Handle sorting when sort options change
+  // Handle sorting when citations are loaded and sort options change
   useEffect(() => {
+    if (!citationsLoaded) return
+
     const sortPapers = () => {
       const papersToSort = [...sortedPapers]
       
@@ -107,6 +105,7 @@ export function ResultsContainer({
           case "citations": {
             const aCitations = Number(a.citations) || 0
             const bCitations = Number(b.citations) || 0
+            console.log(`Comparing citations: ${aCitations} vs ${bCitations}`)
             return sortDirection === "asc" 
               ? aCitations - bCitations 
               : bCitations - aCitations
@@ -131,13 +130,12 @@ export function ResultsContainer({
         }
       })
 
+      console.log('Sorted papers:', papersToSort.map(p => ({ title: p.title, citations: p.citations })))
       setSortedPapers(papersToSort)
     }
 
-    if (sortedPapers.length > 0) {
-      sortPapers()
-    }
-  }, [sortBy, sortDirection])
+    sortPapers()
+  }, [citationsLoaded, sortBy, sortDirection])
 
   if (isLoading) {
     return <LoadingState />
