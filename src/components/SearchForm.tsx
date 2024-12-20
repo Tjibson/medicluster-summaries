@@ -66,12 +66,12 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
 
       // Transform PubMed articles to match Paper type
       const papers: Paper[] = data.articles.map((article: any) => ({
-        id: article.pmid,
+        id: article.id,
         title: article.title,
         abstract: article.abstract,
         authors: article.authors,
-        journal: article.journal.title || article.journal.isoAbbreviation,
-        year: parseInt(article.journal.pubDate.Year) || new Date().getFullYear(),
+        journal: article.journal,
+        year: article.year,
         citations: 0 // PubMed API doesn't provide citation count
       }))
 
