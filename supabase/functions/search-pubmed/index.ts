@@ -1,5 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import * as xml2js from 'https://esm.sh/xml2js@0.4.23'
+import { extractTitle, extractAbstract, extractAuthors, extractJournalInfo } from './utils/articleParser.ts'
+import { calculateRelevanceScore } from './utils/scoring.ts'
 
 interface Paper {
   id: string
@@ -87,42 +89,11 @@ serve(async (req) => {
       const medlineCitation = article.MedlineCitation
       const articleData = medlineCitation.Article
       
-      // Extract title
-      const title = articleData.ArticleTitle || 'No title available'
-      
-      // Extract abstract
-      let abstract = 'No abstract available'
-      if (articleData.Abstract?.AbstractText) {
-        if (typeof articleData.Abstract.AbstractText === 'string') {
-          abstract = articleData.Abstract.AbstractText
-        } else if (Array.isArray(articleData.Abstract.AbstractText)) {
-          abstract = articleData.Abstract.AbstractText.join('\n')
-        } else if (articleData.Abstract.AbstractText._) {
-          abstract = articleData.Abstract.AbstractText._
-        }
-      }
-      
-      // Extract authors
-      let authors: string[] = []
-      if (articleData.AuthorList?.Author) {
-        const authorList = Array.isArray(articleData.AuthorList.Author) 
-          ? articleData.AuthorList.Author 
-          : [articleData.AuthorList.Author]
-        
-        authors = authorList.map((auth: any) => {
-          const firstName = auth.ForeName || ''
-          const lastName = auth.LastName || ''
-          return [firstName, lastName].filter(Boolean).join(' ')
-        })
-      }
-      
-      // Extract journal and year
-      const journal = articleData.Journal?.Title || 
-                     articleData.Journal?.ISOAbbreviation || 
-                     'Unknown Journal'
-      
-      const year = articleData.Journal?.JournalIssue?.PubDate?.Year || 
-                   new Date().getFullYear()
+      // Extract article data using our utility functions
+      const title = extractTitle(articleData)
+      const abstract = extractAbstract(articleData)
+      const authors = extractAuthors(articleData)
+      const { journal, year } = extractJournalInfo(articleData)
       
       // Extract PMID
       const pmid = medlineCitation.PMID?._ || medlineCitation.PMID || ''
@@ -134,7 +105,7 @@ serve(async (req) => {
       const citations = elinkData.linksets?.[0]?.linksetdbs?.[0]?.links?.length || 0
 
       // Calculate relevance score
-      const relevanceScore = calculateRelevanceScore(title, abstract, term)
+      const relevance_score = calculateRelevanceScore(title, abstract, term)
       
       return {
         id: pmid,
@@ -142,9 +113,9 @@ serve(async (req) => {
         abstract,
         authors,
         journal,
-        year: parseInt(year),
+        year,
         citations,
-        relevance_score: relevanceScore
+        relevance_score
       }
     }))
 
@@ -195,26 +166,3 @@ serve(async (req) => {
     )
   }
 })
-
-function calculateRelevanceScore(title: string, abstract: string, searchTerm: string): number {
-  let score = 0
-  const searchTermLower = searchTerm.toLowerCase()
-  
-  // Title matches are worth more
-  if (title.toLowerCase().includes(searchTermLower)) {
-    score += 50
-  }
-  
-  // Abstract matches
-  if (abstract.toLowerCase().includes(searchTermLower)) {
-    score += 30
-  }
-  
-  // Clinical trial mentions boost score
-  if (title.toLowerCase().includes('trial') || 
-      abstract.toLowerCase().includes('trial')) {
-    score += 20
-  }
-  
-  return score
-}
