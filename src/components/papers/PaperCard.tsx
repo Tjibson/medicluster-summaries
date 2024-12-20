@@ -1,8 +1,10 @@
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { type Paper } from "@/types/papers"
 import { PaperActions } from "./PaperActions"
 import { Button } from "@/components/ui/button"
 import { ExternalLink } from "lucide-react"
+import { supabase } from "@/integrations/supabase/client"
 
 interface PaperCardProps {
   paper: Paper
@@ -12,14 +14,35 @@ interface PaperCardProps {
 }
 
 export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
+  const [citations, setCitations] = useState<number | null>(paper.citations || null)
   const pubmedUrl = `https://pubmed.ncbi.nlm.nih.gov/${paper.id}/`
+
+  useEffect(() => {
+    const fetchCitations = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('fetch-citations', {
+          body: { paper }
+        })
+        
+        if (error) throw error
+        if (data?.citations !== undefined) {
+          setCitations(data.citations)
+        }
+      } catch (error) {
+        console.error('Error fetching citations:', error)
+      }
+    }
+
+    if (citations === null) {
+      fetchCitations()
+    }
+  }, [paper, citations])
 
   // Helper function to safely extract and render title
   const renderTitle = (title: any): string => {
     if (!title) return 'Untitled Paper'
     if (typeof title === 'string') return title
     if (typeof title === 'object') {
-      // Handle cases where title might be an object with specific properties
       if ('_' in title) return String(title._)
       if ('sub' in title) return String(title.sub)
       return JSON.stringify(title)
@@ -39,7 +62,9 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
         <h3 className="font-semibold text-lg">{safeTitle}</h3>
         
         <div className="flex items-center space-x-2 text-sm text-gray-600">
-          <p className="font-medium">Citations: {paper.citations || 0}</p>
+          <p className="font-medium">
+            Citations: {citations !== null ? citations : 'Loading...'}
+          </p>
           <span>•</span>
           <p>{paper.year}</p>
           <span>•</span>

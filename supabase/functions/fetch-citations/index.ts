@@ -5,27 +5,47 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const NCBI_API_KEY = '0e15924868078a8b07c4fc709d8a306e6108'
+interface Paper {
+  id: string
+  title: string
+  authors: string[]
+  journal: string
+  year: number
+}
 
-async function getCitationCount(pmid: string): Promise<number> {
-  const elinkUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=pubmed&linkname=pubmed_pubmed_citedin&id=${pmid}&retmode=json&api_key=${NCBI_API_KEY}`
-  
+async function getCitationCountFromCrossRef(paper: Paper): Promise<number> {
   try {
-    console.log(`Fetching citations for PMID: ${pmid}`)
-    const response = await fetch(elinkUrl)
+    const query = `query=${encodeURIComponent(paper.title)}+author:${encodeURIComponent(paper.authors[0])}+journal:${encodeURIComponent(paper.journal)}+year:${paper.year}`
+    const crossrefUrl = `https://api.crossref.org/works?${query}&rows=1`
+    
+    const response = await fetch(crossrefUrl)
+    if (!response.ok) return 0
+
     const data = await response.json()
-
-    const linksets = data.linksets || []
-    if (linksets.length === 0) return 0
-
-    const linksetdbs = linksets[0].linksetdbs || []
-    const citedInDb = linksetdbs.find((db: any) => db.linkname === 'pubmed_pubmed_citedin')
-    if (!citedInDb || !citedInDb.links) return 0
-
-    console.log(`Found ${citedInDb.links.length} citations for PMID: ${pmid}`)
-    return citedInDb.links.length
+    const items = data.message?.items || []
+    
+    if (items.length > 0) {
+      return items[0]['is-referenced-by-count'] || 0
+    }
+    return 0
   } catch (error) {
-    console.error(`Error fetching citations for PMID ${pmid}:`, error)
+    console.error('Error fetching CrossRef citations:', error)
+    return 0
+  }
+}
+
+async function getCitationCountFromPubMed(pmid: string): Promise<number> {
+  try {
+    const pubmedUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${pmid}&retmode=json`
+    const response = await fetch(pubmedUrl)
+    
+    if (!response.ok) return 0
+
+    const data = await response.json()
+    const result = data.result?.[pmid]
+    return result?.citedby || 0
+  } catch (error) {
+    console.error('Error fetching PubMed citations:', error)
     return 0
   }
 }
@@ -36,32 +56,30 @@ serve(async (req) => {
   }
 
   try {
-    const { pmids } = await req.json()
+    const { paper } = await req.json()
     
-    if (!Array.isArray(pmids)) {
-      throw new Error('PMIDs must be provided as an array')
+    // Try PubMed first since we have the PMID
+    let citations = await getCitationCountFromPubMed(paper.id)
+    
+    // If no citations found in PubMed, try CrossRef
+    if (!citations) {
+      citations = await getCitationCountFromCrossRef(paper)
     }
 
-    console.log('Fetching citations for PMIDs:', pmids)
-    
-    const citationCounts = await Promise.all(
-      pmids.map(async (pmid) => ({
-        pmid,
-        citations: await getCitationCount(pmid)
-      }))
-    )
-
     return new Response(
-      JSON.stringify({ citations: citationCounts }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ citations }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 
+      }
     )
   } catch (error) {
     console.error('Error in fetch-citations function:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
       }
     )
   }
