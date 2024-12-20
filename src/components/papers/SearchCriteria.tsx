@@ -1,28 +1,9 @@
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-
-const JOURNAL_NAMES = [
-  "ESC heart failure",
-  "JACC. Heart failure",
-  "Journal of the American College of Cardiology",
-  "Circulation",
-  "European journal of heart failure",
-  "JAMA cardiology",
-  "Frontiers in cardiovascular medicine",
-  "Journal of the American Heart Association",
-  "Nature",
-  "The Lancet",
-]
+import { type SearchParameters } from "@/constants/searchConfig"
 
 interface SearchCriteriaProps {
-  criteria: {
-    dateRange?: {
-      start: string
-      end: string
-    }
-    keywords?: string
-    journalNames?: string[]
-  }
+  criteria: SearchParameters
 }
 
 export function SearchCriteria({ criteria }: SearchCriteriaProps) {
@@ -35,9 +16,19 @@ export function SearchCriteria({ criteria }: SearchCriteriaProps) {
               Date Range: {criteria.dateRange.start} to {criteria.dateRange.end}
             </Badge>
           )}
-          {criteria.keywords && (
+          {criteria.keywords.medicine.length > 0 && (
             <Badge variant="outline">
-              Keywords: {criteria.keywords}
+              Medicine Keywords: {criteria.keywords.medicine.join(", ")}
+            </Badge>
+          )}
+          {criteria.keywords.condition.length > 0 && (
+            <Badge variant="outline">
+              Condition Keywords: {criteria.keywords.condition.join(", ")}
+            </Badge>
+          )}
+          {criteria.articleTypes.length > 0 && (
+            <Badge variant="outline">
+              Article Types: {criteria.articleTypes.join(", ")}
             </Badge>
           )}
         </div>

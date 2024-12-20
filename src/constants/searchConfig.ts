@@ -28,6 +28,7 @@ export const ARTICLE_TYPES = [
   'Comparative Study',
   'Meta-Analysis',
   'Multicenter Study',
+  'Practice Guideline',
   'Randomized Controlled Trial',
   'Systematic Review',
 ] as const;
