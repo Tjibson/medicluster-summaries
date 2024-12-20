@@ -4,7 +4,6 @@ import { type Paper } from "@/types/papers"
 import { PaperCard } from "../PaperCard"
 import { PaginationControls } from "../PaginationControls"
 import { type SortOption, type SortDirection } from "../SortingControls"
-import { useState } from "react"
 import { ErrorPage } from "../ErrorPage"
 
 interface ResultsGridProps {
@@ -16,6 +15,7 @@ interface ResultsGridProps {
   onPageChange: (page: number) => void
   onPaperSelect: (paper: Paper) => void
   totalPages?: number
+  isLoading?: boolean
 }
 
 export function ResultsGrid({ 
@@ -26,11 +26,10 @@ export function ResultsGrid({
   currentPage, 
   onPageChange,
   onPaperSelect,
-  totalPages = 1
+  totalPages = 1,
+  isLoading = false
 }: ResultsGridProps) {
   const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
 
   const handleSavePaper = async (paper: Paper) => {
     if (!userId) {
@@ -126,14 +125,10 @@ export function ResultsGrid({
     }
   }
 
-  if (error) {
-    return <ErrorPage />
-  }
-
   const getSortValue = (paper: Paper, sortType: SortOption): number | string => {
     switch (sortType) {
       case "citations":
-        return paper.citations || 0
+        return typeof paper.citations === 'number' ? paper.citations : 0
       case "date":
         return new Date(paper.year, 0).getTime()
       case "title":
@@ -162,24 +157,26 @@ export function ResultsGrid({
       : numericB - numericA
   })
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="space-y-4">
-        {isLoading ? (
-          <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        ) : (
-          sortedPapers.map((paper) => (
-            <PaperCard
-              key={paper.id}
-              paper={paper}
-              onSave={handleSavePaper}
-              onLike={handleLikePaper}
-              onClick={() => onPaperSelect(paper)}
-            />
-          ))
-        )}
+        {sortedPapers.map((paper) => (
+          <PaperCard
+            key={paper.id}
+            paper={paper}
+            onSave={handleSavePaper}
+            onLike={handleLikePaper}
+            onClick={() => onPaperSelect(paper)}
+          />
+        ))}
       </div>
 
       <PaginationControls

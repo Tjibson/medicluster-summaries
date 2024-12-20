@@ -33,6 +33,7 @@ export function ResultsContainer({
   const [sortBy, setSortBy] = useState<SortOption>("relevance")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [papersWithCitations, setPapersWithCitations] = useState<Paper[]>([])
+  const [isCitationsLoading, setIsCitationsLoading] = useState(false)
 
   useEffect(() => {
     const getUserId = async () => {
@@ -45,11 +46,41 @@ export function ResultsContainer({
   }, [])
 
   useEffect(() => {
-    console.log("Papers received in ResultsContainer:", papers)
-    setPapersWithCitations(papers.map(paper => ({
-      ...paper,
-      citations: paper.citations || 0
-    })))
+    const fetchCitations = async () => {
+      setIsCitationsLoading(true)
+      const updatedPapers = await Promise.all(
+        papers.map(async (paper) => {
+          if (paper.citations === undefined || paper.citations === null) {
+            try {
+              const { data, error } = await supabase.functions.invoke('fetch-citations', {
+                body: { paper }
+              })
+              
+              if (error) throw error
+              return {
+                ...paper,
+                citations: data?.citations || 0
+              }
+            } catch (error) {
+              console.error('Error fetching citations:', error)
+              return {
+                ...paper,
+                citations: 0
+              }
+            }
+          }
+          return paper
+        })
+      )
+      setPapersWithCitations(updatedPapers)
+      setIsCitationsLoading(false)
+    }
+
+    if (papers.length > 0) {
+      fetchCitations()
+    } else {
+      setPapersWithCitations([])
+    }
   }, [papers])
 
   if (isLoading) {
@@ -76,6 +107,7 @@ export function ResultsContainer({
         onPageChange={onPageChange}
         onPaperSelect={setSelectedPaper}
         totalPages={pagination.totalPages}
+        isLoading={isCitationsLoading}
       />
 
       <ArticleDetails
