@@ -5,12 +5,14 @@ export function buildSearchQuery(searchParams: SearchParameters): string {
 
   // Add medicine keywords
   if (searchParams.keywords.medicine.length > 0) {
-    queryParts.push(`(${searchParams.keywords.medicine.join(" OR ")})`)
+    const medicineTerms = searchParams.keywords.medicine.map(term => `"${term}"[Title/Abstract]`)
+    queryParts.push(`(${medicineTerms.join(" OR ")})`)
   }
 
   // Add condition keywords
   if (searchParams.keywords.condition.length > 0) {
-    queryParts.push(`(${searchParams.keywords.condition.join(" OR ")})`)
+    const conditionTerms = searchParams.keywords.condition.map(term => `"${term}"[Title/Abstract]`)
+    queryParts.push(`(${conditionTerms.join(" OR ")})`)
   }
 
   // Add journal filter
@@ -34,5 +36,7 @@ export function buildSearchQuery(searchParams: SearchParameters): string {
     queryParts.push(`(${typeQuery})`)
   }
 
-  return queryParts.join(" AND ")
+  const finalQuery = queryParts.join(" AND ")
+  console.log('Built query:', finalQuery)
+  return finalQuery
 }

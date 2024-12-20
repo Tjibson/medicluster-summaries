@@ -6,11 +6,10 @@ interface Article {
   journal: string
   year: number
   citations: number
-  patient_count?: number | null
   relevance_score?: number
 }
 
-export function parseArticles(xmlText: string, searchTerms: any): Article[] {
+export function parseArticles(xmlText: string, searchParams: any): Article[] {
   const articles: Article[] = []
   const articleMatches = xmlText.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
 
@@ -34,12 +33,12 @@ export function parseArticles(xmlText: string, searchTerms: any): Article[] {
       const yearMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(.*?)<\/Year>/)?.[1]
       const year = yearMatch ? parseInt(yearMatch) : new Date().getFullYear()
 
-      // Extract citation count from the XML
-      const citationCountMatch = articleXml.match(/<CitationCount>(\d+)<\/CitationCount>/)
-      const citations = citationCountMatch ? parseInt(citationCountMatch[1]) : 0
-
-      const patientCount = extractPatientCount(abstract)
-      const relevanceScore = calculateRelevanceScore(title, abstract, searchTerms)
+      // Calculate relevance score based on title and abstract matches
+      const searchTerms = [
+        ...searchParams.keywords.medicine,
+        ...searchParams.keywords.condition
+      ]
+      const relevance_score = calculateRelevanceScore(title, abstract, searchTerms)
 
       articles.push({
         id,
@@ -48,9 +47,8 @@ export function parseArticles(xmlText: string, searchTerms: any): Article[] {
         journal: decodeXMLEntities(journal),
         year,
         abstract: decodeXMLEntities(abstract),
-        citations,
-        patient_count: patientCount,
-        relevance_score: relevanceScore
+        citations: 0, // We'll update this later if needed
+        relevance_score
       })
     } catch (error) {
       console.error('Error processing article:', error)
@@ -58,7 +56,7 @@ export function parseArticles(xmlText: string, searchTerms: any): Article[] {
     }
   }
 
-  return articles.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0))
+  return articles
 }
 
 function decodeXMLEntities(text: string): string {
@@ -70,58 +68,23 @@ function decodeXMLEntities(text: string): string {
     .replace(/&amp;/g, '&')
 }
 
-function extractPatientCount(text: string): number | null {
-  if (!text) return null
-
-  const patterns = [
-    /(?:included|enrolled|recruited|studied)\s+(\d+)\s+(?:patients?|participants?|subjects?)/i,
-    /(?:n\s*=\s*)(\d+)(?:\s*patients?)?/i,
-    /(?:sample size|cohort)\s+of\s+(\d+)/i,
-    /(\d+)\s+(?:patients?|participants?|subjects?)\s+(?:were|was)\s+(?:included|enrolled|recruited)/i,
-    /total\s+(?:of\s+)?(\d+)\s+(?:patients?|participants?|subjects?)/i,
-    /population\s+of\s+(\d+)/i
-  ]
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern)
-    if (match && match[1]) {
-      const count = parseInt(match[1])
-      if (!isNaN(count) && count > 0) {
-        return count
-      }
-    }
-  }
-
-  return null
-}
-
-function calculateRelevanceScore(title: string, abstract: string, searchTerms: string): number {
-  if (!title || !abstract || !searchTerms) return 0
-
-  const text = `${title.toLowerCase()} ${abstract.toLowerCase()}`
-  const terms = searchTerms.toLowerCase()
-    .replace(/[()]/g, '') // Remove parentheses
-    .split(/\s+(?:AND|OR)\s+/) // Split on AND/OR operators
-    .map(term => term.trim())
-    .filter(Boolean)
+function calculateRelevanceScore(title: string, abstract: string, searchTerms: string[]): number {
+  if (!searchTerms.length) return 50 // Default score if no search terms
 
   let score = 0
+  const text = `${title.toLowerCase()} ${abstract.toLowerCase()}`
 
-  // Title matches are worth more
-  terms.forEach(term => {
-    const titleMatches = (title.toLowerCase().match(new RegExp(term, 'g')) || []).length
-    const abstractMatches = (abstract.toLowerCase().match(new RegExp(term, 'g')) || []).length
-    
-    score += titleMatches * 3 // Title matches worth 3x
-    score += abstractMatches
+  searchTerms.forEach(term => {
+    const termLower = term.toLowerCase()
+    // Title matches worth more (3x)
+    const titleMatches = (title.toLowerCase().match(new RegExp(termLower, 'g')) || []).length
+    score += titleMatches * 30
+
+    // Abstract matches
+    const abstractMatches = (abstract.toLowerCase().match(new RegExp(termLower, 'g')) || []).length
+    score += abstractMatches * 10
   })
 
-  // Normalize score to 0-100 range
-  const normalizedScore = Math.min(100, score * 10)
-
-  // Recent papers get a small boost (up to 20% boost for current year)
-  const currentYear = new Date().getFullYear()
-  const yearBoost = Math.max(0, Math.min(0.2, (currentYear - 1950) / (currentYear - 1950)))
-  
-  return Math.round(normalizedScore * (1 + yearBoost))
+  // Normalize to 0-100 range
+  return Math.min(Math.round(score), 100)
 }
