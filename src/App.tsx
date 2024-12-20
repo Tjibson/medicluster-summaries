@@ -33,6 +33,14 @@ export default function App() {
               }
             />
             <Route
+              path="/lists/:listId"
+              element={
+                <ProtectedRoute>
+                  <Lists />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/liked"
               element={
                 <ProtectedRoute>

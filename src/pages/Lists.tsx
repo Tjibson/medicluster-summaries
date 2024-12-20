@@ -1,15 +1,13 @@
 import { useState, useEffect } from "react"
 import { useToast } from "@/components/ui/use-toast"
 import { supabase } from "@/integrations/supabase/client"
-import { PaperCard } from "@/components/papers/PaperCard"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Download, Edit2, Trash2 } from "lucide-react"
 import { type SavedPaper } from "@/types/papers"
-import { ListPreview } from "@/components/papers/ListPreview"
 import { EditListDialog } from "@/components/papers/EditListDialog"
+import { ListsOverview } from "@/components/papers/lists/ListsOverview"
+import { ListDetails } from "@/components/papers/lists/ListDetails"
+import { useParams } from "react-router-dom"
 
-interface List {
+export interface List {
   id: string
   name: string
   papers: SavedPaper[]
@@ -20,6 +18,7 @@ export default function Lists() {
   const [isLoading, setIsLoading] = useState(true)
   const [editingList, setEditingList] = useState<List | null>(null)
   const { toast } = useToast()
+  const { listId } = useParams()
 
   useEffect(() => {
     fetchLists()
@@ -154,84 +153,48 @@ export default function Lists() {
     return (
       <div className="container mx-auto p-6">
         <h1 className="text-2xl font-bold mb-6">My Lists</h1>
-        <div className="space-y-8">
+        <div className="animate-pulse space-y-8">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="p-6">
-              <div className="animate-pulse space-y-4">
-                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              </div>
-            </Card>
+            <div key={i} className="h-32 bg-gray-100 rounded-lg"></div>
           ))}
         </div>
       </div>
     )
   }
 
-  if (lists.length === 0) {
+  if (listId) {
+    const currentList = lists.find(list => list.id === listId)
+    if (!currentList) {
+      return (
+        <div className="container mx-auto p-6">
+          <h1 className="text-2xl font-bold mb-6">List not found</h1>
+        </div>
+      )
+    }
     return (
-      <div className="container mx-auto p-6">
-        <h1 className="text-2xl font-bold mb-6">My Lists</h1>
-        <Card className="p-6 text-center text-gray-500">
-          No lists created yet
-        </Card>
-      </div>
+      <ListDetails
+        listId={currentList.id}
+        listName={currentList.name}
+        papers={currentList.papers}
+      />
     )
   }
 
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-2xl font-bold mb-6">My Lists</h1>
-      <div className="space-y-8">
-        {lists.map((list) => (
-          <div key={list.id} className="space-y-4">
-            <div className="flex justify-between items-start">
-              <div className="space-y-4 flex-1 mr-4">
-                <div className="flex items-center space-x-4">
-                  <h2 className="text-xl font-semibold">{list.name}</h2>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setEditingList(list)}
-                      className="h-8 w-8"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemoveList(list.id)}
-                      className="h-8 w-8 text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <ListPreview papers={list.papers} />
-              </div>
-              <Button
-                onClick={() => handleDownloadListSummary(list.id)}
-                className="shadow-soft hover:shadow-card transition-shadow duration-200"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download Summary
-              </Button>
-            </div>
-            <div className="space-y-4">
-              {list.papers.map((paper) => (
-                <PaperCard
-                  key={paper.id}
-                  paper={paper}
-                  onSave={() => {}}
-                  onLike={() => {}}
-                  onClick={() => {}}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      {lists.length === 0 ? (
+        <div className="text-center p-6 bg-gray-50 rounded-lg">
+          <p className="text-gray-500">No lists created yet</p>
+        </div>
+      ) : (
+        <ListsOverview
+          lists={lists}
+          onEditList={setEditingList}
+          onRemoveList={handleRemoveList}
+          onDownloadSummary={handleDownloadListSummary}
+        />
+      )}
       <EditListDialog
         list={editingList}
         onClose={() => setEditingList(null)}
