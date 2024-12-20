@@ -59,8 +59,8 @@ export const DEFAULT_SEARCH_PARAMS: SearchParameters = {
   articleTypes: [...ARTICLE_TYPES],
 };
 
-export function calculateRelevanceScore(title: string, abstract: string, journal: string, searchParams: SearchParameters): number {
-  // Calculate keyword score
+export function calculateRelevanceScore(title: string, abstract: string, journal: string, citations: number, searchParams: SearchParameters): number {
+  // Calculate keyword score (60% weight)
   const allKeywords = [...searchParams.keywords.medicine, ...searchParams.keywords.condition];
   const text = `${title.toLowerCase()} ${abstract.toLowerCase()}`;
   
@@ -79,22 +79,32 @@ export function calculateRelevanceScore(title: string, abstract: string, journal
     }
   });
 
-  // Calculate journal score
+  // Calculate journal score (20% weight)
   const journalScore = JOURNAL_WEIGHTS[journal as keyof typeof JOURNAL_WEIGHTS] || 0;
   const maxJournalScore = Math.max(...Object.values(JOURNAL_WEIGHTS));
+
+  // Calculate citation score (20% weight)
+  const maxCitations = 1000; // Cap for normalization
+  const citationScore = citations > 0 ? Math.min(Math.log10(citations + 1) / Math.log10(maxCitations + 1), 1) * 100 : 0;
 
   // Normalize scores to 0-100
   const normalizedKeywordScore = (keywordScore / maxKeywordScore) * 100;
   const normalizedJournalScore = (journalScore / maxJournalScore) * 100;
 
-  // Final weighted score (70% keywords, 30% journal)
-  const finalScore = (0.7 * normalizedKeywordScore) + (0.3 * normalizedJournalScore);
+  // Final weighted score (60% keywords, 20% journal, 20% citations)
+  const finalScore = (
+    0.6 * normalizedKeywordScore +
+    0.2 * normalizedJournalScore +
+    0.2 * citationScore
+  );
 
   console.log('Relevance score calculation:', {
     title,
     journal,
+    citations,
     keywordScore,
     journalScore,
+    citationScore,
     normalizedKeywordScore,
     normalizedJournalScore,
     finalScore
