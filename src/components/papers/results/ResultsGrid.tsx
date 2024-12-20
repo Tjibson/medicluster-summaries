@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client"
 import { type Paper } from "@/types/papers"
 import { PaperCard } from "../PaperCard"
 import { PaginationControls } from "../PaginationControls"
-import { type SortOption } from "../SortingControls"
+import { type SortOption, type SortDirection } from "../SortingControls"
 import { useState } from "react"
 import { ErrorPage } from "../ErrorPage"
 
@@ -29,6 +29,7 @@ export function ResultsGrid({
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
 
   const handleSavePaper = async (paper: Paper) => {
     if (!userId) {
@@ -128,7 +129,7 @@ export function ResultsGrid({
     return <ErrorPage />
   }
 
-  const getSortValue = (paper: Paper, sortType: SortOption) => {
+  const getSortValue = (paper: Paper, sortType: SortOption): number | string => {
     switch (sortType) {
       case "citations":
         return paper.citations || 0
@@ -146,18 +147,24 @@ export function ResultsGrid({
   const sortedPapers = [...papers].sort((a, b) => {
     const aValue = getSortValue(a, sortBy)
     const bValue = getSortValue(b, sortBy)
-
-    if (typeof aValue === "string") {
-      return aValue.localeCompare(bValue as string)
+    
+    if (typeof aValue === "string" && typeof bValue === "string") {
+      return sortDirection === "asc" 
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue)
     }
-
-    if (sortBy === "title") {
-      return (aValue as string).localeCompare(bValue as string)
-    }
-
+    
     // For numerical values (citations, date, relevance)
-    return (bValue as number) - (aValue as number)
+    const numericA = aValue as number
+    const numericB = bValue as number
+    return sortDirection === "asc" 
+      ? numericA - numericB
+      : numericB - numericA
   })
+
+  const toggleSortDirection = () => {
+    setSortDirection(prev => prev === "asc" ? "desc" : "asc")
+  }
 
   return (
     <>

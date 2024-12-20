@@ -5,7 +5,7 @@ import { ResultsHeader } from "./ResultsHeader"
 import { ResultsGrid } from "./ResultsGrid"
 import { LoadingState } from "@/components/papers/LoadingState"
 import { ArticleDetails } from "@/components/papers/ArticleDetails"
-import { type SortOption } from "../SortingControls"
+import { type SortOption, type SortDirection } from "../SortingControls"
 import { type SearchParameters } from "@/constants/searchConfig"
 
 interface ResultsContainerProps {
@@ -31,6 +31,7 @@ export function ResultsContainer({
   const [userId, setUserId] = useState<string | null>(null)
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
   const [sortBy, setSortBy] = useState<SortOption>("relevance")
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [papersWithCitations, setPapersWithCitations] = useState<Paper[]>([])
 
   useEffect(() => {
@@ -60,7 +61,9 @@ export function ResultsContainer({
       <ResultsHeader 
         searchCriteria={searchCriteria}
         sortBy={sortBy}
+        sortDirection={sortDirection}
         onSortChange={setSortBy}
+        onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
         totalResults={pagination.total}
       />
       
