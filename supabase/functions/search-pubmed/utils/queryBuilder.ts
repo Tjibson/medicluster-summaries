@@ -1,17 +1,38 @@
-import { SearchParams } from './types'
+import { type SearchParameters } from '../types'
 
-export function buildPubMedQuery(params: SearchParams): string {
-  const searchTerms = []
-  if (params.medicine) searchTerms.push(`(${params.medicine})`)
-  if (params.condition) searchTerms.push(`(${params.condition})`)
-  
-  const journalQuery = params.journalNames?.length 
-    ? ` AND (${params.journalNames.map(journal => `"${journal}"[Journal]`).join(' OR ')})`
-    : ''
+export function buildSearchQuery(searchParams: SearchParameters): string {
+  const queryParts = []
 
-  const dateQuery = params.dateRange
-    ? ` AND ("${params.dateRange.start}"[Date - Publication] : "${params.dateRange.end}"[Date - Publication])`
-    : ''
+  // Add medicine keywords
+  if (searchParams.keywords.medicine.length > 0) {
+    queryParts.push(`(${searchParams.keywords.medicine.join(" OR ")})`)
+  }
 
-  return `${searchTerms.join(' AND ')}${journalQuery}${dateQuery}`
+  // Add condition keywords
+  if (searchParams.keywords.condition.length > 0) {
+    queryParts.push(`(${searchParams.keywords.condition.join(" OR ")})`)
+  }
+
+  // Add journal filter
+  if (searchParams.journalNames.length > 0) {
+    const journalQuery = searchParams.journalNames
+      .map(journal => `"${journal}"[Journal]`)
+      .join(" OR ")
+    queryParts.push(`(${journalQuery})`)
+  }
+
+  // Add date range
+  queryParts.push(
+    `("${searchParams.dateRange.start}"[Date - Publication] : "${searchParams.dateRange.end}"[Date - Publication])`
+  )
+
+  // Add article types
+  if (searchParams.articleTypes.length > 0) {
+    const typeQuery = searchParams.articleTypes
+      .map(type => `"${type}"[Publication Type]`)
+      .join(" OR ")
+    queryParts.push(`(${typeQuery})`)
+  }
+
+  return queryParts.join(" AND ")
 }
