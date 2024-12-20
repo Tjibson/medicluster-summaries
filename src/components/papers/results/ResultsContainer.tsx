@@ -30,6 +30,7 @@ export function ResultsContainer({
 }: ResultsContainerProps) {
   const [userId, setUserId] = useState<string | null>(null)
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
+  // Set initial sort to citations descending
   const [sortBy, setSortBy] = useState<SortOption>("citations")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [sortedPapers, setSortedPapers] = useState<Paper[]>([])
@@ -155,13 +156,13 @@ export function ResultsContainer({
       setSortedPapers(papersToSort)
     }
 
-    // Only sort if we have citations data
+    // Only sort if we have citations data or no papers
     if (Object.keys(citationsMap).length > 0 || papers.length === 0) {
       sortPapers()
     }
   }, [citationsMap, sortBy, sortDirection, papers])
 
-  if (isLoading) {
+  if (isLoading || isCitationsLoading) {
     return <LoadingState />
   }
 
