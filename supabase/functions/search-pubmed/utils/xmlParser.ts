@@ -1,54 +1,66 @@
-import { PubMedArticle } from './types'
+import * as xml2js from 'https://esm.sh/xml2js@0.4.23'
 
-export function parseArticles(xml: string): PubMedArticle[] {
-  const articles: PubMedArticle[] = []
-  const articleMatches = xml.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
+export async function parseXML(xml: string) {
+  const parser = new xml2js.Parser({ 
+    explicitArray: false, 
+    mergeAttrs: true,
+    valueProcessors: [parseFloat]
+  })
+  return parser.parseStringPromise(xml)
+}
+
+export function extractArticleData(article: any) {
+  const medlineCitation = article.MedlineCitation
+  const articleData = medlineCitation.Article
   
-  for (const articleXml of articleMatches) {
-    try {
-      const article = {
-        id: extractText(articleXml, 'PMID'),
-        title: extractText(articleXml, 'ArticleTitle'),
-        abstract: extractText(articleXml, 'Abstract/AbstractText') || 'No abstract available',
-        authors: extractAuthors(articleXml),
-        journal: extractText(articleXml, 'Journal/Title') || extractText(articleXml, 'ISOAbbreviation') || 'Unknown Journal',
-        year: parseInt(extractText(articleXml, 'PubDate/Year') || new Date().getFullYear().toString()),
-        citations: 0
-      }
-      
-      articles.push(article)
-    } catch (error) {
-      console.error('Error processing article:', error)
-      continue
+  // Extract title
+  const title = articleData.ArticleTitle || 'No title available'
+  
+  // Extract abstract
+  let abstract = 'No abstract available'
+  if (articleData.Abstract?.AbstractText) {
+    if (typeof articleData.Abstract.AbstractText === 'string') {
+      abstract = articleData.Abstract.AbstractText
+    } else if (Array.isArray(articleData.Abstract.AbstractText)) {
+      abstract = articleData.Abstract.AbstractText.join('\n')
+    } else if (articleData.Abstract.AbstractText._) {
+      abstract = articleData.Abstract.AbstractText._
     }
   }
   
-  return articles
-}
-
-function extractText(xml: string, tag: string): string {
-  const match = new RegExp(`<${tag}[^>]*>(.*?)</${tag.split('/').pop()}>`, 's').exec(xml)
-  return match ? decodeXMLEntities(match[1].trim()) : ''
-}
-
-function extractAuthors(xml: string): string[] {
-  const authors = []
-  const authorMatches = xml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
-  
-  for (const match of authorMatches) {
-    const lastName = match[1] || ''
-    const foreName = match[2] || ''
-    authors.push(`${lastName} ${foreName}`.trim())
+  // Extract authors
+  let authors: string[] = []
+  if (articleData.AuthorList?.Author) {
+    const authorList = Array.isArray(articleData.AuthorList.Author) 
+      ? articleData.AuthorList.Author 
+      : [articleData.AuthorList.Author]
+    
+    authors = authorList.map((auth: any) => {
+      const firstName = auth.ForeName || ''
+      const lastName = auth.LastName || ''
+      return [firstName, lastName].filter(Boolean).join(' ')
+    })
   }
   
-  return authors
-}
-
-function decodeXMLEntities(text: string): string {
-  return text
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
+  // Extract journal and year
+  const journal = articleData.Journal?.Title || 
+                 articleData.Journal?.ISOAbbreviation || 
+                 'Unknown Journal'
+  
+  const year = articleData.Journal?.JournalIssue?.PubDate?.Year || 
+               new Date().getFullYear()
+  
+  // Extract PMID
+  const pmid = medlineCitation.PMID?._ || medlineCitation.PMID || ''
+  
+  return {
+    id: pmid,
+    title,
+    abstract,
+    authors,
+    journal,
+    year: parseInt(year),
+    citations: 0,
+    relevance_score: 0
+  }
 }

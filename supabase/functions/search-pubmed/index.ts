@@ -1,45 +1,13 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
+import { parseXML, extractArticleData } from './utils/xmlParser.ts'
+import { getCitationCount } from './utils/citations.ts'
+import { calculateRelevanceScore } from './utils/scoring.ts'
+import { type Paper } from './types'
 
 const NCBI_EMAIL = 'tjibbe-beckers@live.nl'
 const NCBI_API_KEY = '0e15924868078a8b07c4fc709d8a306e6108'
 const RESULTS_PER_PAGE = 100
-
-async function getCitationCount(pmid: string): Promise<number> {
-  const elinkUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=pubmed&linkname=pubmed_pubmed_citedin&id=${pmid}&retmode=json&api_key=${NCBI_API_KEY}`
-  
-  try {
-    console.log(`Fetching citations for PMID: ${pmid}`)
-    const response = await fetch(elinkUrl)
-    const data = await response.json()
-
-    const linksets = data.linksets || []
-    if (linksets.length === 0) return 0
-
-    const linksetdbs = linksets[0].linksetdbs || []
-    const citedInDb = linksetdbs.find((db: any) => db.linkname === 'pubmed_pubmed_citedin')
-    if (!citedInDb || !citedInDb.links) return 0
-
-    console.log(`Found ${citedInDb.links.length} citations for PMID: ${pmid}`)
-    return citedInDb.links.length
-  } catch (error) {
-    console.error(`Error fetching citations for PMID ${pmid}:`, error)
-    return 0
-  }
-}
-
-// Simple XML parser function
-function extractFromXml(xml: string, tag: string): string[] {
-  const results: string[] = []
-  const regex = new RegExp(`<${tag}[^>]*>(.*?)<\/${tag}>`, 'gs')
-  let match
-  
-  while ((match = regex.exec(xml)) !== null) {
-    results.push(match[1].trim())
-  }
-  
-  return results
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -92,70 +60,21 @@ serve(async (req) => {
 
     const efetchResponse = await fetch(efetchUrl)
     const xmlData = await efetchResponse.text()
-
+    
+    // Parse XML to JSON using xml2js
+    const jsonResult = await parseXML(xmlData)
+    const pubmedArticles = jsonResult.PubmedArticleSet?.PubmedArticle || []
+    
     // Process articles and fetch citations concurrently
-    const articles = await Promise.all(pmids.map(async (pmid) => {
-      // Extract article data using regex
-      const articleXml = xmlData.match(new RegExp(`<PubmedArticle>.*?<PMID.*?>${pmid}</PMID>.*?</PubmedArticle>`, 's'))?.[0] || ''
-      
-      if (!articleXml) {
-        console.error(`No XML found for PMID: ${pmid}`)
-        return null
-      }
-
-      const title = extractFromXml(articleXml, 'ArticleTitle')[0] || 'No title available'
-      const abstract = extractFromXml(articleXml, 'Abstract')[0] || 'No abstract available'
-      const authors = extractFromXml(articleXml, 'LastName').map((lastName, i) => {
-        const foreName = extractFromXml(articleXml, 'ForeName')[i] || ''
-        return `${foreName} ${lastName}`.trim()
-      })
-      const journal = extractFromXml(articleXml, 'Title')[0] || extractFromXml(articleXml, 'ISOAbbreviation')[0] || 'Unknown Journal'
-      const yearMatch = articleXml.match(/<Year>(\d{4})<\/Year>/)
-      const year = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear()
-
-      // Fetch citation count
-      const citations = await getCitationCount(pmid)
-
-      return {
-        id: pmid,
-        title,
-        abstract,
-        authors,
-        journal,
-        year,
-        citations,
-        relevance_score: 0
-      }
+    const articles = await Promise.all(pubmedArticles.map(async (article: any) => {
+      const paperData = extractArticleData(article)
+      paperData.citations = await getCitationCount(paperData.id)
+      paperData.relevance_score = calculateRelevanceScore(paperData, term)
+      return paperData
     }))
 
-    // Filter out null articles and sort by citations
-    const validArticles = articles.filter((article): article is NonNullable<typeof article> => article !== null)
-    
-    // Calculate relevance scores and sort
-    const searchTermLower = term.toLowerCase()
-    const articlesWithScores = validArticles.map(article => {
-      let relevanceScore = 0
-      
-      if (article.title.toLowerCase().includes(searchTermLower)) {
-        relevanceScore += 50
-      }
-      if (article.abstract.toLowerCase().includes(searchTermLower)) {
-        relevanceScore += 30
-      }
-      if (article.title.toLowerCase().includes('trial') || 
-          article.abstract.toLowerCase().includes('trial')) {
-        relevanceScore += 20
-      }
-      relevanceScore += Math.min(article.citations * 2, 100)
-      
-      return {
-        ...article,
-        relevance_score: relevanceScore
-      }
-    })
-
     // Sort by citations first, then by relevance score
-    const sortedArticles = articlesWithScores.sort((a, b) => {
+    const sortedArticles = articles.sort((a, b) => {
       const citationDiff = b.citations - a.citations
       if (citationDiff !== 0) return citationDiff
       return b.relevance_score - a.relevance_score
