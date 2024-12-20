@@ -28,6 +28,17 @@ export function DateRangeSelect({
           type="button"
           variant="outline"
           size="sm"
+          onClick={() => {
+            onStartDateChange(undefined)
+            onEndDateChange(undefined)
+          }}
+        >
+          All time
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
           onClick={() => onQuickSelect(90)}
         >
           Last 90 days
