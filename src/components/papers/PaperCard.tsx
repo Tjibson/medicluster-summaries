@@ -14,13 +14,23 @@ interface PaperCardProps {
 export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
   const pubmedUrl = `https://pubmed.ncbi.nlm.nih.gov/${paper.id}/`
 
+  // Helper function to safely render title
+  const renderTitle = (title: any): string => {
+    if (typeof title === 'string') return title
+    if (title && typeof title === 'object') {
+      if ('_' in title) return title._ as string
+      if ('sub' in title) return String(title.sub)
+    }
+    return 'Untitled'
+  }
+
   return (
     <Card 
       className="p-6 shadow-card hover:shadow-lg transition-shadow duration-200 cursor-pointer"
       onClick={() => onClick(paper)}
     >
       <div className="space-y-4">
-        <h3 className="font-semibold text-lg">{paper.title}</h3>
+        <h3 className="font-semibold text-lg">{renderTitle(paper.title)}</h3>
         
         <div className="flex items-center space-x-2 text-sm text-gray-600">
           <p>Citations: {paper.citations || 0}</p>
@@ -35,7 +45,7 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
         </div>
 
         <p className="text-gray-700 text-sm leading-relaxed">
-          {paper.abstract || "Abstract not available"}
+          {typeof paper.abstract === 'string' ? paper.abstract : 'Abstract not available'}
         </p>
 
         <div className="flex justify-between items-center">
