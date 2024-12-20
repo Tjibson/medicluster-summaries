@@ -5,6 +5,7 @@ import { PaperCard } from "../PaperCard"
 import { PaginationControls } from "../PaginationControls"
 import { type SortOption } from "../SortingControls"
 import { useState } from "react"
+import { calculateRelevanceScore } from "@/utils/scoring"
 
 interface ResultsGridProps {
   papers: Paper[]
@@ -130,21 +131,24 @@ export function ResultsGrid({
         return b.year - a.year
       case "title":
         return a.title.localeCompare(b.title)
-      default: // "relevance" is default, but we'll prioritize citations within relevance
-        const citationDiff = (b.citations || 0) - (a.citations || 0)
-        if (citationDiff !== 0) {
-          return citationDiff
-        }
-        const scoreA = a.relevance_score || 0
-        const scoreB = b.relevance_score || 0
-        if (scoreA !== scoreB) {
-          return scoreB - scoreA
-        }
-        return b.year - a.year
+      default: // "relevance" is default
+        // Extract keywords from papers for scoring
+        const keywords = papers.reduce((acc: string[], paper) => {
+          const titleWords = paper.title.toLowerCase().split(/\s+/)
+          const abstractWords = (paper.abstract || '').toLowerCase().split(/\s+/)
+          return [...new Set([...acc, ...titleWords, ...abstractWords])]
+        }, [])
+        
+        const scoreA = calculateRelevanceScore(a, keywords)
+        const scoreB = calculateRelevanceScore(b, keywords)
+        return scoreB - scoreA
     }
   })
 
-  console.log("Sorted papers with citations:", sortedPapers)
+  console.log("Sorted papers with relevance scores:", sortedPapers.map(p => ({
+    title: p.title,
+    score: calculateRelevanceScore(p, [])
+  })))
 
   return (
     <>

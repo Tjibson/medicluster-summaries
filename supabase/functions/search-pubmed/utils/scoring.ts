@@ -20,19 +20,19 @@ const JOURNAL_WEIGHTS = {
   "Journal of the American Heart Association": 2,
 }
 
-export function calculateRelevanceScore(title: string, abstract: string, searchParams: SearchParams): number {
+export function calculateRelevanceScore(title: string, abstract: string, journal: string, searchParams: SearchParams): number {
   let score = 0
   const text = `${title} ${abstract}`.toLowerCase()
 
-  // Score based on journal weight
-  const journalWeight = JOURNAL_WEIGHTS[searchParams.journalNames[0]] || 1
-  score += journalWeight * 10
+  // Journal weight (30% of total score)
+  const journalWeight = JOURNAL_WEIGHTS[journal as keyof typeof JOURNAL_WEIGHTS] || 1
+  score += (journalWeight / Math.max(...Object.values(JOURNAL_WEIGHTS))) * 30
 
-  // Score based on keyword matches in title and abstract
+  // Keyword matches (70% of total score)
   const allKeywords = [...searchParams.keywords.medicine, ...searchParams.keywords.condition]
   allKeywords.forEach(keyword => {
     const keywordLower = keyword.toLowerCase()
-    // Title matches worth more
+    // Title matches worth more (2x)
     if (title.toLowerCase().includes(keywordLower)) {
       score += 15
     }
@@ -41,5 +41,6 @@ export function calculateRelevanceScore(title: string, abstract: string, searchP
     score += matches * 5
   })
 
-  return Math.min(100, score) // Cap at 100
+  // Normalize to 0-100
+  return Math.min(Math.round(score), 100)
 }
