@@ -5,7 +5,6 @@ import { PaperCard } from "../PaperCard"
 import { PaginationControls } from "../PaginationControls"
 import { type SortOption } from "../SortingControls"
 import { useState } from "react"
-import { calculateRelevanceScore } from "@/utils/scoring"
 import { ErrorPage } from "../ErrorPage"
 
 interface ResultsGridProps {
@@ -129,17 +128,35 @@ export function ResultsGrid({
     return <ErrorPage />
   }
 
-  const sortedPapers = [...papers].sort((a, b) => {
-    switch (sortBy) {
+  const getSortValue = (paper: Paper, sortType: SortOption) => {
+    switch (sortType) {
       case "citations":
-        return (b.citations || 0) - (a.citations || 0)
+        return paper.citations || 0
       case "date":
-        return b.year - a.year
+        return new Date(paper.year, 0).getTime()
       case "title":
-        return a.title.localeCompare(b.title)
-      default: // "relevance" is default
-        return (b.relevance_score || 0) - (a.relevance_score || 0)
+        return paper.title.toLowerCase()
+      case "relevance":
+        return paper.relevance_score || 0
+      default:
+        return 0
     }
+  }
+
+  const sortedPapers = [...papers].sort((a, b) => {
+    const aValue = getSortValue(a, sortBy)
+    const bValue = getSortValue(b, sortBy)
+
+    if (typeof aValue === "string") {
+      return aValue.localeCompare(bValue as string)
+    }
+
+    if (sortBy === "title") {
+      return (aValue as string).localeCompare(bValue as string)
+    }
+
+    // For numerical values (citations, date, relevance)
+    return (bValue as number) - (aValue as number)
   })
 
   return (
