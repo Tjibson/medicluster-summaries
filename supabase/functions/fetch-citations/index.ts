@@ -13,13 +13,44 @@ interface Paper {
   year: number
 }
 
+async function getCitationCountFromPubMed(pmid: string): Promise<number> {
+  try {
+    const pubmedUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=pubmed&linkname=pubmed_pubmed_citedin&id=${pmid}&retmode=json`
+    const response = await fetch(pubmedUrl)
+    
+    if (!response.ok) {
+      console.error('PubMed API error:', response.statusText)
+      return 0
+    }
+
+    const data = await response.json()
+    const linksets = data.linksets || []
+    if (linksets.length === 0) return 0
+
+    const linksetdb = linksets[0].linksetdbs?.find((db: any) => db.linkname === 'pubmed_pubmed_citedin')
+    return linksetdb?.links?.length || 0
+  } catch (error) {
+    console.error('Error fetching PubMed citations:', error)
+    return 0
+  }
+}
+
 async function getCitationCountFromCrossRef(paper: Paper): Promise<number> {
   try {
-    const query = `query=${encodeURIComponent(paper.title)}+author:${encodeURIComponent(paper.authors[0])}+journal:${encodeURIComponent(paper.journal)}+year:${paper.year}`
-    const crossrefUrl = `https://api.crossref.org/works?${query}&rows=1`
+    // Construct a precise query using multiple fields
+    const query = `query=${encodeURIComponent(paper.title)}+author:${encodeURIComponent(paper.authors[0])}+container-title:${encodeURIComponent(paper.journal)}+published:${paper.year}`
+    const crossrefUrl = `https://api.crossref.org/works?${query}&rows=1&select=is-referenced-by-count`
     
-    const response = await fetch(crossrefUrl)
-    if (!response.ok) return 0
+    const response = await fetch(crossrefUrl, {
+      headers: {
+        'User-Agent': 'ResearchApp/1.0 (mailto:tjibbe-beckers@live.nl)'
+      }
+    })
+
+    if (!response.ok) {
+      console.error('CrossRef API error:', response.statusText)
+      return 0
+    }
 
     const data = await response.json()
     const items = data.message?.items || []
@@ -34,22 +65,6 @@ async function getCitationCountFromCrossRef(paper: Paper): Promise<number> {
   }
 }
 
-async function getCitationCountFromPubMed(pmid: string): Promise<number> {
-  try {
-    const pubmedUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${pmid}&retmode=json`
-    const response = await fetch(pubmedUrl)
-    
-    if (!response.ok) return 0
-
-    const data = await response.json()
-    const result = data.result?.[pmid]
-    return result?.citedby || 0
-  } catch (error) {
-    console.error('Error fetching PubMed citations:', error)
-    return 0
-  }
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -57,14 +72,22 @@ serve(async (req) => {
 
   try {
     const { paper } = await req.json()
-    
-    // Try PubMed first since we have the PMID
-    let citations = await getCitationCountFromPubMed(paper.id)
-    
-    // If no citations found in PubMed, try CrossRef
-    if (!citations) {
-      citations = await getCitationCountFromCrossRef(paper)
-    }
+    console.log('Fetching citations for paper:', paper.title)
+
+    // Try both sources and take the higher count
+    const [pubmedCitations, crossrefCitations] = await Promise.all([
+      getCitationCountFromPubMed(paper.id),
+      getCitationCountFromCrossRef(paper)
+    ])
+
+    console.log('Citation counts:', {
+      pubmed: pubmedCitations,
+      crossref: crossrefCitations,
+      paper: paper.title
+    })
+
+    // Use the higher citation count between the two sources
+    const citations = Math.max(pubmedCitations, crossrefCitations)
 
     return new Response(
       JSON.stringify({ citations }),
