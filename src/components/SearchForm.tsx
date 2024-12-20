@@ -6,29 +6,20 @@ import { type Paper } from "@/types/papers"
 import { DateRangeSelect } from "./search/DateRangeSelect"
 import { SearchInputs } from "./search/SearchInputs"
 import { Loader2 } from "lucide-react"
-import { DEFAULT_JOURNALS } from "@/constants/journals"
+import { DEFAULT_SEARCH_PARAMS, type SearchParameters } from "@/constants/searchConfig"
 
 interface SearchFormProps {
-  onSearch: (papers: Paper[], searchCriteria: {
-    dateRange: { start: string; end: string };
-    keywords: string;
-    journalNames: string[];
-  }) => void
+  onSearch: (papers: Paper[], searchCriteria: SearchParameters) => void
   onSearchStart: () => void
 }
 
 export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
   const [medicine, setMedicine] = useState("")
   const [condition, setCondition] = useState("")
+  const [selectedArticleTypes, setSelectedArticleTypes] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  
-  // Set default dates for 20 years range
-  const defaultEndDate = new Date()
-  const defaultStartDate = new Date()
-  defaultStartDate.setFullYear(defaultStartDate.getFullYear() - 20)
-  
-  const [startDate, setStartDate] = useState<Date>(defaultStartDate)
-  const [endDate, setEndDate] = useState<Date>(defaultEndDate)
+  const [startDate, setStartDate] = useState<Date>(new Date(DEFAULT_SEARCH_PARAMS.dateRange.start))
+  const [endDate, setEndDate] = useState<Date>(new Date(DEFAULT_SEARCH_PARAMS.dateRange.end))
   const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,70 +28,26 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
     onSearchStart()
 
     try {
-      console.log("Building search query...")
-      const medicineKeywords = medicine.trim().split(/[ ,]+/).filter(Boolean)
-      const conditionKeywords = condition.trim().split(/[ ,]+/).filter(Boolean)
-      
-      const searchTerms = [...medicineKeywords, ...conditionKeywords].join(' ')
-      console.log("Search terms:", searchTerms)
-
-      const { data, error } = await supabase.functions.invoke('search-pubmed', {
-        body: {
-          term: searchTerms,
-          dateRange: {
-            start: startDate.toISOString().split('T')[0].replace(/-/g, '/'),
-            end: endDate.toISOString().split('T')[0].replace(/-/g, '/')
-          },
-          journalNames: DEFAULT_JOURNALS
-        }
-      })
-
-      if (error) {
-        throw error
-      }
-
-      if (!data || !data.articles) {
-        throw new Error("Invalid response format")
-      }
-
-      // Transform PubMed articles and get their PMIDs
-      const papers: Paper[] = data.articles.map((article: any) => ({
-        id: article.id,
-        title: article.title,
-        abstract: article.abstract,
-        authors: article.authors,
-        journal: article.journal,
-        year: article.year,
-        citations: 0
-      }))
-
-      // Fetch citation counts
-      const { data: citationsData, error: citationsError } = await supabase.functions.invoke('fetch-citations', {
-        body: { pmids: papers.map(paper => paper.id) }
-      })
-
-      if (citationsError) {
-        console.error("Error fetching citations:", citationsError)
-      } else if (citationsData?.citations) {
-        // Update papers with citation counts
-        papers.forEach(paper => {
-          const citationInfo = citationsData.citations.find((c: any) => c.pmid === paper.id)
-          if (citationInfo) {
-            paper.citations = citationInfo.citations
-          }
-        })
-      }
-
-      console.log("Papers with citations:", papers)
-      onSearch(papers, {
+      const searchParams: SearchParameters = {
         dateRange: {
           start: startDate.toISOString().split('T')[0],
-          end: endDate.toISOString().split('T')[0]
+          end: endDate.toISOString().split('T')[0],
         },
-        keywords: searchTerms,
-        journalNames: DEFAULT_JOURNALS
+        journalNames: DEFAULT_SEARCH_PARAMS.journalNames,
+        keywords: {
+          medicine: medicine.trim().split(/[ ,]+/).filter(Boolean),
+          condition: condition.trim().split(/[ ,]+/).filter(Boolean),
+        },
+        articleTypes: selectedArticleTypes as typeof DEFAULT_SEARCH_PARAMS.articleTypes,
+      }
+
+      const { data, error } = await supabase.functions.invoke('search-pubmed', {
+        body: { searchParams }
       })
 
+      if (error) throw error
+
+      onSearch(data.papers, searchParams)
     } catch (error: any) {
       console.error("Error performing search:", error)
       toast({
@@ -133,8 +80,10 @@ export function SearchForm({ onSearch, onSearchStart }: SearchFormProps) {
         <SearchInputs
           medicine={medicine}
           condition={condition}
+          selectedArticleTypes={selectedArticleTypes}
           onMedicineChange={setMedicine}
           onConditionChange={setCondition}
+          onArticleTypesChange={setSelectedArticleTypes}
         />
 
         <Button type="submit" className="w-full" disabled={isLoading}>
