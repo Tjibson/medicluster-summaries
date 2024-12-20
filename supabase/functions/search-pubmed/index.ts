@@ -104,21 +104,23 @@ serve(async (req) => {
       // Extract publication year with proper fallback
       let publicationYear = new Date().getFullYear() // Default to current year
       
-      if (articleData.Journal?.JournalIssue?.PubDate) {
-        const pubDate = articleData.Journal.JournalIssue.PubDate
-        if (typeof pubDate === 'object') {
-          // Try to get year from different possible fields
-          const yearValue = pubDate.Year || 
-                          (pubDate.MedlineDate && pubDate.MedlineDate.match(/\d{4}/)?.[0]) ||
-                          null
+      try {
+        if (articleData.Journal?.JournalIssue?.PubDate) {
+          const pubDate = articleData.Journal.JournalIssue.PubDate
           
-          if (yearValue) {
-            const parsedYear = parseInt(yearValue)
-            if (!isNaN(parsedYear)) {
-              publicationYear = parsedYear
+          // Try different possible year fields
+          if (pubDate.Year) {
+            publicationYear = parseInt(pubDate.Year)
+          } else if (pubDate.MedlineDate) {
+            const yearMatch = pubDate.MedlineDate.match(/\d{4}/)
+            if (yearMatch) {
+              publicationYear = parseInt(yearMatch[0])
             }
           }
         }
+      } catch (error) {
+        console.error('Error extracting publication year:', error)
+        // Keep using default year if there's an error
       }
 
       return {
