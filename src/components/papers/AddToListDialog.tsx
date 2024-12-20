@@ -12,7 +12,6 @@ interface AddToListDialogProps {
   isOpen: boolean
   onClose: () => void
   onSave: (paper: Paper, listId: string) => void
-  existingLists?: string[]
 }
 
 export function AddToListDialog({ paper, isOpen, onClose, onSave }: AddToListDialogProps) {
@@ -79,12 +78,20 @@ export function AddToListDialog({ paper, isOpen, onClose, onSave }: AddToListDia
     onSave(paper, data.id)
     setNewListName("")
     onClose()
+    toast({
+      title: "Success",
+      description: "List created and paper added successfully",
+    })
   }
 
   const handleSelectList = async (listId: string) => {
     if (!paper) return
     onSave(paper, listId)
     onClose()
+    toast({
+      title: "Success",
+      description: "Paper added to list successfully",
+    })
   }
 
   return (

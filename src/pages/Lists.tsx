@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Download } from "lucide-react"
 import { type SavedPaper } from "@/types/papers"
+import { ListPreview } from "@/components/papers/ListPreview"
 
 interface List {
   id: string
@@ -178,8 +179,11 @@ export default function Lists() {
       <div className="space-y-8">
         {lists.map((list) => (
           <div key={list.id} className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold">{list.name}</h2>
+            <div className="flex justify-between items-start">
+              <div className="space-y-4 flex-1 mr-4">
+                <h2 className="text-xl font-semibold">{list.name}</h2>
+                <ListPreview papers={list.papers} />
+              </div>
               <Button
                 onClick={() => handleDownloadListSummary(list.id)}
                 className="shadow-soft hover:shadow-card transition-shadow duration-200"
