@@ -50,47 +50,65 @@ export function ResultsContainer({
   // Fetch citations for papers that don't have them
   useEffect(() => {
     const fetchCitations = async () => {
+      console.log('Starting citations fetch for papers:', papers.length)
       setIsCitationsLoading(true)
       const newCitationsMap: Record<string, number> = {}
 
-      await Promise.all(
-        papers.map(async (paper) => {
-          if (paper.citations === undefined || paper.citations === null) {
-            try {
-              const { data, error } = await supabase.functions.invoke('fetch-citations', {
-                body: { paper }
-              })
-              
-              if (error) throw error
-              newCitationsMap[paper.id] = Number(data?.citations) || 0
-            } catch (error) {
-              console.error('Error fetching citations:', error)
-              newCitationsMap[paper.id] = 0
+      try {
+        await Promise.all(
+          papers.map(async (paper) => {
+            if (paper.citations === undefined || paper.citations === null) {
+              try {
+                const { data, error } = await supabase.functions.invoke('fetch-citations', {
+                  body: { paper }
+                })
+                
+                if (error) throw error
+                newCitationsMap[paper.id] = Number(data?.citations) || 0
+                console.log(`Fetched citations for paper ${paper.id}:`, data?.citations)
+              } catch (error) {
+                console.error('Error fetching citations for paper:', paper.id, error)
+                newCitationsMap[paper.id] = 0
+              }
+            } else {
+              newCitationsMap[paper.id] = Number(paper.citations) || 0
             }
-          } else {
-            newCitationsMap[paper.id] = Number(paper.citations) || 0
-          }
-        })
-      )
+          })
+        )
 
-      console.log('Citations map:', newCitationsMap)
-      setCitationsMap(newCitationsMap)
-      setIsCitationsLoading(false)
+        console.log('Completed fetching all citations. Citations map:', newCitationsMap)
+        setCitationsMap(newCitationsMap)
+      } catch (error) {
+        console.error('Error in fetchCitations:', error)
+      } finally {
+        setIsCitationsLoading(false)
+      }
     }
 
     if (papers.length > 0) {
       fetchCitations()
     } else {
       setCitationsMap({})
+      setSortedPapers([])
     }
   }, [papers])
 
   // Update sorted papers when citations are loaded or sort options change
   useEffect(() => {
+    console.log('Sorting papers with citations map:', citationsMap)
+    
     const papersWithCitations = papers.map(paper => ({
       ...paper,
       citations: citationsMap[paper.id] || 0
     }))
+
+    console.log('Papers with citations before sorting:', 
+      papersWithCitations.map(p => ({ 
+        id: p.id, 
+        title: p.title, 
+        citations: p.citations 
+      }))
+    )
 
     const sortPapers = () => {
       const papersToSort = [...papersWithCitations]
@@ -100,7 +118,6 @@ export function ResultsContainer({
           case "citations": {
             const aCitations = Number(a.citations) || 0
             const bCitations = Number(b.citations) || 0
-            console.log(`Comparing citations: ${aCitations} vs ${bCitations}`)
             return sortDirection === "asc" 
               ? aCitations - bCitations 
               : bCitations - aCitations
@@ -125,14 +142,23 @@ export function ResultsContainer({
         }
       })
 
-      console.log('Sorted papers:', papersToSort.map(p => ({ 
-        title: p.title, 
-        citations: p.citations 
-      })))
+      console.log('Papers after sorting:', 
+        papersToSort.map(p => ({ 
+          id: p.id,
+          title: p.title, 
+          citations: p.citations,
+          sortBy,
+          sortDirection 
+        }))
+      )
+      
       setSortedPapers(papersToSort)
     }
 
-    sortPapers()
+    // Only sort if we have citations data
+    if (Object.keys(citationsMap).length > 0 || papers.length === 0) {
+      sortPapers()
+    }
   }, [citationsMap, sortBy, sortDirection, papers])
 
   if (isLoading) {
