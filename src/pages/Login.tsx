@@ -15,8 +15,8 @@ export default function Login() {
     const checkEmailSignUp = async () => {
       try {
         const { data } = await supabase.auth.getSession()
-        const { data: settings } = await supabase.auth.admin.listAuthSettings()
-        setIsEmailSignUpEnabled(settings?.enable_signup || false)
+        const { data: { config } } = await supabase.auth.getSession()
+        setIsEmailSignUpEnabled(config?.config?.auth?.enable_signup || false)
       } catch (error) {
         console.error("Error checking email signup status:", error)
       } finally {
