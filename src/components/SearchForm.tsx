@@ -1,23 +1,25 @@
 import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/integrations/supabase/client"
-import { DEFAULT_SEARCH_PARAMS } from "@/constants/searchConfig"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
+import { DateRangeSelect } from "@/components/search/DateRangeSelect"
+import { StudyDetailsInputs } from "@/components/search/StudyDetailsInputs"
+import { SearchInputs } from "@/components/search/SearchInputs"
 import { Loader2 } from "lucide-react"
 
-export function SearchForm({ onSearch }: { onSearch: (papers: any[], params: any) => void }) {
+interface SearchFormProps {
+  onSearch: (papers: any[], params: any) => void
+}
+
+export function SearchForm({ onSearch }: SearchFormProps) {
   const [medicine, setMedicine] = useState("")
   const [condition, setCondition] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [advancedMode, setAdvancedMode] = useState(false)
-  const [patientCount, setPatientCount] = useState(DEFAULT_SEARCH_PARAMS.patientCount)
-  const [trialType, setTrialType] = useState(DEFAULT_SEARCH_PARAMS.trialType)
-  const [population, setPopulation] = useState(DEFAULT_SEARCH_PARAMS.population)
-  const [workingMechanism, setWorkingMechanism] = useState(DEFAULT_SEARCH_PARAMS.workingMechanism)
+  const [startDate, setStartDate] = useState<Date>()
+  const [endDate, setEndDate] = useState<Date>()
+  const [selectedArticleTypes, setSelectedArticleTypes] = useState<string[]>([])
   const { toast } = useToast()
 
   const saveSearchToHistory = async (medicine: string, condition: string) => {
@@ -59,10 +61,11 @@ export function SearchForm({ onSearch }: { onSearch: (papers: any[], params: any
         body: JSON.stringify({
           medicine,
           condition,
-          patientCount: advancedMode ? patientCount : DEFAULT_SEARCH_PARAMS.patientCount,
-          trialType: advancedMode ? trialType : DEFAULT_SEARCH_PARAMS.trialType,
-          population: advancedMode ? population : DEFAULT_SEARCH_PARAMS.population,
-          workingMechanism: advancedMode ? workingMechanism : DEFAULT_SEARCH_PARAMS.workingMechanism,
+          dateRange: startDate && endDate ? {
+            start: startDate.toISOString().split('T')[0],
+            end: endDate.toISOString().split('T')[0]
+          } : undefined,
+          articleTypes: selectedArticleTypes
         }),
       })
 
@@ -74,10 +77,11 @@ export function SearchForm({ onSearch }: { onSearch: (papers: any[], params: any
       onSearch(data.papers, {
         medicine,
         condition,
-        patientCount,
-        trialType,
-        population,
-        workingMechanism,
+        dateRange: startDate && endDate ? {
+          start: startDate.toISOString().split('T')[0],
+          end: endDate.toISOString().split('T')[0]
+        } : undefined,
+        articleTypes: selectedArticleTypes
       })
 
       await saveSearchToHistory(medicine, condition)
@@ -93,82 +97,32 @@ export function SearchForm({ onSearch }: { onSearch: (papers: any[], params: any
     }
   }
 
+  const handleQuickDateSelect = (days: number) => {
+    const end = new Date()
+    const start = new Date()
+    start.setDate(start.getDate() - days)
+    setStartDate(start)
+    setEndDate(end)
+  }
+
   return (
     <form onSubmit={handleSearch} className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="medicine">Medicine</Label>
-          <Input
-            id="medicine"
-            placeholder="Enter medicine name"
-            value={medicine}
-            onChange={(e) => setMedicine(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="condition">Medical Condition</Label>
-          <Input
-            id="condition"
-            placeholder="Enter medical condition"
-            value={condition}
-            onChange={(e) => setCondition(e.target.value)}
-          />
-        </div>
-      </div>
+      <SearchInputs
+        medicine={medicine}
+        condition={condition}
+        selectedArticleTypes={selectedArticleTypes}
+        onMedicineChange={setMedicine}
+        onConditionChange={setCondition}
+        onArticleTypesChange={setSelectedArticleTypes}
+      />
 
-      <div className="flex items-center space-x-2">
-        <Switch
-          id="advanced-mode"
-          checked={advancedMode}
-          onCheckedChange={setAdvancedMode}
-        />
-        <Label htmlFor="advanced-mode">Advanced Search Options</Label>
-      </div>
-
-      {advancedMode && (
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <Label>Minimum Patient Count: {patientCount}</Label>
-            <Slider
-              value={[patientCount]}
-              onValueChange={(value) => setPatientCount(value[0])}
-              min={0}
-              max={1000}
-              step={50}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="trial-type">Trial Type</Label>
-            <Input
-              id="trial-type"
-              placeholder="e.g., Randomized Control Trial"
-              value={trialType}
-              onChange={(e) => setTrialType(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="population">Population</Label>
-            <Input
-              id="population"
-              placeholder="e.g., Adults, Children"
-              value={population}
-              onChange={(e) => setPopulation(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="mechanism">Working Mechanism</Label>
-            <Input
-              id="mechanism"
-              placeholder="e.g., Enzyme inhibitor"
-              value={workingMechanism}
-              onChange={(e) => setWorkingMechanism(e.target.value)}
-            />
-          </div>
-        </div>
-      )}
+      <DateRangeSelect
+        startDate={startDate}
+        endDate={endDate}
+        onStartDateChange={setStartDate}
+        onEndDateChange={setEndDate}
+        onQuickSelect={handleQuickDateSelect}
+      />
 
       <Button type="submit" disabled={isLoading} className="w-full">
         {isLoading ? (

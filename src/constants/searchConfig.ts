@@ -34,7 +34,7 @@ export const ARTICLE_TYPES = [
 ] as const;
 
 export interface SearchParameters {
-  dateRange: {
+  dateRange?: {
     start: string;
     end: string;
   };
@@ -43,20 +43,16 @@ export interface SearchParameters {
     medicine: string[];
     condition: string[];
   };
-  articleTypes: typeof ARTICLE_TYPES[number][];
+  articleTypes: string[];
 }
 
 export const DEFAULT_SEARCH_PARAMS: SearchParameters = {
-  dateRange: {
-    start: new Date(new Date().setFullYear(new Date().getFullYear() - 20)).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0],
-  },
-  journalNames: Object.keys(JOURNAL_WEIGHTS),
+  journalNames: [],
   keywords: {
     medicine: [],
     condition: [],
   },
-  articleTypes: [...ARTICLE_TYPES],
+  articleTypes: [],
 };
 
 export function calculateRelevanceScore(
