@@ -1,6 +1,4 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { extractStructuredAbstract } from './utils/parsers/abstractParser.ts'
-import { extractArticleData, parseXML } from './utils/xmlParser.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -70,14 +68,34 @@ serve(async (req) => {
         
         for (const articleXml of articleMatches) {
           try {
-            const parsedData = await parseXML(articleXml)
-            const articleData = extractArticleData(parsedData)
+            const id = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)?.[1] || ''
+            const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
+            const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
             
-            // Extract structured abstract
-            articleData.abstract = extractStructuredAbstract(articleXml)
+            const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
+            const authors = Array.from(authorMatches).map(match => {
+              const lastName = match[1] || ''
+              const foreName = match[2] || ''
+              return `${lastName} ${foreName}`.trim()
+            })
+
+            const journal = articleXml.match(/<Journal>[\s\S]*?<Title>(.*?)<\/Title>/)?.[1] ||
+                           articleXml.match(/<ISOAbbreviation>(.*?)<\/ISOAbbreviation>/)?.[1] ||
+                           'Unknown Journal'
             
-            papers.push(articleData)
-            console.log('Successfully processed article:', articleData.id)
+            const yearMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(.*?)<\/Year>/)?.[1]
+            const year = yearMatch ? parseInt(yearMatch) : new Date().getFullYear()
+
+            papers.push({
+              id,
+              title: decodeXMLEntities(title),
+              abstract: decodeXMLEntities(abstract),
+              authors,
+              journal: decodeXMLEntities(journal),
+              year,
+              citations: 0
+            })
+            console.log('Successfully processed article:', id)
           } catch (error) {
             console.error('Error processing article:', error)
             continue
@@ -135,4 +153,13 @@ function buildSearchQuery(params: any): string {
   }
 
   return parts.join(" AND ") || "*"
+}
+
+function decodeXMLEntities(text: string): string {
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
 }
