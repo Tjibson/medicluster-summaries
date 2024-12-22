@@ -1,8 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { corsHeaders } from './utils/constants.ts'
 import { validateSearchParams } from './utils/validation.ts'
 import { searchPubMed, fetchPubMedResults } from './utils/pubmedApi.ts'
-import { buildSearchQuery } from './utils/queryBuilder.ts'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -16,11 +19,11 @@ serve(async (req) => {
 
     // Validate search parameters
     const validatedParams = validateSearchParams(searchParams)
-    const query = buildSearchQuery(validatedParams)
-    console.log('Built query:', query)
+    console.log('Validated params:', validatedParams)
 
     // Perform initial search
-    const searchText = await searchPubMed(query, validatedParams.sort)
+    const searchText = await searchPubMed(validatedParams)
+    console.log('Search response received')
 
     // Extract search metadata
     const count = searchText.match(/<Count>(\d+)<\/Count>/)?.[1]
@@ -31,15 +34,15 @@ serve(async (req) => {
       throw new Error('Failed to get WebEnv or QueryKey from PubMed')
     }
 
-    console.log(`Total results: ${count}, fetching from offset ${validatedParams.offset} with limit ${validatedParams.limit}`)
+    console.log(`Total results: ${count}, fetching from offset ${validatedParams.offset || 0}`)
 
     // Fetch actual results
     const articlesXml = await fetchPubMedResults(
       webEnv,
       queryKey,
-      validatedParams.offset,
-      validatedParams.limit,
-      validatedParams.sort
+      validatedParams.offset || 0,
+      validatedParams.limit || 25,
+      validatedParams.sort || 'relevance'
     )
 
     // Process results
@@ -76,7 +79,6 @@ serve(async (req) => {
           year,
           citations: 0
         })
-        console.log('Successfully processed article:', id)
       } catch (error) {
         console.error('Error processing article:', error)
         continue
@@ -88,8 +90,8 @@ serve(async (req) => {
       JSON.stringify({ 
         papers,
         total: parseInt(count || '0'),
-        offset: validatedParams.offset,
-        limit: validatedParams.limit
+        offset: validatedParams.offset || 0,
+        limit: validatedParams.limit || 25
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

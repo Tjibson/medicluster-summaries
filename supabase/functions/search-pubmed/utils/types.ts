@@ -1,10 +1,14 @@
 export interface SearchParams {
-  keywords: string
+  medicine?: string
+  condition?: string
   dateRange?: {
     start: string
     end: string
   }
-  journalNames?: string[]
+  articleTypes?: string[]
+  offset?: number
+  limit?: number
+  sort?: 'relevance' | 'date' | 'citations'
 }
 
 export interface PubMedArticle {
