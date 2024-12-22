@@ -1,10 +1,11 @@
+import { type Paper } from "@/types/papers"
 import { supabase } from "@/integrations/supabase/client"
-import { Paper } from "@/types/papers"
+import { type Json } from "@/integrations/supabase/types"
 
 export async function getSearchCache(cacheKey: string): Promise<Paper[] | null> {
   const { data: cacheEntry } = await supabase
     .from("search_cache")
-    .select("results")
+    .select()
     .eq("cache_key", cacheKey)
     .single()
 
@@ -15,7 +16,7 @@ export async function getSearchCache(cacheKey: string): Promise<Paper[] | null> 
   return null
 }
 
-export async function setSearchCache(cacheKey: string, results: Paper[]) {
+export async function setSearchCache(cacheKey: string, results: Paper[]): Promise<void> {
   await supabase
     .from("search_cache")
     .insert({

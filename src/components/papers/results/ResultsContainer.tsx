@@ -17,7 +17,7 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
   const [resultsPerPage, setResultsPerPage] = useState("25")
 
   if (isLoading) {
-    return <div className="text-center py-8">Loading articles...</div>
+    return <LoadingState />
   }
 
   if (!papers || papers.length === 0) {
