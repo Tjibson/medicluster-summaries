@@ -1,4 +1,4 @@
-import { Search, List, Download, Star, Settings, LogOut, Presentation, FileText } from "lucide-react"
+import { Search, List, Download, Star, Settings, LogOut, Presentation, FileText, History } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "@/integrations/supabase/client"
 import {
@@ -27,6 +27,11 @@ export function AppSidebar() {
       onClick: () => navigate("/"),
     },
     {
+      title: "Past Searches",
+      icon: History,
+      onClick: () => navigate("/past-searches"),
+    },
+    {
       title: "My Lists",
       icon: List,
       onClick: () => navigate("/lists"),
@@ -52,7 +57,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <div className="h-4" /> {/* Added spacing above the menu */}
+          <div className="h-4" />
           <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
