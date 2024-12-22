@@ -9,6 +9,7 @@ export function useSortedPapers(
   searchParams: any,
   isCitationsComplete: boolean
 ) {
+  // Set default sort to relevance and descending order
   const [sortBy, setSortBy] = useState<SortOption>("relevance")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [sortedPapers, setSortedPapers] = useState<Paper[]>([])
@@ -57,13 +58,12 @@ export function useSortedPapers(
           const bTitle = String(b.title).toLowerCase();
           return aTitle.localeCompare(bTitle) * multiplier;
         }
-        case "relevance": {
+        case "relevance":
+        default: { // Make relevance the default sort
           const aScore = relevanceScores[a.id] || 0;
           const bScore = relevanceScores[b.id] || 0;
           return (bScore - aScore) * multiplier;
         }
-        default:
-          return 0;
       }
     });
 
