@@ -25,7 +25,12 @@ serve(async (req) => {
     const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=100&usehistory=y`
     console.log('Search URL:', searchUrl)
 
-    const searchResponse = await fetch(searchUrl)
+    const searchResponse = await fetch(searchUrl, {
+      headers: {
+        'Accept': 'application/xml'
+      }
+    })
+    
     if (!searchResponse.ok) {
       throw new Error(`PubMed search failed: ${searchResponse.statusText}`)
     }
@@ -54,7 +59,12 @@ serve(async (req) => {
       console.log(`Fetching batch ${i/batchSize + 1}:`, fetchUrl)
       
       try {
-        const fetchResponse = await fetch(fetchUrl)
+        const fetchResponse = await fetch(fetchUrl, {
+          headers: {
+            'Accept': 'application/xml'
+          }
+        })
+        
         if (!fetchResponse.ok) {
           console.error(`Failed to fetch batch: ${fetchResponse.statusText}`)
           continue
