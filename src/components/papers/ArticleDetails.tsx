@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Download } from "lucide-react"
+import { Download, ExternalLink } from "lucide-react"
 import { type Paper } from "@/types/papers"
 
 interface ArticleDetailsProps {
@@ -16,6 +16,12 @@ export function ArticleDetails({ paper, isOpen, onClose }: ArticleDetailsProps) 
     if (paper.pdfUrl) {
       window.open(paper.pdfUrl, '_blank')
     }
+  }
+
+  const pubmedUrl = `https://pubmed.ncbi.nlm.nih.gov/${paper.id}/`
+
+  const handlePubMedVisit = () => {
+    window.open(pubmedUrl, '_blank')
   }
 
   return (
@@ -34,17 +40,28 @@ export function ArticleDetails({ paper, isOpen, onClose }: ArticleDetailsProps) 
                 Citations: {paper.citations || 0}
               </p>
             </div>
-            {paper.pdfUrl && (
+            <div className="flex gap-2">
+              {paper.pdfUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownload}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Download PDF
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleDownload}
+                onClick={handlePubMedVisit}
                 className="flex items-center gap-2"
               >
-                <Download className="h-4 w-4" />
-                Download PDF
+                <ExternalLink className="h-4 w-4" />
+                Visit PubMed
               </Button>
-            )}
+            </div>
           </div>
           <div className="mt-4">
             <h3 className="font-semibold mb-2">Abstract</h3>
