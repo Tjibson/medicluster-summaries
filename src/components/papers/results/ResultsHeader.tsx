@@ -10,7 +10,7 @@ interface ResultsHeaderProps {
   onSortChange: (value: SortOption) => void
   onDirectionChange: () => void
   totalResults?: number
-  loadedResults?: number
+  loadedResults: number
   resultsPerPage: string
   onResultsPerPageChange: (value: string) => void
 }
@@ -22,7 +22,7 @@ export function ResultsHeader({
   onSortChange,
   onDirectionChange,
   totalResults,
-  loadedResults = 0,
+  loadedResults,
   resultsPerPage,
   onResultsPerPageChange
 }: ResultsHeaderProps) {
@@ -35,7 +35,7 @@ export function ResultsHeader({
             <>
               Found <span className="font-medium">{totalResults}</span> articles
               {loadedResults > 0 && (
-                <>, displaying <span className="font-medium">{loadedResults}</span></>
+                <>, showing <span className="font-medium">{loadedResults}</span></>
               )}
             </>
           ) : (

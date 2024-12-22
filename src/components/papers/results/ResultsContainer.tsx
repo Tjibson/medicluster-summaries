@@ -64,7 +64,7 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
 
       if (data.papers) {
         onLoadMore(data.papers)
-        setTotalResults(data.total || 0)
+        setTotalResults(data.total)
       }
     } catch (error) {
       console.error('Error loading more papers:', error)
