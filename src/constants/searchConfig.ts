@@ -90,6 +90,10 @@ export function calculateRelevanceScore(
     }
   }
 
+  // Add journal weight to score (if it's a known journal)
+  const journalWeight = JOURNAL_WEIGHTS[journal as keyof typeof JOURNAL_WEIGHTS] || 1;
+  score += journalWeight * 5;
+
   // Add citation score (max 20 points)
   const citationScore = Math.min(citations / 50, 20);
   score += citationScore;
