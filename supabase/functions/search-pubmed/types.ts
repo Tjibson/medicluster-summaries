@@ -1,14 +1,11 @@
 export interface SearchParameters {
-  dateRange: {
+  medicine?: string;
+  condition?: string;
+  dateRange?: {
     start: string;
     end: string;
   };
-  journalNames: string[];
-  keywords: {
-    medicine: string[];
-    condition: string[];
-  };
-  articleTypes: string[];
+  articleTypes?: string[];
 }
 
 export interface Paper {
@@ -18,6 +15,6 @@ export interface Paper {
   authors: string[];
   journal: string;
   year: number;
-  citations: number;
-  relevance_score: number;
+  citations?: number;
+  relevance_score?: number;
 }

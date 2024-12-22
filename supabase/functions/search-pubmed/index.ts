@@ -1,7 +1,4 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { buildSearchQuery } from './utils/queryBuilder.ts'
-import { parseArticles } from './utils/articleParser.ts'
-import { calculateRelevanceScore } from './utils/scoring.ts'
 import { type SearchParameters } from './types.ts'
 
 const corsHeaders = {
@@ -16,77 +13,25 @@ serve(async (req) => {
 
   try {
     const { searchParams } = await req.json()
-    console.log('Search request:', { searchParams })
+    console.log('Search request:', searchParams)
 
-    // Step 1: Construct search query with Boolean logic
+    // Construct PubMed search query
     const query = buildSearchQuery(searchParams)
-    console.log("Constructed PubMed query:", query)
+    console.log('PubMed query:', query)
 
-    // Step 2: Fetch article IDs from PubMed
-    const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
-    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=100&usehistory=y`
-    console.log('Search URL:', searchUrl)
-    
-    const searchResponse = await fetch(searchUrl, {
-      headers: {
-        'Accept': 'application/xml',
-        'User-Agent': 'Mozilla/5.0'
-      }
-    })
-    
-    if (!searchResponse.ok) {
-      throw new Error(`PubMed search failed: ${searchResponse.statusText}`)
-    }
-    
-    const searchText = await searchResponse.text()
-    console.log('Search response:', searchText)
-    
-    const pmids = searchText.match(/<Id>(\d+)<\/Id>/g)?.map(id => id.replace(/<\/?Id>/g, '')) || []
-    console.log('Found PMIDs:', pmids)
-    
-    if (pmids.length === 0) {
-      return new Response(
-        JSON.stringify({ papers: [] }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Step 3: Fetch full article details
-    const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
-    console.log('Fetch URL:', fetchUrl)
-    
-    const fetchResponse = await fetch(fetchUrl, {
-      headers: {
-        'Accept': 'application/xml',
-        'User-Agent': 'Mozilla/5.0'
-      }
-    })
-    
-    if (!fetchResponse.ok) {
-      throw new Error(`Failed to fetch article details: ${fetchResponse.statusText}`)
-    }
-    
-    const articlesXml = await fetchResponse.text()
-    console.log('Received articles XML length:', articlesXml.length)
-    
-    // Step 4: Parse and score articles
-    const articles = parseArticles(articlesXml, searchParams)
-    console.log(`Successfully processed ${articles.length} papers`)
-    
-    // Step 5: Sort by relevance score and return
-    const sortedPapers = articles.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0))
+    // Call PubMed API
+    const papers = await searchPubMed(query)
+    console.log(`Found ${papers.length} papers`)
 
     return new Response(
-      JSON.stringify({ papers: sortedPapers }),
+      JSON.stringify({ papers }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
-
   } catch (error) {
-    console.error('Error in search-pubmed function:', error)
+    console.error('Search error:', error)
     return new Response(
       JSON.stringify({ 
-        error: error.message,
-        papers: [] 
+        error: error instanceof Error ? error.message : 'Failed to perform search' 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -95,3 +40,65 @@ serve(async (req) => {
     )
   }
 })
+
+function buildSearchQuery(params: SearchParameters): string {
+  const parts = []
+
+  if (params.medicine) {
+    parts.push(`"${params.medicine}"[Title/Abstract]`)
+  }
+
+  if (params.condition) {
+    parts.push(`"${params.condition}"[Title/Abstract]`)
+  }
+
+  if (params.dateRange) {
+    parts.push(
+      `("${params.dateRange.start}"[Date - Publication] : "${params.dateRange.end}"[Date - Publication])`
+    )
+  }
+
+  if (params.articleTypes && params.articleTypes.length > 0) {
+    const typeQuery = params.articleTypes
+      .map(type => `"${type}"[Publication Type]`)
+      .join(" OR ")
+    parts.push(`(${typeQuery})`)
+  }
+
+  return parts.join(" AND ")
+}
+
+async function searchPubMed(query: string): Promise<any[]> {
+  const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
+  
+  try {
+    // Search for IDs
+    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=100&format=json`
+    const searchResponse = await fetch(searchUrl)
+    if (!searchResponse.ok) throw new Error('PubMed search failed')
+    
+    const searchData = await searchResponse.json()
+    const ids = searchData.esearchresult.idlist
+
+    if (ids.length === 0) return []
+
+    // Fetch details
+    const summaryUrl = `${baseUrl}/esummary.fcgi?db=pubmed&id=${ids.join(',')}&retmode=json`
+    const summaryResponse = await fetch(summaryUrl)
+    if (!summaryResponse.ok) throw new Error('Failed to fetch paper details')
+    
+    const summaryData = await summaryResponse.json()
+    
+    return Object.values(summaryData.result).filter(paper => paper.uid).map((paper: any) => ({
+      id: paper.uid,
+      title: paper.title,
+      authors: paper.authors?.map((author: any) => author.name) || [],
+      journal: paper.fulljournalname || paper.source,
+      year: parseInt(paper.pubdate),
+      abstract: paper.abstract || ''
+    }))
+  } catch (error) {
+    console.error('PubMed API error:', error)
+    throw error
+  }
+}

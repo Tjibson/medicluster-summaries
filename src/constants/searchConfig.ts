@@ -34,13 +34,18 @@ export const ARTICLE_TYPES = [
 ] as const;
 
 export interface SearchParameters {
-  medicine?: string
-  condition?: string
+  medicine?: string;
+  condition?: string;
   dateRange?: {
-    start: string
-    end: string
-  }
-  articleTypes?: string[]
+    start: string;
+    end: string;
+  };
+  articleTypes?: string[];
+  keywords?: {
+    medicine: string[];
+    condition: string[];
+  };
+  journalNames?: string[];
 }
 
 export function calculateRelevanceScore(
@@ -50,30 +55,29 @@ export function calculateRelevanceScore(
   citations: number,
   searchParams: SearchParameters
 ): number {
-  // Simple scoring based on title and abstract matches
-  let score = 0
+  let score = 0;
   
   if (searchParams.medicine) {
     if (title.toLowerCase().includes(searchParams.medicine.toLowerCase())) {
-      score += 50
+      score += 50;
     }
     if (abstract.toLowerCase().includes(searchParams.medicine.toLowerCase())) {
-      score += 30
+      score += 30;
     }
   }
 
   if (searchParams.condition) {
     if (title.toLowerCase().includes(searchParams.condition.toLowerCase())) {
-      score += 50
+      score += 50;
     }
     if (abstract.toLowerCase().includes(searchParams.condition.toLowerCase())) {
-      score += 30
+      score += 30;
     }
   }
 
   // Add citation score (max 20 points)
-  const citationScore = Math.min(citations / 50, 20)
-  score += citationScore
+  const citationScore = Math.min(citations / 50, 20);
+  score += citationScore;
 
-  return Math.min(score, 100)
+  return Math.min(score, 100);
 }

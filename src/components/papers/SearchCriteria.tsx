@@ -16,17 +16,17 @@ export function SearchCriteria({ criteria }: SearchCriteriaProps) {
               Date Range: {criteria.dateRange.start} to {criteria.dateRange.end}
             </Badge>
           )}
-          {criteria.keywords.medicine.length > 0 && (
+          {criteria.medicine && (
             <Badge variant="outline">
-              Medicine Keywords: {criteria.keywords.medicine.join(", ")}
+              Medicine: {criteria.medicine}
             </Badge>
           )}
-          {criteria.keywords.condition.length > 0 && (
+          {criteria.condition && (
             <Badge variant="outline">
-              Condition Keywords: {criteria.keywords.condition.join(", ")}
+              Condition: {criteria.condition}
             </Badge>
           )}
-          {criteria.articleTypes.length > 0 && (
+          {criteria.articleTypes && criteria.articleTypes.length > 0 && (
             <Badge variant="outline">
               Article Types: {criteria.articleTypes.join(", ")}
             </Badge>
