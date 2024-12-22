@@ -5,17 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface Paper {
-  id: string
-  title: string
-  authors: string[]
-  journal: string
-  year: number
-}
-
 async function getCitationCountFromPubMed(pmid: string): Promise<number> {
   try {
-    // Use PubMed's citation API with proper parameters
     const pubmedUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=pubmed&db=pubmed&id=${pmid}&linkname=pubmed_pubmed_citedin&retmode=json&api_key=0e15924868078a8b07c4fc709d8a306e6108`
     console.log('PubMed citation URL:', pubmedUrl)
     
@@ -26,23 +17,21 @@ async function getCitationCountFromPubMed(pmid: string): Promise<number> {
       return 0
     }
 
-    const data = await response.json()
-    console.log('PubMed citation response:', JSON.stringify(data))
+    const text = await response.text()
+    console.log('Raw PubMed response:', text)
 
-    // Extract citations from the linksets
-    if (!data.linksets?.[0]) return 0
+    // PubMed's elink endpoint returns XML, not JSON despite the retmode parameter
+    const citationCount = (text.match(/<Link>.*?<\/Link>/g) || []).length
+    console.log(`Found ${citationCount} citations in PubMed response`)
+    return citationCount
 
-    // Get citations count from the linkset
-    const citations = data.linksets[0].linksets?.[0]?.links?.length || 0
-    console.log(`Found ${citations} citations for PMID ${pmid} in PubMed`)
-    return citations
   } catch (error) {
     console.error('Error fetching PubMed citations:', error)
     return 0
   }
 }
 
-async function getCitationCountFromCrossRef(paper: Paper): Promise<number> {
+async function getCitationCountFromCrossRef(paper: any): Promise<number> {
   try {
     // Build a precise query for CrossRef using multiple fields
     const query = encodeURIComponent(`${paper.title} ${paper.authors[0]} ${paper.year}`)
