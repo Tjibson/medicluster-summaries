@@ -75,10 +75,14 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
           <p>{paper.year}</p>
           <span>•</span>
           <p>{paper.journal}</p>
-          <span>•</span>
-          <p className="text-primary">
-            Relevance: {paper.relevance_score ? `${Math.round(paper.relevance_score)}%` : 'N/A'}
-          </p>
+          {paper.relevance_score && (
+            <>
+              <span>•</span>
+              <p className="text-primary">
+                Relevance: {Math.round(paper.relevance_score)}%
+              </p>
+            </>
+          )}
         </div>
 
         <div className="text-sm text-gray-600">
