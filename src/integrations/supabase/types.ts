@@ -211,6 +211,24 @@ export type Database = {
           },
         ]
       }
+      search_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          results: Json
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          results: Json
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          results?: Json
+        }
+        Relationships: []
+      }
       search_history: {
         Row: {
           created_at: string

@@ -4,12 +4,19 @@ import { type SearchParameters } from "@/constants/searchConfig"
 
 const CACHE_EXPIRY = 24 * 60 * 60 * 1000 // 24 hours
 
+interface SearchCacheEntry {
+  cache_key: string
+  results: Paper[]
+  created_at: string
+}
+
 export async function getCachedSearch(params: SearchParameters): Promise<Paper[] | null> {
   const cacheKey = generateCacheKey(params)
   const { data: cache } = await supabase
     .from('search_cache')
     .select('*')
     .eq('cache_key', cacheKey)
+    .returns<SearchCacheEntry>()
     .single()
 
   if (!cache || Date.now() - new Date(cache.created_at).getTime() > CACHE_EXPIRY) {
@@ -21,13 +28,15 @@ export async function getCachedSearch(params: SearchParameters): Promise<Paper[]
 
 export async function setCachedSearch(params: SearchParameters, results: Paper[]): Promise<void> {
   const cacheKey = generateCacheKey(params)
+  const entry: SearchCacheEntry = {
+    cache_key: cacheKey,
+    results,
+    created_at: new Date().toISOString()
+  }
+  
   await supabase
     .from('search_cache')
-    .upsert({
-      cache_key: cacheKey,
-      results,
-      created_at: new Date().toISOString()
-    })
+    .upsert(entry)
 }
 
 function generateCacheKey(params: SearchParameters): string {
