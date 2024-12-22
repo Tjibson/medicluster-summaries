@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom"
 import { Pill } from "lucide-react"
 import { Waitlist } from "@/components/Waitlist"
 
-export default function Login() {
+export default function SignUp() {
   const navigate = useNavigate()
   const [isEmailSignUpEnabled, setIsEmailSignUpEnabled] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
@@ -54,41 +54,47 @@ export default function Login() {
           </div>
           <h2 className="text-3xl font-bold text-foreground">Welcome to MediScrape</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Sign in to access your medical research portal
+            {isEmailSignUpEnabled 
+              ? "Create an account to access your medical research portal"
+              : "Join our waitlist for access"}
           </p>
         </div>
 
-        <Auth
-          supabaseClient={supabase}
-          appearance={{ 
-            theme: ThemeSupa,
-            style: {
-              button: {
-                background: 'hsl(var(--primary))',
-                color: 'hsl(var(--primary-foreground))',
-                borderRadius: '0.375rem',
+        {isEmailSignUpEnabled ? (
+          <Auth
+            supabaseClient={supabase}
+            appearance={{ 
+              theme: ThemeSupa,
+              style: {
+                button: {
+                  background: 'hsl(var(--primary))',
+                  color: 'hsl(var(--primary-foreground))',
+                  borderRadius: '0.375rem',
+                },
+                anchor: {
+                  color: 'hsl(var(--primary))',
+                },
+                container: {
+                  color: 'hsl(var(--foreground))',
+                },
+                label: {
+                  color: 'hsl(var(--foreground))',
+                },
+                input: {
+                  backgroundColor: 'hsl(var(--background))',
+                  color: 'hsl(var(--foreground))',
+                  borderColor: 'hsl(var(--border))',
+                },
               },
-              anchor: {
-                color: 'hsl(var(--primary))',
-              },
-              container: {
-                color: 'hsl(var(--foreground))',
-              },
-              label: {
-                color: 'hsl(var(--foreground))',
-              },
-              input: {
-                backgroundColor: 'hsl(var(--background))',
-                color: 'hsl(var(--foreground))',
-                borderColor: 'hsl(var(--border))',
-              },
-            },
-          }}
-          theme="default"
-          providers={[]}
-          redirectTo={window.location.origin}
-          view={isEmailSignUpEnabled ? "sign_in" : "magic_link"}
-        />
+            }}
+            theme="default"
+            providers={[]}
+            redirectTo={window.location.origin}
+            view="sign_up"
+          />
+        ) : (
+          <Waitlist />
+        )}
       </div>
     </div>
   )
