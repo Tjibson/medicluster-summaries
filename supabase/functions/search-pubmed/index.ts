@@ -5,16 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface SearchParameters {
-  medicine?: string
-  condition?: string
-  dateRange?: {
-    start: string
-    end: string
-  }
-  articleTypes?: string[]
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -52,7 +42,7 @@ serve(async (req) => {
   }
 })
 
-function buildSearchQuery(params: SearchParameters): string {
+function buildSearchQuery(params: any): string {
   const parts = []
 
   if (params.medicine) {
@@ -71,7 +61,7 @@ function buildSearchQuery(params: SearchParameters): string {
 
   if (params.articleTypes && params.articleTypes.length > 0) {
     const typeQuery = params.articleTypes
-      .map(type => `"${type}"[Publication Type]`)
+      .map((type: string) => `"${type}"[Publication Type]`)
       .join(" OR ")
     parts.push(`(${typeQuery})`)
   }
@@ -81,7 +71,7 @@ function buildSearchQuery(params: SearchParameters): string {
 
 async function searchPubMed(query: string): Promise<any[]> {
   const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
-  const retMax = 100 // Updated to fetch 100 articles
+  const retMax = 100
   
   try {
     console.log('Executing PubMed search with query:', query)
@@ -126,7 +116,29 @@ async function searchPubMed(query: string): Promise<any[]> {
         try {
           const id = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)?.[1] || ''
           const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
-          const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
+          
+          // Enhanced abstract extraction
+          let abstract = ''
+          const abstractMatches = articleXml.match(/<Abstract>([\s\S]*?)<\/Abstract>/)?.[1] || ''
+          
+          if (abstractMatches) {
+            // Handle structured abstracts with multiple sections
+            const abstractTexts = abstractMatches.match(/<AbstractText[^>]*>([\s\S]*?)<\/AbstractText>/g) || []
+            
+            abstract = abstractTexts.map(text => {
+              // Extract label if present
+              const label = text.match(/Label="([^"]*)"/)
+              const content = text.match(/<AbstractText[^>]*>([\s\S]*?)<\/AbstractText>/)[1] || ''
+              
+              // If there's a label, format it with the content
+              return label ? `${label[1]}: ${content}` : content
+            }).join('\n\n')
+          }
+          
+          // If no structured abstract found, try simple extraction
+          if (!abstract) {
+            abstract = articleXml.match(/<AbstractText>(.*?)<\/AbstractText>/)?.[1] || 'No abstract available'
+          }
           
           const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
           const authors = Array.from(authorMatches).map(match => {
@@ -173,4 +185,6 @@ function decodeXMLEntities(text: string): string {
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&')
+    .replace(/&#xD;/g, '\r')
+    .replace(/&#xA;/g, '\n')
 }
