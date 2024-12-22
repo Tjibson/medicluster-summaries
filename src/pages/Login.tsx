@@ -88,6 +88,11 @@ export default function Login() {
             variables: {
               sign_up: {
                 link_text: "Don't have an account? Sign up",
+                button_label: "Sign up",
+              },
+              sign_in: {
+                link_text: "Already have an account? Sign in",
+                button_label: "Sign in",
               },
             },
           }}

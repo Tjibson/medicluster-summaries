@@ -8,6 +8,7 @@ import LikedPapers from "@/pages/LikedPapers"
 import Downloads from "@/pages/Downloads"
 import Settings from "@/pages/Settings"
 import Login from "@/pages/Login"
+import SignUp from "@/pages/SignUp"
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <div className="min-h-screen flex w-full">
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/sign-up" element={<SignUp />} />
             <Route
               path="/"
               element={

@@ -15,8 +15,17 @@ export default function SignUp() {
     const checkEmailSignUp = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        const { data: authConfig } = await supabase.from('auth_config').select('enable_signup').single()
-        setIsEmailSignUpEnabled(authConfig?.enable_signup ?? true)
+        if (session) {
+          navigate("/")
+          return
+        }
+        
+        const { data: authConfig } = await supabase
+          .from('auth_config')
+          .select('enable_signup')
+          .single()
+        
+        setIsEmailSignUpEnabled(authConfig?.enable_signup ?? false)
       } catch (error) {
         console.error("Error checking email signup status:", error)
       } finally {
@@ -25,7 +34,7 @@ export default function SignUp() {
     }
 
     checkEmailSignUp()
-  }, [])
+  }, [navigate])
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -91,6 +100,13 @@ export default function SignUp() {
             providers={[]}
             redirectTo={window.location.origin}
             view="sign_up"
+            localization={{
+              variables: {
+                sign_in: {
+                  link_text: "Already have an account? Sign in",
+                },
+              },
+            }}
           />
         ) : (
           <Waitlist />
