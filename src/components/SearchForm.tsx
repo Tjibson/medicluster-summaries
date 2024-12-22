@@ -63,19 +63,15 @@ export function SearchForm({ onSearch }: SearchFormProps) {
 
       console.log('Sending search request with params:', searchParams)
 
-      const response = await fetch("/api/search", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(searchParams),
+      const { data, error } = await supabase.functions.invoke('search-pubmed', {
+        body: { searchParams }
       })
 
-      if (!response.ok) {
-        throw new Error(`Search failed with status: ${response.status}`)
+      if (error) {
+        console.error('Supabase function error:', error)
+        throw error
       }
 
-      const data = await response.json()
       console.log('Search response:', data)
 
       if (!data || !Array.isArray(data.papers)) {
