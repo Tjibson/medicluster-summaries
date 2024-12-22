@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client"
 
 interface PaperCardProps {
   paper: Paper
-  onSave: (paper: Paper) => void
+  onSave: (paper: Paper, listName: string) => void
   onLike: (paper: Paper) => void
   onClick: (paper: Paper) => void
 }

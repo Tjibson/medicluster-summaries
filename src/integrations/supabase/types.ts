@@ -163,6 +163,7 @@ export type Database = {
           journal: string
           list_id: string | null
           paper_id: string
+          pdf_url: string | null
           title: string
           user_id: string
           year: number
@@ -175,6 +176,7 @@ export type Database = {
           journal: string
           list_id?: string | null
           paper_id: string
+          pdf_url?: string | null
           title: string
           user_id: string
           year: number
@@ -187,6 +189,7 @@ export type Database = {
           journal?: string
           list_id?: string | null
           paper_id?: string
+          pdf_url?: string | null
           title?: string
           user_id?: string
           year?: number
