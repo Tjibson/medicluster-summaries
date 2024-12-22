@@ -132,6 +132,7 @@ export function AddToListDialog({ paper, isOpen, onClose, onSave }: AddToListDia
                 value={newListName}
                 onChange={(e) => setNewListName(e.target.value)}
                 placeholder="Enter list name"
+                onClick={(e) => e.stopPropagation()} // Stop event propagation
               />
               <Button onClick={handleCreateList}>
                 <Plus className="h-4 w-4 mr-2" />

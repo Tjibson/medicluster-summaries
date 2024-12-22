@@ -27,7 +27,18 @@ export function ListDetails({ listId, listName }: ListDetailsProps) {
     try {
       const { data, error } = await supabase
         .from("saved_papers")
-        .select("*")
+        .select(`
+          id,
+          user_id,
+          paper_id,
+          title,
+          authors,
+          journal,
+          year,
+          is_liked,
+          created_at,
+          list_id
+        `)
         .eq("list_id", listId)
         .order("created_at", { ascending: false })
 
