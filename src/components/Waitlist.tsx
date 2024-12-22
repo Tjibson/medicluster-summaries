@@ -37,9 +37,13 @@ export function Waitlist() {
   }
 
   return (
-    <div className="space-y-4 text-center">
-      <h2 className="text-2xl font-bold text-foreground">Not accepting users at the moment</h2>
-      <p className="text-muted-foreground">Please join the waiting list to be notified when registrations open again.</p>
+    <div className="space-y-6 text-center max-w-sm mx-auto">
+      <div className="space-y-2">
+        <h2 className="text-2xl font-semibold text-foreground">Sign Up</h2>
+        <p className="text-muted-foreground">
+          Enter your email address below to join our waiting list.
+        </p>
+      </div>
       
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
@@ -48,12 +52,27 @@ export function Waitlist() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="max-w-sm mx-auto"
+          className="bg-background border-border"
         />
-        <Button type="submit" disabled={isSubmitting} className="w-full max-w-sm">
+        <Button 
+          type="submit" 
+          disabled={isSubmitting}
+          className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+        >
           {isSubmitting ? "Joining..." : "Join Waitlist"}
         </Button>
       </form>
+
+      <p className="text-sm text-muted-foreground">
+        By continuing, you agree to our{" "}
+        <a href="/terms" className="underline hover:text-foreground">
+          Terms and Conditions
+        </a>{" "}
+        and{" "}
+        <a href="/privacy" className="underline hover:text-foreground">
+          Privacy Policy
+        </a>
+      </p>
     </div>
   )
 }
