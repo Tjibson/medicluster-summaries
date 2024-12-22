@@ -9,6 +9,7 @@ import { useState } from "react"
 import { ArticleDetails } from "../ArticleDetails"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 
@@ -24,6 +25,7 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
   const [loadTime, setLoadTime] = useState(0)
   const [progress, setProgress] = useState(0)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [resultsPerPage, setResultsPerPage] = useState<string>("25")
   const { toast } = useToast()
   
   const { citationsMap, isCitationsLoading, isComplete, progress: citationsProgress } = useCitations(papers)
@@ -55,7 +57,8 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
         body: { 
           searchParams: {
             ...searchCriteria,
-            offset: papers.length // Add offset for pagination
+            offset: papers.length,
+            limit: parseInt(resultsPerPage)
           }
         }
       })
@@ -106,7 +109,7 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
     )
   }
 
-  // Get the top 25 papers by citations and relevance
+  // Get the top papers by citations and relevance
   const displayPapers = sortedPapers
     .sort((a, b) => {
       // First sort by citations
@@ -128,13 +131,28 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
             Load time: {(loadTime / 1000).toFixed(2)}s
           </p>
         </div>
-        <SortingControls
-          sortBy={sortBy}
-          sortDirection={sortDirection}
-          onSortChange={setSortBy}
-          onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
-          isRelevanceReady={isRelevanceReady}
-        />
+        <div className="flex items-center gap-4">
+          <Select
+            value={resultsPerPage}
+            onValueChange={setResultsPerPage}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Results per page" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="25">25 results per page</SelectItem>
+              <SelectItem value="50">50 results per page</SelectItem>
+              <SelectItem value="100">100 results per page</SelectItem>
+            </SelectContent>
+          </Select>
+          <SortingControls
+            sortBy={sortBy}
+            sortDirection={sortDirection}
+            onSortChange={setSortBy}
+            onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
+            isRelevanceReady={isRelevanceReady}
+          />
+        </div>
       </div>
       
       <div className="space-y-4">
@@ -149,7 +167,7 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
         ))}
       </div>
 
-      {papers.length >= 25 && (
+      {papers.length >= parseInt(resultsPerPage) && (
         <div className="flex justify-center pt-4">
           <Button 
             onClick={handleLoadMore}

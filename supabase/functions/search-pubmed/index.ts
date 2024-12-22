@@ -5,8 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const BATCH_SIZE = 5 // Reduced from 10 to 5
-const MAX_RESULTS = 25 // Limit total results per request
+const BATCH_SIZE = 5 // Process papers in small batches
 const TIMEOUT = 5000 // 5 second timeout for fetch requests
 
 serve(async (req) => {
@@ -24,10 +23,11 @@ serve(async (req) => {
 
     const query = buildSearchQuery(searchParams)
     const offset = searchParams.offset || 0
-    console.log('PubMed query:', query, 'offset:', offset)
+    const limit = searchParams.limit || 25 // Default to 25 if not specified
+    console.log('PubMed query:', query, 'offset:', offset, 'limit:', limit)
 
     const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
-    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${MAX_RESULTS}&usehistory=y&retstart=${offset}`
+    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${limit}&usehistory=y&retstart=${offset}`
     console.log('Search URL:', searchUrl)
 
     const controller = new AbortController()
@@ -60,7 +60,7 @@ serve(async (req) => {
 
       // Process papers in smaller batches
       const papers = []
-      const limitedPmids = pmids.slice(0, MAX_RESULTS)
+      const limitedPmids = pmids.slice(0, limit)
       
       for (let i = 0; i < limitedPmids.length; i += BATCH_SIZE) {
         const batch = limitedPmids.slice(i, i + BATCH_SIZE)

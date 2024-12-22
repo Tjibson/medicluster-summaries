@@ -68,18 +68,17 @@ export function calculateRelevanceScore(paper: Paper, searchKeywords: string[]):
   
   console.log("Scoring factors:", factors)
   
-  // Weighted combination of all factors with new weights
+  // Weighted combination of all factors
   const totalScore = (
-    factors.trialScore * 0.25 +    // 25% weight for trial type/phase
-    factors.journalScore * 0.20 +  // 20% weight for journal prestige
-    factors.keywordScore * 0.20 +  // 20% weight for keyword relevance
+    factors.trialScore * 0.20 +     // 20% weight for trial type/phase
+    factors.journalScore * 0.15 +   // 15% weight for journal prestige
+    factors.keywordScore * 0.30 +   // 30% weight for keyword relevance (increased from 20%)
     factors.studySizeScore * 0.15 + // 15% weight for study size
-    factors.citationScore * 0.10 + // 10% weight for citations
-    factors.yearScore * 0.10       // 10% weight for recency
+    factors.citationScore * 0.10 +  // 10% weight for citations
+    factors.yearScore * 0.10        // 10% weight for recency
   )
 
-  // Normalize to 0-100 range
-  return Math.min(Math.round(totalScore * 100), 100)
+  return Math.round(Math.min(totalScore * 100, 100))
 }
 
 function calculateTrialScore(title: string, abstract: string): number {
@@ -128,17 +127,16 @@ function calculateKeywordScore(title: string, abstract: string, searchKeywords: 
     const weight = KEYWORD_WEIGHTS[keywordLower as keyof typeof KEYWORD_WEIGHTS] || 1
     totalWeight += weight
 
-    // Title matches worth more (3x)
-    if (title.toLowerCase().includes(keywordLower)) {
-      matchedWeight += weight * 3
-    }
-    
+    // Title matches worth more (2x)
+    const titleMatches = (title.toLowerCase().match(new RegExp(keywordLower, 'g')) || []).length
+    matchedWeight += titleMatches * weight * 2
+
     // Abstract matches
-    const matches = (text.match(new RegExp(keywordLower, 'g')) || []).length
-    matchedWeight += matches * weight
+    const abstractMatches = (abstract.toLowerCase().match(new RegExp(keywordLower, 'g')) || []).length
+    matchedWeight += abstractMatches * weight
   })
 
-  return totalWeight > 0 ? Math.min(matchedWeight / (totalWeight * 4), 1) : 0.5
+  return totalWeight > 0 ? Math.min(matchedWeight / (totalWeight * 3), 1) : 0.5
 }
 
 function calculateStudySizeScore(abstract: string): number {
