@@ -6,12 +6,14 @@ import { DateRangeSelect } from "@/components/search/DateRangeSelect"
 import { SearchInputs } from "@/components/search/SearchInputs"
 import { Loader2 } from "lucide-react"
 import { type SearchParameters } from "@/constants/searchConfig"
+import { getCachedSearch, setCachedSearch } from "@/utils/searchCache"
 
 interface SearchFormProps {
   onSearch: (papers: any[], params: SearchParameters) => void
+  onProgressUpdate?: (progress: number) => void
 }
 
-export function SearchForm({ onSearch }: SearchFormProps) {
+export function SearchForm({ onSearch, onProgressUpdate }: SearchFormProps) {
   const [medicine, setMedicine] = useState("")
   const [condition, setCondition] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -61,6 +63,15 @@ export function SearchForm({ onSearch }: SearchFormProps) {
         articleTypes: selectedArticleTypes
       }
 
+      // Check cache first
+      const cachedResults = await getCachedSearch(searchParams)
+      if (cachedResults) {
+        console.log('Using cached results')
+        onSearch(cachedResults, searchParams)
+        setIsLoading(false)
+        return
+      }
+
       console.log('Sending search request with params:', searchParams)
 
       const { data, error } = await supabase.functions.invoke('search-pubmed', {
@@ -78,8 +89,37 @@ export function SearchForm({ onSearch }: SearchFormProps) {
         throw new Error('Invalid response format')
       }
 
+      // Cache the results
+      await setCachedSearch(searchParams, data.papers)
+
       onSearch(data.papers, searchParams)
       await saveSearchToHistory(medicine, condition)
+
+      // Start progressive citation loading
+      let citationsLoaded = 0
+      const totalPapers = data.papers.length
+
+      for (const paper of data.papers) {
+        if (!paper.citations) {
+          try {
+            const citationResponse = await supabase.functions.invoke('fetch-citations', {
+              body: { paper }
+            })
+            
+            if (citationResponse.data?.citations !== undefined) {
+              paper.citations = citationResponse.data.citations
+            }
+          } catch (error) {
+            console.error('Error fetching citations for paper:', error)
+          }
+        }
+        
+        citationsLoaded++
+        if (onProgressUpdate) {
+          onProgressUpdate((citationsLoaded / totalPapers) * 100)
+        }
+      }
+
     } catch (error) {
       console.error("Search error:", error)
       toast({
