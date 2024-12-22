@@ -2,15 +2,13 @@ import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/integrations/supabase/client"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { DateRangeSelect } from "@/components/search/DateRangeSelect"
-import { StudyDetailsInputs } from "@/components/search/StudyDetailsInputs"
 import { SearchInputs } from "@/components/search/SearchInputs"
 import { Loader2 } from "lucide-react"
+import { type SearchParameters } from "@/constants/searchConfig"
 
 interface SearchFormProps {
-  onSearch: (papers: any[], params: any) => void
+  onSearch: (papers: any[], params: SearchParameters) => void
 }
 
 export function SearchForm({ onSearch }: SearchFormProps) {

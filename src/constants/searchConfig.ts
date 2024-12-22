@@ -34,16 +34,13 @@ export const ARTICLE_TYPES = [
 ] as const;
 
 export interface SearchParameters {
+  medicine?: string;
+  condition?: string;
   dateRange?: {
     start: string;
     end: string;
   };
-  journalNames: string[];
-  keywords: {
-    medicine: string[];
-    condition: string[];
-  };
-  articleTypes: string[];
+  articleTypes?: string[];
 }
 
 export const DEFAULT_SEARCH_PARAMS: SearchParameters = {

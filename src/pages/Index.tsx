@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { ResultsList } from "@/components/ResultsList"
 import { SearchForm } from "@/components/SearchForm"
 import { type Paper } from "@/types/papers"
@@ -25,35 +25,21 @@ export default function Index() {
     }
   }, [])
 
-  const handleSearchStart = () => {
-    setPapers([])
-    setError(null)
-    setIsLoading(true)
-  }
-
   const handleSearch = async (papers: Paper[], criteria: SearchParameters) => {
     console.log("Search results received:", papers)
     setPapers(papers)
     setSearchCriteria(criteria)
     setIsLoading(false)
+    setError(null)
 
     // Store the search results and criteria in session storage
     sessionStorage.setItem(SEARCH_STORAGE_KEY, JSON.stringify(papers))
     sessionStorage.setItem(SEARCH_CRITERIA_KEY, JSON.stringify(criteria))
   }
 
-  const handleError = (error: Error) => {
-    setError(error)
-    setIsLoading(false)
-  }
-
   return (
     <div className="container mx-auto max-w-7xl space-y-8">
-      <SearchForm 
-        onSearch={handleSearch} 
-        onSearchStart={handleSearchStart}
-        onError={handleError}
-      />
+      <SearchForm onSearch={handleSearch} />
       <ResultsList 
         papers={papers} 
         isLoading={isLoading} 
