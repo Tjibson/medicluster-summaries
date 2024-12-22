@@ -30,11 +30,18 @@ export function ResultsHeader({
     <div className="space-y-4">
       {searchCriteria && <SearchCriteria criteria={searchCriteria} />}
       <div className="flex justify-between items-center">
-        {totalResults !== undefined && (
-          <p className="text-sm text-muted-foreground">
-            Showing {loadedResults} of {totalResults} results
-          </p>
-        )}
+        <div className="text-sm text-muted-foreground">
+          {totalResults !== undefined ? (
+            <>
+              Found <span className="font-medium">{totalResults}</span> articles
+              {loadedResults > 0 && (
+                <>, displaying <span className="font-medium">{loadedResults}</span></>
+              )}
+            </>
+          ) : (
+            "Searching for articles..."
+          )}
+        </div>
         <SortingControls 
           sortBy={sortBy} 
           sortDirection={sortDirection}
