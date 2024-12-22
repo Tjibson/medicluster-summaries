@@ -18,8 +18,8 @@ export async function getSearchCache(cacheKey: string): Promise<Paper[] | null> 
 export async function setSearchCache(cacheKey: string, results: Paper[]): Promise<void> {
   await supabase
     .from('search_cache')
-    .insert({
-      cache_key: cacheKey,
-      results: results as any
-    })
+    .upsert({ 
+      cache_key: cacheKey, 
+      results: results 
+    }, { onConflict: 'cache_key' })
 }
