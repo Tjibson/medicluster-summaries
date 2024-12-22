@@ -4,9 +4,11 @@ import { supabase } from "@/integrations/supabase/client"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Pill } from "lucide-react"
+import { Waitlist } from "@/components/Waitlist"
 
 export default function Login() {
   const navigate = useNavigate()
+  const [isNewUser, setIsNewUser] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -22,12 +24,6 @@ export default function Login() {
         if (session) {
           navigate("/")
         }
-
-        // Check if we're on the auth sign-up hash
-        if (window.location.hash === '#auth-sign-up') {
-          window.location.href = 'https://mediscrape.nl/sign-up'
-          return
-        }
       } catch (error) {
         console.error("Error checking session:", error)
       } finally {
@@ -38,11 +34,6 @@ export default function Login() {
     checkSession()
     return () => subscription.unsubscribe()
   }, [navigate])
-
-  const handleSignUpClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    window.location.href = 'https://mediscrape.nl/sign-up'
-  }
 
   if (isLoading) {
     return (
@@ -61,54 +52,64 @@ export default function Login() {
           </div>
           <h2 className="text-3xl font-bold text-foreground">Welcome to MediScrape</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Sign in to access your medical research portal
+            {isNewUser 
+              ? "Join our waitlist for early access"
+              : "Sign in to access your medical research portal"}
           </p>
         </div>
 
-        <Auth
-          supabaseClient={supabase}
-          appearance={{ 
-            theme: ThemeSupa,
-            style: {
-              button: {
-                background: 'hsl(var(--primary))',
-                color: 'hsl(var(--primary-foreground))',
-                borderRadius: '0.375rem',
-              },
-              anchor: {
-                color: 'hsl(var(--primary))',
-              },
-              container: {
-                color: 'hsl(var(--foreground))',
-              },
-              label: {
-                color: 'hsl(var(--foreground))',
-              },
-              input: {
-                backgroundColor: 'hsl(var(--background))',
-                color: 'hsl(var(--foreground))',
-                borderColor: 'hsl(var(--border))',
-              },
-            },
-          }}
-          theme="default"
-          providers={[]}
-          redirectTo={window.location.origin}
-          view="sign_in"
-          localization={{
-            variables: {
-              sign_up: {
-                link_text: "Don't have an account? Sign up",
-                button_label: "Sign up",
-              },
-              sign_in: {
-                link_text: "Already have an account? Sign in",
-                button_label: "Sign in",
-              },
-            },
-          }}
-          onlyThirdPartyProviders={false}
-        />
+        {isNewUser ? (
+          <Waitlist />
+        ) : (
+          <>
+            <Auth
+              supabaseClient={supabase}
+              appearance={{ 
+                theme: ThemeSupa,
+                style: {
+                  button: {
+                    background: 'hsl(var(--primary))',
+                    color: 'hsl(var(--primary-foreground))',
+                    borderRadius: '0.375rem',
+                  },
+                  anchor: {
+                    color: 'hsl(var(--primary))',
+                  },
+                  container: {
+                    color: 'hsl(var(--foreground))',
+                  },
+                  label: {
+                    color: 'hsl(var(--foreground))',
+                  },
+                  input: {
+                    backgroundColor: 'hsl(var(--background))',
+                    color: 'hsl(var(--foreground))',
+                    borderColor: 'hsl(var(--border))',
+                  },
+                },
+              }}
+              theme="default"
+              providers={[]}
+              redirectTo={window.location.origin}
+              view="sign_in"
+              localization={{
+                variables: {
+                  sign_up: {
+                    button_label: "Join Waitlist",
+                  },
+                },
+              }}
+            />
+            <div className="text-center mt-4">
+              <button
+                onClick={() => setIsNewUser(true)}
+                className="text-primary hover:underline text-sm"
+              >
+                Don't have an account? Join our waitlist
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
