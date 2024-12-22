@@ -52,64 +52,41 @@ export default function Login() {
           </div>
           <h2 className="text-3xl font-bold text-foreground">Welcome to MediScrape</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {isNewUser 
-              ? "Join our waitlist for early access"
-              : "Sign in to access your medical research portal"}
+            Sign in to access your medical research portal
           </p>
         </div>
 
-        {isNewUser ? (
-          <Waitlist />
-        ) : (
-          <>
-            <Auth
-              supabaseClient={supabase}
-              appearance={{ 
-                theme: ThemeSupa,
-                style: {
-                  button: {
-                    background: 'hsl(var(--primary))',
-                    color: 'hsl(var(--primary-foreground))',
-                    borderRadius: '0.375rem',
-                  },
-                  anchor: {
-                    color: 'hsl(var(--primary))',
-                  },
-                  container: {
-                    color: 'hsl(var(--foreground))',
-                  },
-                  label: {
-                    color: 'hsl(var(--foreground))',
-                  },
-                  input: {
-                    backgroundColor: 'hsl(var(--background))',
-                    color: 'hsl(var(--foreground))',
-                    borderColor: 'hsl(var(--border))',
-                  },
-                },
-              }}
-              theme="default"
-              providers={[]}
-              redirectTo={window.location.origin}
-              view="sign_in"
-              localization={{
-                variables: {
-                  sign_up: {
-                    button_label: "Join Waitlist",
-                  },
-                },
-              }}
-            />
-            <div className="text-center mt-4">
-              <button
-                onClick={() => setIsNewUser(true)}
-                className="text-primary hover:underline text-sm"
-              >
-                Don't have an account? Join our waitlist
-              </button>
-            </div>
-          </>
-        )}
+        <Auth
+          supabaseClient={supabase}
+          appearance={{ 
+            theme: ThemeSupa,
+            style: {
+              button: {
+                background: 'hsl(var(--primary))',
+                color: 'hsl(var(--primary-foreground))',
+                borderRadius: '0.375rem',
+              },
+              anchor: {
+                color: 'hsl(var(--primary))',
+              },
+              container: {
+                color: 'hsl(var(--foreground))',
+              },
+              label: {
+                color: 'hsl(var(--foreground))',
+              },
+              input: {
+                backgroundColor: 'hsl(var(--background))',
+                color: 'hsl(var(--foreground))',
+                borderColor: 'hsl(var(--border))',
+              },
+            },
+          }}
+          theme="default"
+          providers={[]}
+          redirectTo={window.location.origin}
+          view="sign_in"
+        />
       </div>
     </div>
   )
