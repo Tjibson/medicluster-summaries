@@ -9,7 +9,7 @@ export async function getSearchCache(cacheKey: string): Promise<Paper[] | null> 
     .single()
 
   if (cacheEntry) {
-    return cacheEntry.results as Paper[]
+    return cacheEntry.results as unknown as Paper[]
   }
 
   return null
@@ -20,6 +20,6 @@ export async function setSearchCache(cacheKey: string, results: Paper[]) {
     .from("search_cache")
     .insert({
       cache_key: cacheKey,
-      results: results
+      results: results as unknown as Json
     })
 }
