@@ -25,6 +25,10 @@ serve(async (req) => {
     const { searchParams } = await req.json()
     console.log('Search request:', searchParams)
 
+    if (!searchParams) {
+      throw new Error('No search parameters provided')
+    }
+
     // Construct PubMed search query
     const query = buildSearchQuery(searchParams)
     console.log('PubMed query:', query)
@@ -45,7 +49,7 @@ serve(async (req) => {
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
+        status: 400
       }
     )
   }
@@ -55,11 +59,11 @@ function buildSearchQuery(params: SearchParameters): string {
   const parts = []
 
   if (params.medicine) {
-    parts.push(`"${params.medicine}"[Title/Abstract]`)
+    parts.push(`(${params.medicine}[Title/Abstract])`)
   }
 
   if (params.condition) {
-    parts.push(`"${params.condition}"[Title/Abstract]`)
+    parts.push(`(${params.condition}[Title/Abstract])`)
   }
 
   if (params.dateRange) {
@@ -75,17 +79,18 @@ function buildSearchQuery(params: SearchParameters): string {
     parts.push(`(${typeQuery})`)
   }
 
-  return parts.join(" AND ")
+  return parts.join(" AND ") || "*"
 }
 
 async function searchPubMed(query: string): Promise<any[]> {
   const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
+  const retMax = 20 // Limit results to reduce resource usage
   
   try {
     console.log('Executing PubMed search with query:', query)
     
     // Initial search to get PMIDs
-    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=100&usehistory=y`
+    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${retMax}&usehistory=y`
     console.log('Search URL:', searchUrl)
     
     const searchResponse = await fetch(searchUrl)
@@ -105,21 +110,58 @@ async function searchPubMed(query: string): Promise<any[]> {
       return []
     }
 
-    // Fetch full article details
-    const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${pmids.join(',')}&retmode=xml`
-    console.log('Fetch URL:', fetchUrl)
+    // Fetch full article details in batches to reduce memory usage
+    const batchSize = 5
+    const articles = []
     
-    const fetchResponse = await fetch(fetchUrl)
-    if (!fetchResponse.ok) {
-      throw new Error(`Fetch request failed: ${fetchResponse.statusText}`)
+    for (let i = 0; i < pmids.length; i += batchSize) {
+      const batch = pmids.slice(i, i + batchSize)
+      const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${batch.join(',')}&retmode=xml`
+      
+      const fetchResponse = await fetch(fetchUrl)
+      if (!fetchResponse.ok) {
+        console.error(`Failed to fetch batch: ${fetchResponse.statusText}`)
+        continue
+      }
+      
+      const articleXml = await fetchResponse.text()
+      const articleMatches = articleXml.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
+      
+      for (const articleXml of articleMatches) {
+        try {
+          const id = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)?.[1] || ''
+          const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
+          const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
+          
+          const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
+          const authors = Array.from(authorMatches).map(match => {
+            const lastName = match[1] || ''
+            const foreName = match[2] || ''
+            return `${lastName} ${foreName}`.trim()
+          })
+
+          const journal = articleXml.match(/<Journal>[\s\S]*?<Title>(.*?)<\/Title>/)?.[1] ||
+                         articleXml.match(/<ISOAbbreviation>(.*?)<\/ISOAbbreviation>/)?.[1] ||
+                         'Unknown Journal'
+          
+          const yearMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(.*?)<\/Year>/)?.[1]
+          const year = yearMatch ? parseInt(yearMatch) : new Date().getFullYear()
+
+          articles.push({
+            id,
+            title: decodeXMLEntities(title),
+            authors,
+            journal: decodeXMLEntities(journal),
+            year,
+            abstract: decodeXMLEntities(abstract),
+            citations: 0
+          })
+        } catch (error) {
+          console.error('Error processing article:', error)
+          continue
+        }
+      }
     }
-    
-    const articlesXml = await fetchResponse.text()
-    console.log('Received articles XML length:', articlesXml.length)
-    
-    // Parse articles from XML
-    const articles = parseArticles(articlesXml)
-    console.log(`Successfully processed ${articles.length} papers`)
     
     return articles
     
@@ -127,48 +169,6 @@ async function searchPubMed(query: string): Promise<any[]> {
     console.error('Error in searchPubMed:', error)
     throw error
   }
-}
-
-function parseArticles(xmlText: string): any[] {
-  const articles = []
-  const articleMatches = xmlText.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
-
-  for (const articleXml of articleMatches) {
-    try {
-      const id = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)?.[1] || ''
-      const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
-      const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
-      
-      const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
-      const authors = Array.from(authorMatches).map(match => {
-        const lastName = match[1] || ''
-        const foreName = match[2] || ''
-        return `${lastName} ${foreName}`.trim()
-      })
-
-      const journal = articleXml.match(/<Journal>[\s\S]*?<Title>(.*?)<\/Title>/)?.[1] ||
-                     articleXml.match(/<ISOAbbreviation>(.*?)<\/ISOAbbreviation>/)?.[1] ||
-                     'Unknown Journal'
-      
-      const yearMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(.*?)<\/Year>/)?.[1]
-      const year = yearMatch ? parseInt(yearMatch) : new Date().getFullYear()
-
-      articles.push({
-        id,
-        title: decodeXMLEntities(title),
-        authors,
-        journal: decodeXMLEntities(journal),
-        year,
-        abstract: decodeXMLEntities(abstract),
-        citations: 0 // We'll update this later via the citations API
-      })
-    } catch (error) {
-      console.error('Error processing article:', error)
-      continue
-    }
-  }
-
-  return articles
 }
 
 function decodeXMLEntities(text: string): string {
