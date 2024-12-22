@@ -17,4 +17,5 @@ export interface SavedPaper extends Paper {
   is_liked?: boolean
   list_id?: string
   created_at: string
+  pdfUrl?: string
 }

@@ -34,114 +34,46 @@ export const ARTICLE_TYPES = [
 ] as const;
 
 export interface SearchParameters {
-  medicine?: string;
-  condition?: string;
+  medicine?: string
+  condition?: string
   dateRange?: {
-    start: string;
-    end: string;
-  };
-  articleTypes?: string[];
-  journalNames?: string[];
-  keywords?: {
-    medicine: string[];
-    condition: string[];
-  };
+    start: string
+    end: string
+  }
+  articleTypes?: string[]
 }
 
-export const DEFAULT_SEARCH_PARAMS: SearchParameters = {
-  journalNames: [],
-  keywords: {
-    medicine: [],
-    condition: [],
-  },
-  articleTypes: [],
-};
-
 export function calculateRelevanceScore(
-  title: string | { _: string } | undefined,
-  abstract: string | { _: string } | undefined,
+  title: string,
+  abstract: string,
   journal: string,
   citations: number,
   searchParams: SearchParameters
 ): number {
-  // Safely extract title text
-  const titleText = typeof title === 'string' 
-    ? title 
-    : typeof title === 'object' && title?._
-    ? title._ 
-    : '';
-
-  // Safely extract abstract text
-  const abstractText = typeof abstract === 'string' 
-    ? abstract 
-    : typeof abstract === 'object' && abstract?._ 
-    ? abstract._ 
-    : '';
-
-  // Calculate keyword score (base 60% weight, can be reduced based on citations)
-  const allKeywords = [...searchParams.keywords.medicine, ...searchParams.keywords.condition];
-  const text = `${titleText.toLowerCase()} ${abstractText.toLowerCase()}`;
+  // Simple scoring based on title and abstract matches
+  let score = 0
   
-  let keywordScore = 0;
-  const maxKeywordScore = Object.values(KEYWORD_WEIGHTS).reduce((a, b) => a + b, 0);
-  
-  allKeywords.forEach(keyword => {
-    const keywordLower = keyword.toLowerCase();
-    // Check title (2x weight)
-    if (titleText.toLowerCase().includes(keywordLower)) {
-      keywordScore += (KEYWORD_WEIGHTS[keywordLower as keyof typeof KEYWORD_WEIGHTS] || 1) * 2;
+  if (searchParams.medicine) {
+    if (title.toLowerCase().includes(searchParams.medicine.toLowerCase())) {
+      score += 50
     }
-    // Check abstract
-    if (abstractText.toLowerCase().includes(keywordLower)) {
-      keywordScore += (KEYWORD_WEIGHTS[keywordLower as keyof typeof KEYWORD_WEIGHTS] || 1);
+    if (abstract.toLowerCase().includes(searchParams.medicine.toLowerCase())) {
+      score += 30
     }
-  });
-
-  // Calculate journal score (20% weight)
-  const journalScore = JOURNAL_WEIGHTS[journal as keyof typeof JOURNAL_WEIGHTS] || 0;
-  const maxJournalScore = Math.max(...Object.values(JOURNAL_WEIGHTS));
-
-  // Calculate citation score (20% base weight + potential bonus)
-  const maxCitations = 1000; // Cap for normalization
-  const citationScore = citations > 0 ? Math.min(Math.log10(citations + 1) / Math.log10(maxCitations + 1), 1) * 100 : 0;
-
-  // Determine citation bonus and keyword weight reduction
-  let citationBonus = 0;
-  let keywordWeight = 0.6; // Start with 60% weight for keywords
-
-  if (citations >= 500) {
-    citationBonus = 10; // +10% total (5% + 5%)
-    keywordWeight = 0.5; // Reduce keyword weight by 10%
-  } else if (citations >= 200) {
-    citationBonus = 5; // +5% total
-    keywordWeight = 0.55; // Reduce keyword weight by 5%
   }
 
-  // Normalize scores to 0-100
-  const normalizedKeywordScore = (keywordScore / maxKeywordScore) * 100;
-  const normalizedJournalScore = (journalScore / maxJournalScore) * 100;
+  if (searchParams.condition) {
+    if (title.toLowerCase().includes(searchParams.condition.toLowerCase())) {
+      score += 50
+    }
+    if (abstract.toLowerCase().includes(searchParams.condition.toLowerCase())) {
+      score += 30
+    }
+  }
 
-  // Final weighted score with citation bonus
-  const finalScore = (
-    keywordWeight * normalizedKeywordScore +
-    0.2 * normalizedJournalScore +
-    0.2 * citationScore +
-    citationBonus
-  );
+  // Add citation score (max 20 points)
+  const citationScore = Math.min(citations / 50, 20)
+  score += citationScore
 
-  console.log('Relevance score calculation:', {
-    title: titleText,
-    journal,
-    citations,
-    keywordScore,
-    journalScore,
-    citationScore,
-    citationBonus,
-    keywordWeight,
-    normalizedKeywordScore,
-    normalizedJournalScore,
-    finalScore
-  });
-
-  return Math.round(Math.max(0, Math.min(100, finalScore)));
+  return Math.min(score, 100)
 }

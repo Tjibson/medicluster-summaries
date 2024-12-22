@@ -51,7 +51,7 @@ export function SearchForm({ onSearch }: SearchFormProps) {
     setIsLoading(true)
 
     try {
-      console.log('Sending search request with params:', {
+      const searchParams: SearchParameters = {
         medicine,
         condition,
         dateRange: startDate && endDate ? {
@@ -59,22 +59,16 @@ export function SearchForm({ onSearch }: SearchFormProps) {
           end: endDate.toISOString().split('T')[0]
         } : undefined,
         articleTypes: selectedArticleTypes
-      })
+      }
+
+      console.log('Sending search request with params:', searchParams)
 
       const response = await fetch("/api/search", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          medicine,
-          condition,
-          dateRange: startDate && endDate ? {
-            start: startDate.toISOString().split('T')[0],
-            end: endDate.toISOString().split('T')[0]
-          } : undefined,
-          articleTypes: selectedArticleTypes
-        }),
+        body: JSON.stringify(searchParams),
       })
 
       if (!response.ok) {
@@ -88,16 +82,7 @@ export function SearchForm({ onSearch }: SearchFormProps) {
         throw new Error('Invalid response format')
       }
 
-      onSearch(data.papers, {
-        medicine,
-        condition,
-        dateRange: startDate && endDate ? {
-          start: startDate.toISOString().split('T')[0],
-          end: endDate.toISOString().split('T')[0]
-        } : undefined,
-        articleTypes: selectedArticleTypes
-      })
-
+      onSearch(data.papers, searchParams)
       await saveSearchToHistory(medicine, condition)
     } catch (error) {
       console.error("Search error:", error)
