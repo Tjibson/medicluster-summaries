@@ -27,8 +27,9 @@ serve(async (req) => {
     console.log('PubMed query:', query, 'offset:', offset, 'limit:', limit)
 
     const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
-    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${limit}&usehistory=y&retstart=${offset}`
-    console.log('Search URL:', searchUrl)
+    // First get the total count and WebEnv/QueryKey for subsequent requests
+    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&usehistory=y&retmax=0`
+    console.log('Initial search URL:', searchUrl)
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), TIMEOUT)
@@ -47,91 +48,86 @@ serve(async (req) => {
       const searchText = await searchResponse.text()
       console.log('Search response received, length:', searchText.length)
 
-      const pmids = searchText.match(/<Id>(\d+)<\/Id>/g)?.map(id => id.replace(/<\/?Id>/g, '')) || []
-      console.log('Found PMIDs:', pmids)
+      // Extract total count, WebEnv, and QueryKey
+      const count = searchText.match(/<Count>(\d+)<\/Count>/)?.[1]
+      const webEnv = searchText.match(/<WebEnv>(\S+)<\/WebEnv>/)?.[1]
+      const queryKey = searchText.match(/<QueryKey>(\d+)<\/QueryKey>/)?.[1]
 
-      if (pmids.length === 0) {
-        console.log('No results found')
-        return new Response(
-          JSON.stringify({ papers: [] }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+      if (!webEnv || !queryKey) {
+        throw new Error('Failed to get WebEnv or QueryKey from PubMed')
       }
 
-      // Process papers in smaller batches
+      console.log(`Total results: ${count}, fetching from offset ${offset} with limit ${limit}`)
+
+      // Now fetch the actual results using WebEnv and QueryKey
+      const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&WebEnv=${webEnv}&query_key=${queryKey}&retstart=${offset}&retmax=${limit}&retmode=xml`
+      console.log('Fetch URL:', fetchUrl)
+
+      const fetchController = new AbortController()
+      const fetchTimeout = setTimeout(() => fetchController.abort(), TIMEOUT)
+
+      const fetchResponse = await fetch(fetchUrl, {
+        headers: { 'Accept': 'application/xml' },
+        signal: fetchController.signal
+      })
+      clearTimeout(fetchTimeout)
+
+      if (!fetchResponse.ok) {
+        throw new Error(`Failed to fetch results: ${fetchResponse.statusText}`)
+      }
+
+      const articlesXml = await fetchResponse.text()
+      console.log('Received articles XML, length:', articlesXml.length)
+
+      // Process articles in batches
+      const articleMatches = articlesXml.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
+      console.log(`Found ${articleMatches.length} articles to process`)
+
       const papers = []
-      const limitedPmids = pmids.slice(0, limit)
-      
-      for (let i = 0; i < limitedPmids.length; i += BATCH_SIZE) {
-        const batch = limitedPmids.slice(i, i + BATCH_SIZE)
-        const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&id=${batch.join(',')}&retmode=xml`
-        console.log(`Fetching batch ${i/BATCH_SIZE + 1}:`, fetchUrl)
-        
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), TIMEOUT)
-
+      for (const articleXml of articleMatches) {
         try {
-          const fetchResponse = await fetch(fetchUrl, {
-            headers: { 'Accept': 'application/xml' },
-            signal: controller.signal
+          const id = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)?.[1] || ''
+          const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
+          const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
+          
+          const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
+          const authors = Array.from(authorMatches).map(match => {
+            const lastName = match[1] || ''
+            const foreName = match[2] || ''
+            return `${lastName} ${foreName}`.trim()
           })
-          clearTimeout(timeout)
-          
-          if (!fetchResponse.ok) {
-            console.error(`Failed to fetch batch: ${fetchResponse.statusText}`)
-            continue
-          }
-          
-          const articleXml = await fetchResponse.text()
-          console.log(`Received XML for batch ${i/BATCH_SIZE + 1}, length:`, articleXml.length)
-          
-          const articleMatches = articleXml.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
-          console.log(`Found ${articleMatches.length} articles in batch`)
-          
-          for (const articleXml of articleMatches) {
-            try {
-              const id = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)?.[1] || ''
-              const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
-              const abstract = articleXml.match(/<Abstract>[\s\S]*?<AbstractText>(.*?)<\/AbstractText>/)?.[1] || ''
-              
-              const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
-              const authors = Array.from(authorMatches).map(match => {
-                const lastName = match[1] || ''
-                const foreName = match[2] || ''
-                return `${lastName} ${foreName}`.trim()
-              })
 
-              const journal = articleXml.match(/<Journal>[\s\S]*?<Title>(.*?)<\/Title>/)?.[1] ||
-                           articleXml.match(/<ISOAbbreviation>(.*?)<\/ISOAbbreviation>/)?.[1] ||
-                           'Unknown Journal'
-              
-              const yearMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(.*?)<\/Year>/)?.[1]
-              const year = yearMatch ? parseInt(yearMatch) : new Date().getFullYear()
+          const journal = articleXml.match(/<Journal>[\s\S]*?<Title>(.*?)<\/Title>/)?.[1] ||
+                       articleXml.match(/<ISOAbbreviation>(.*?)<\/ISOAbbreviation>/)?.[1] ||
+                       'Unknown Journal'
+          
+          const yearMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(.*?)<\/Year>/)?.[1]
+          const year = yearMatch ? parseInt(yearMatch) : new Date().getFullYear()
 
-              papers.push({
-                id,
-                title: decodeXMLEntities(title),
-                abstract: decodeXMLEntities(abstract),
-                authors,
-                journal: decodeXMLEntities(journal),
-                year,
-                citations: 0
-              })
-              console.log('Successfully processed article:', id)
-            } catch (error) {
-              console.error('Error processing article:', error)
-              continue
-            }
-          }
+          papers.push({
+            id,
+            title: decodeXMLEntities(title),
+            abstract: decodeXMLEntities(abstract),
+            authors,
+            journal: decodeXMLEntities(journal),
+            year,
+            citations: 0
+          })
+          console.log('Successfully processed article:', id)
         } catch (error) {
-          console.error(`Error processing batch ${i/BATCH_SIZE + 1}:`, error)
+          console.error('Error processing article:', error)
           continue
         }
       }
 
       console.log(`Successfully processed ${papers.length} papers`)
       return new Response(
-        JSON.stringify({ papers }),
+        JSON.stringify({ 
+          papers,
+          total: parseInt(count || '0'),
+          offset,
+          limit
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
       

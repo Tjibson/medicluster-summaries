@@ -1,7 +1,7 @@
 import { useCitations } from "./useCitations"
 import { useSortedPapers } from "./useSortedPapers"
-import { SortingControls } from "../SortingControls"
-import { PaperCard } from "../PaperCard"
+import { ResultsHeader } from "./ResultsHeader"
+import { ResultsGrid } from "./ResultsGrid"
 import { type Paper } from "@/types/papers"
 import { type SearchParameters } from "@/constants/searchConfig"
 import { Loader2 } from "lucide-react"
@@ -9,6 +9,7 @@ import { useState } from "react"
 import { ArticleDetails } from "../ArticleDetails"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
+import { supabase } from "@/integrations/supabase/client"
 
 interface ResultsContainerProps {
   papers: Paper[]
@@ -20,9 +21,9 @@ interface ResultsContainerProps {
 export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore }: ResultsContainerProps) {
   const startTime = useState(() => Date.now())[0]
   const [loadTime, setLoadTime] = useState(0)
-  const [progress, setProgress] = useState(0)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [resultsPerPage, setResultsPerPage] = useState<string>("25")
+  const [totalResults, setTotalResults] = useState<number>(0)
   
   const { citationsMap, isCitationsLoading, isComplete, progress: citationsProgress } = useCitations(papers)
   const { 
@@ -49,7 +50,7 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
 
     setIsLoadingMore(true)
     try {
-      const { data: { papers: morePapers }, error } = await supabase.functions.invoke('search-pubmed', {
+      const { data, error } = await supabase.functions.invoke('search-pubmed', {
         body: { 
           searchParams: {
             ...searchCriteria,
@@ -61,8 +62,9 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
 
       if (error) throw error
 
-      if (morePapers) {
-        onLoadMore(morePapers)
+      if (data.papers) {
+        onLoadMore(data.papers)
+        setTotalResults(data.total || 0)
       }
     } catch (error) {
       console.error('Error loading more papers:', error)
@@ -98,39 +100,33 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">
-            Showing {sortedPapers.length} articles
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Load time: {(loadTime / 1000).toFixed(2)}s
-          </p>
-        </div>
-        <SortingControls
-          sortBy={sortBy}
-          sortDirection={sortDirection}
-          onSortChange={setSortBy}
-          onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
-          isRelevanceReady={isRelevanceReady}
-          resultsPerPage={resultsPerPage}
-          onResultsPerPageChange={setResultsPerPage}
-        />
-      </div>
+      <ResultsHeader
+        searchCriteria={searchCriteria}
+        sortBy={sortBy}
+        sortDirection={sortDirection}
+        onSortChange={setSortBy}
+        onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
+        totalResults={totalResults}
+        resultsPerPage={resultsPerPage}
+        onResultsPerPageChange={setResultsPerPage}
+      />
       
       <div className="space-y-4">
         {sortedPapers.map((paper) => (
-          <PaperCard
+          <ResultsGrid
             key={paper.id}
-            paper={paper}
-            onSave={() => {}}
-            onLike={() => {}}
-            onClick={(paper) => setSelectedPaper(paper)}
+            papers={[paper]}
+            userId={null}
+            sortBy={sortBy}
+            sortDirection={sortDirection}
+            currentPage={1}
+            onPageChange={() => {}}
+            onPaperSelect={(paper) => setSelectedPaper(paper)}
           />
         ))}
       </div>
 
-      {papers.length >= parseInt(resultsPerPage) && (
+      {papers.length < totalResults && (
         <div className="flex justify-center pt-4">
           <Button 
             onClick={handleLoadMore}

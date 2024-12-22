@@ -1,6 +1,7 @@
 import { SearchCriteria } from "@/components/papers/SearchCriteria"
-import { SortingControls, type SortOption, type SortDirection } from "@/components/papers/SortingControls"
+import { SortingControls } from "@/components/papers/SortingControls"
 import { type SearchParameters } from "@/constants/searchConfig"
+import { type SortOption, type SortDirection } from "../SortingControls"
 
 interface ResultsHeaderProps {
   searchCriteria?: SearchParameters | null
@@ -9,6 +10,8 @@ interface ResultsHeaderProps {
   onSortChange: (value: SortOption) => void
   onDirectionChange: () => void
   totalResults?: number
+  resultsPerPage: string
+  onResultsPerPageChange: (value: string) => void
 }
 
 export function ResultsHeader({ 
@@ -17,7 +20,9 @@ export function ResultsHeader({
   sortDirection,
   onSortChange,
   onDirectionChange,
-  totalResults 
+  totalResults,
+  resultsPerPage,
+  onResultsPerPageChange
 }: ResultsHeaderProps) {
   return (
     <div className="space-y-4">
@@ -33,6 +38,8 @@ export function ResultsHeader({
           sortDirection={sortDirection}
           onSortChange={onSortChange}
           onDirectionChange={onDirectionChange}
+          resultsPerPage={resultsPerPage}
+          onResultsPerPageChange={onResultsPerPageChange}
         />
       </div>
     </div>
