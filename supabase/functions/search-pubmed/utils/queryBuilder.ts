@@ -1,42 +1,44 @@
-import { type SearchParameters } from '../types'
+import { SearchParams } from './types';
+import { PUBMED_TOOL_NAME, PUBMED_EMAIL } from './constants';
 
-export function buildSearchQuery(searchParams: SearchParameters): string {
-  const queryParts = []
-
-  // Add medicine keywords
-  if (searchParams.keywords.medicine.length > 0) {
-    const medicineTerms = searchParams.keywords.medicine.map(term => `"${term}"[Title/Abstract]`)
-    queryParts.push(`(${medicineTerms.join(" OR ")})`)
+export function buildSearchQuery(params: SearchParams): string {
+  const queryParts = [];
+  
+  if (params.medicine) {
+    queryParts.push(`"${params.medicine}"[Title/Abstract]`);
+  }
+  
+  if (params.condition) {
+    queryParts.push(`"${params.condition}"[Title/Abstract]`);
   }
 
-  // Add condition keywords
-  if (searchParams.keywords.condition.length > 0) {
-    const conditionTerms = searchParams.keywords.condition.map(term => `"${term}"[Title/Abstract]`)
-    queryParts.push(`(${conditionTerms.join(" OR ")})`)
-  }
-
-  // Add journal filter
-  if (searchParams.journalNames.length > 0) {
-    const journalQuery = searchParams.journalNames
-      .map(journal => `"${journal}"[Journal]`)
-      .join(" OR ")
-    queryParts.push(`(${journalQuery})`)
-  }
-
-  // Add date range
-  queryParts.push(
-    `("${searchParams.dateRange.start}"[Date - Publication] : "${searchParams.dateRange.end}"[Date - Publication])`
-  )
-
-  // Add article types
-  if (searchParams.articleTypes.length > 0) {
-    const typeQuery = searchParams.articleTypes
+  if (params.articleTypes?.length) {
+    const typeQuery = params.articleTypes
       .map(type => `"${type}"[Publication Type]`)
-      .join(" OR ")
-    queryParts.push(`(${typeQuery})`)
+      .join(" OR ");
+    queryParts.push(`(${typeQuery})`);
   }
 
-  const finalQuery = queryParts.join(" AND ")
-  console.log('Built query:', finalQuery)
-  return finalQuery
+  if (params.dateRange) {
+    queryParts.push(
+      `("${params.dateRange.start}"[Date - Publication] : "${params.dateRange.end}"[Date - Publication])`
+    );
+  }
+
+  const query = queryParts.join(" AND ");
+  console.log('Built PubMed query:', query);
+  return query;
+}
+
+export function buildSearchParams(query: string, offset: number = 0, limit: number = 25): URLSearchParams {
+  return new URLSearchParams({
+    db: 'pubmed',
+    term: query,
+    retstart: offset.toString(),
+    retmax: limit.toString(),
+    usehistory: 'y',
+    retmode: 'xml',
+    tool: PUBMED_TOOL_NAME,
+    email: PUBMED_EMAIL
+  });
 }

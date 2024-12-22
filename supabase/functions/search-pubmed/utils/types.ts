@@ -1,22 +1,21 @@
 export interface SearchParams {
-  medicine?: string
-  condition?: string
+  medicine?: string;
+  condition?: string;
   dateRange?: {
-    start: string
-    end: string
-  }
-  articleTypes?: string[]
-  offset?: number
-  limit?: number
-  sort?: 'relevance' | 'date' | 'citations'
+    start: string;
+    end: string;
+  };
+  articleTypes?: string[];
+  offset?: number;
+  limit?: number;
 }
 
 export interface PubMedArticle {
-  id: string
-  title: string
-  abstract: string
-  authors: string[]
-  journal: string
-  year: number
-  citations?: number
+  id: string;
+  title: string;
+  abstract: string;
+  authors: string[];
+  journal: string;
+  year: number;
+  citations?: number;
 }
