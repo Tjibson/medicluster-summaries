@@ -1,61 +1,31 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/integrations/supabase/client"
-import { SavedPaper } from "@/types/papers"
-import { PapersList } from "@/components/papers/PapersList"
 import { ListsHeader } from "@/components/papers/ListsHeader"
+import { PapersList } from "@/components/papers/PapersList"
+import { type SavedPaper } from "@/types/papers"
 
 interface ListDetailsProps {
   listId: string
   listName: string
+  papers: SavedPaper[]
 }
 
-export function ListDetails({ listId, listName }: ListDetailsProps) {
-  const [papers, setPapers] = useState<SavedPaper[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export function ListDetails({ listId, listName, papers: initialPapers }: ListDetailsProps) {
+  const [papers, setPapers] = useState<SavedPaper[]>(initialPapers)
+  const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
-
-  useEffect(() => {
-    fetchPapers()
-  }, [listId])
-
-  const fetchPapers = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      const { data, error } = await supabase
-        .from("saved_papers")
-        .select("*")
-        .eq("list_id", listId)
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: false })
-
-      if (error) throw error
-
-      setPapers(data as SavedPaper[])
-    } catch (error) {
-      console.error("Error fetching papers:", error)
-      toast({
-        title: "Error",
-        description: "Failed to fetch papers",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   const handleRemovePaper = async (paperId: string) => {
     try {
       const { error } = await supabase
         .from("saved_papers")
-        .update({ list_id: null })
+        .delete()
         .eq("id", paperId)
 
       if (error) throw error
 
-      setPapers(papers.filter(p => p.id !== paperId))
+      setPapers(papers.filter(paper => paper.id !== paperId))
       toast({
         title: "Success",
         description: "Paper removed from list",
@@ -70,23 +40,31 @@ export function ListDetails({ listId, listName }: ListDetailsProps) {
     }
   }
 
-  const handleDownload = (paperId: string) => {
-    console.log("Downloading paper:", paperId)
-    // Implement download functionality
+  const handleDownloadPaper = async (paperId: string) => {
+    const paper = papers.find(p => p.id === paperId)
+    if (!paper?.pdf_url) {
+      toast({
+        title: "Error",
+        description: "No PDF available for this paper",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Trigger download using the pdf_url
+    window.open(paper.pdf_url, '_blank')
   }
 
   return (
     <div className="container mx-auto p-6">
       <ListsHeader title={listName} />
-      <div className="mt-6">
-        <PapersList 
-          papers={papers}
-          isLoading={isLoading}
-          emptyMessage="No papers in this list yet"
-          onRemove={handleRemovePaper}
-          onDownload={handleDownload}
-        />
-      </div>
+      <PapersList
+        papers={papers}
+        isLoading={isLoading}
+        emptyMessage="No papers in this list yet"
+        onRemove={handleRemovePaper}
+        onDownload={handleDownloadPaper}
+      />
     </div>
   )
 }
