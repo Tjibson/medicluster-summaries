@@ -23,7 +23,7 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
   const [loadTime, setLoadTime] = useState(0)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [resultsPerPage, setResultsPerPage] = useState<string>("25")
-  const [totalResults, setTotalResults] = useState<number>(0)
+  const [totalResults, setTotalResults] = useState<number | undefined>(undefined)
   
   const { citationsMap, isCitationsLoading, isComplete, progress: citationsProgress } = useCitations(papers)
   const { 
@@ -127,7 +127,7 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
         ))}
       </div>
 
-      {papers.length < totalResults && (
+      {totalResults !== undefined && papers.length < totalResults && (
         <div className="flex justify-center pt-4">
           <Button 
             onClick={handleLoadMore}
