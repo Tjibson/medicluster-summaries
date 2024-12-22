@@ -45,6 +45,12 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
     setLoadTime(Date.now() - startTime)
   }
 
+  // Update papers with citations
+  const papersWithCitations = sortedPapers.map(paper => ({
+    ...paper,
+    citations: citationsMap[paper.id] || 0
+  }))
+
   const handleLoadMore = async () => {
     if (!searchCriteria) return
 
@@ -113,7 +119,7 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
       />
       
       <div className="space-y-4">
-        {sortedPapers.map((paper) => (
+        {papersWithCitations.map((paper) => (
           <ResultsGrid
             key={paper.id}
             papers={[paper]}
