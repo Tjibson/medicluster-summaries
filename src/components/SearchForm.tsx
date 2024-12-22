@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { SearchInputs } from "./search/SearchInputs"
-import { StudyDetailsInputs } from "./search/StudyDetailsInputs"
+import { DateRangeSelect } from "./search/DateRangeSelect"
 import { Button } from "./ui/button"
 import { searchPubMed } from "@/utils/pubmedSearch"
 import { type Paper } from "@/types/papers"
@@ -53,17 +53,21 @@ export function SearchForm({ onSearch }: SearchFormProps) {
         onConditionChange={(value) => setSearchInputs(prev => ({ ...prev, condition: value }))}
         onArticleTypesChange={(value) => setSearchInputs(prev => ({ ...prev, studyType: value[0] }))}
       />
-      <StudyDetailsInputs
-        disease={searchInputs.condition}
-        onDiseaseChange={(value) => setSearchInputs(prev => ({ ...prev, condition: value }))}
-        medicine={searchInputs.medicine}
-        onMedicineChange={(value) => setSearchInputs(prev => ({ ...prev, medicine: value }))}
-        workingMechanism=""
-        onWorkingMechanismChange={() => {}}
-        patientCount=""
-        onPatientCountChange={() => {}}
-        trialType={searchInputs.studyType}
-        onTrialTypeChange={(value) => setSearchInputs(prev => ({ ...prev, studyType: value }))}
+      <DateRangeSelect
+        startDate={searchInputs.startDate ? new Date(searchInputs.startDate) : undefined}
+        endDate={searchInputs.endDate ? new Date(searchInputs.endDate) : undefined}
+        onStartDateChange={(date) => setSearchInputs(prev => ({ ...prev, startDate: date?.toISOString() || "" }))}
+        onEndDateChange={(date) => setSearchInputs(prev => ({ ...prev, endDate: date?.toISOString() || "" }))}
+        onQuickSelect={(days) => {
+          const end = new Date()
+          const start = new Date()
+          start.setDate(start.getDate() - days)
+          setSearchInputs(prev => ({
+            ...prev,
+            startDate: start.toISOString(),
+            endDate: end.toISOString()
+          }))
+        }}
       />
       <Button onClick={handleSearch} disabled={isLoading}>
         {isLoading ? <Loader2 className="animate-spin" /> : "Search"}
