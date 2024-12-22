@@ -8,32 +8,24 @@ import { Waitlist } from "@/components/Waitlist"
 
 export default function SignUp() {
   const navigate = useNavigate()
-  const [isEmailSignUpEnabled, setIsEmailSignUpEnabled] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const checkEmailSignUp = async () => {
+    const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (session) {
           navigate("/")
           return
         }
-        
-        const { data: authConfig } = await supabase
-          .from('auth_config')
-          .select('enable_signup')
-          .single()
-        
-        setIsEmailSignUpEnabled(authConfig?.enable_signup ?? false)
       } catch (error) {
-        console.error("Error checking email signup status:", error)
+        console.error("Error checking session:", error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    checkEmailSignUp()
+    checkSession()
   }, [navigate])
 
   useEffect(() => {
@@ -63,54 +55,10 @@ export default function SignUp() {
           </div>
           <h2 className="text-3xl font-bold text-foreground">Welcome to MediScrape</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {isEmailSignUpEnabled 
-              ? "Create an account to access your medical research portal"
-              : "Join our waitlist for access"}
+            Join our waitlist for access
           </p>
         </div>
-
-        {isEmailSignUpEnabled ? (
-          <Auth
-            supabaseClient={supabase}
-            appearance={{ 
-              theme: ThemeSupa,
-              style: {
-                button: {
-                  background: 'hsl(var(--primary))',
-                  color: 'hsl(var(--primary-foreground))',
-                  borderRadius: '0.375rem',
-                },
-                anchor: {
-                  color: 'hsl(var(--primary))',
-                },
-                container: {
-                  color: 'hsl(var(--foreground))',
-                },
-                label: {
-                  color: 'hsl(var(--foreground))',
-                },
-                input: {
-                  backgroundColor: 'hsl(var(--background))',
-                  color: 'hsl(var(--foreground))',
-                  borderColor: 'hsl(var(--border))',
-                },
-              },
-            }}
-            theme="default"
-            providers={[]}
-            redirectTo={window.location.origin}
-            view="sign_up"
-            localization={{
-              variables: {
-                sign_in: {
-                  link_text: "Already have an account? Sign in",
-                },
-              },
-            }}
-          />
-        ) : (
-          <Waitlist />
-        )}
+        <Waitlist />
       </div>
     </div>
   )
