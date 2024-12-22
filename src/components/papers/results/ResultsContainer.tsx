@@ -11,7 +11,7 @@ export interface ResultsContainerProps {
 
 export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore }: ResultsContainerProps) {
   if (isLoading) {
-    return <LoadingState message="Loading articles..." />
+    return <div className="text-center py-8">Loading articles...</div>
   }
 
   if (!papers || papers.length === 0) {
@@ -28,7 +28,9 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
         <PaperCard
           key={paper.id}
           paper={paper}
-          searchCriteria={searchCriteria}
+          onSave={() => {}}
+          onLike={() => {}}
+          onClick={() => {}}
         />
       ))}
     </div>

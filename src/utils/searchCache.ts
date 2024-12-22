@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client"
 import { Paper } from "@/types/papers"
 
-export async function getCachedResults(cacheKey: string): Promise<Paper[] | null> {
+export async function getSearchCache(cacheKey: string): Promise<Paper[] | null> {
   const { data: cacheEntry } = await supabase
     .from("search_cache")
     .select("results")
@@ -15,11 +15,11 @@ export async function getCachedResults(cacheKey: string): Promise<Paper[] | null
   return null
 }
 
-export async function setCachedResults(cacheKey: string, results: Paper[]) {
+export async function setSearchCache(cacheKey: string, results: Paper[]) {
   await supabase
     .from("search_cache")
     .insert({
       cache_key: cacheKey,
-      results: results as any
+      results: results
     })
 }

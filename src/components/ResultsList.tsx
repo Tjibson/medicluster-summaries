@@ -1,6 +1,6 @@
 import { Paper } from "@/types/papers"
 import { ResultsContainer } from "@/components/papers/results/ResultsContainer"
-import { SearchParameters } from "@/types/papers"
+import { type SearchParameters } from "@/constants/searchConfig"
 
 interface ResultsListProps {
   papers: Paper[]
