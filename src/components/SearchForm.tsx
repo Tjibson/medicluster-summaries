@@ -23,6 +23,19 @@ export function SearchForm({ onSearch, onSearchStart, onError }: SearchFormProps
   const [endDate, setEndDate] = useState<Date>(new Date(DEFAULT_SEARCH_PARAMS.dateRange.end))
   const { toast } = useToast()
 
+  const saveSearchToHistory = async (medicine: string, condition: string) => {
+    try {
+      const { error } = await supabase.from('search_history').insert({
+        medicine: medicine || null,
+        disease: condition || null,
+      })
+
+      if (error) throw error
+    } catch (error) {
+      console.error('Error saving search history:', error)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -61,6 +74,9 @@ export function SearchForm({ onSearch, onSearchStart, onError }: SearchFormProps
         console.error("Invalid response format:", data)
         throw new Error("Invalid response from search service")
       }
+
+      // Save search to history
+      await saveSearchToHistory(medicine, condition)
 
       console.log("Search results received:", data.papers)
       onSearch(data.papers, searchParams)
