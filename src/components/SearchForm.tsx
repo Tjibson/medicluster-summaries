@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/integrations/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -15,8 +15,8 @@ export function SearchForm({ onSearch }: SearchFormProps) {
   const [medicine, setMedicine] = useState("")
   const [condition, setCondition] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [startDate, setStartDate] = useState<Date>()
-  const [endDate, setEndDate] = useState<Date>()
+  const [startDate, setStartDate] = useState<Date>(new Date('1970-01-01'))
+  const [endDate, setEndDate] = useState<Date>(new Date())
   const [selectedArticleTypes, setSelectedArticleTypes] = useState<string[]>([])
   const { toast } = useToast()
 
