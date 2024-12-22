@@ -12,7 +12,7 @@ interface PapersListProps {
   showLikeButton?: boolean
 }
 
-export const PapersList = ({
+export function PapersList({
   papers,
   isLoading,
   emptyMessage,
@@ -20,7 +20,7 @@ export const PapersList = ({
   onRemove,
   onDownload,
   showLikeButton = false,
-}: PapersListProps) => {
+}: PapersListProps) {
   if (isLoading) {
     return (
       <div className="space-y-4">
