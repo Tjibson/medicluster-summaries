@@ -6,7 +6,7 @@ const corsHeaders = {
 }
 
 const BATCH_SIZE = 5 // Reduced from 10 to 5
-const MAX_RESULTS = 25 // Limit total results
+const MAX_RESULTS = 25 // Limit total results per request
 const TIMEOUT = 5000 // 5 second timeout for fetch requests
 
 serve(async (req) => {
@@ -23,10 +23,11 @@ serve(async (req) => {
     }
 
     const query = buildSearchQuery(searchParams)
-    console.log('PubMed query:', query)
+    const offset = searchParams.offset || 0
+    console.log('PubMed query:', query, 'offset:', offset)
 
     const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
-    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${MAX_RESULTS}&usehistory=y`
+    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${MAX_RESULTS}&usehistory=y&retstart=${offset}`
     console.log('Search URL:', searchUrl)
 
     const controller = new AbortController()

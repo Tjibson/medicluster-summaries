@@ -16,9 +16,10 @@ interface ResultsContainerProps {
   papers: Paper[]
   isLoading: boolean
   searchCriteria?: SearchParameters | null
+  onLoadMore: (papers: Paper[]) => void
 }
 
-export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsContainerProps) {
+export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore }: ResultsContainerProps) {
   const startTime = useState(() => Date.now())[0]
   const [loadTime, setLoadTime] = useState(0)
   const [progress, setProgress] = useState(0)
@@ -62,8 +63,7 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
       if (error) throw error
 
       if (data?.papers && Array.isArray(data.papers)) {
-        // Notify parent component about new papers
-        // We need to update the papers prop from the parent
+        onLoadMore(data.papers)
         toast({
           title: "Success",
           description: `Loaded ${data.papers.length} more papers`,
