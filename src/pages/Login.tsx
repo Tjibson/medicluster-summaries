@@ -22,6 +22,12 @@ export default function Login() {
         if (session) {
           navigate("/")
         }
+
+        // Check if we're on the auth sign-up hash
+        if (window.location.hash === '#auth-sign-up') {
+          window.location.href = 'https://mediscrape.nl/sign-up'
+          return
+        }
       } catch (error) {
         console.error("Error checking session:", error)
       } finally {
