@@ -1,33 +1,34 @@
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
-import { type Paper } from "@/types/papers"
-import { DateRangeSelect } from "./search/DateRangeSelect"
-import { SearchInputs } from "./search/SearchInputs"
+import { supabase } from "@/integrations/supabase/client"
+import { DEFAULT_SEARCH_PARAMS } from "@/constants/searchConfig"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Slider } from "@/components/ui/slider"
+import { Switch } from "@/components/ui/switch"
 import { Loader2 } from "lucide-react"
-import { DEFAULT_SEARCH_PARAMS, type SearchParameters } from "@/constants/searchConfig"
 
-interface SearchFormProps {
-  onSearch: (papers: Paper[], searchCriteria: SearchParameters) => void
-  onSearchStart: () => void
-  onError: (error: Error) => void
-}
-
-export function SearchForm({ onSearch, onSearchStart, onError }: SearchFormProps) {
+export function SearchForm({ onSearch }: { onSearch: (papers: any[], params: any) => void }) {
   const [medicine, setMedicine] = useState("")
   const [condition, setCondition] = useState("")
-  const [selectedArticleTypes, setSelectedArticleTypes] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [startDate, setStartDate] = useState<Date>(new Date(DEFAULT_SEARCH_PARAMS.dateRange.start))
-  const [endDate, setEndDate] = useState<Date>(new Date(DEFAULT_SEARCH_PARAMS.dateRange.end))
+  const [advancedMode, setAdvancedMode] = useState(false)
+  const [patientCount, setPatientCount] = useState(DEFAULT_SEARCH_PARAMS.patientCount)
+  const [trialType, setTrialType] = useState(DEFAULT_SEARCH_PARAMS.trialType)
+  const [population, setPopulation] = useState(DEFAULT_SEARCH_PARAMS.population)
+  const [workingMechanism, setWorkingMechanism] = useState(DEFAULT_SEARCH_PARAMS.workingMechanism)
   const { toast } = useToast()
 
   const saveSearchToHistory = async (medicine: string, condition: string) => {
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
       const { error } = await supabase.from('search_history').insert({
         medicine: medicine || null,
         disease: condition || null,
+        user_id: session.user.id
       })
 
       if (error) throw error
@@ -36,56 +37,55 @@ export function SearchForm({ onSearch, onSearchStart, onError }: SearchFormProps
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    onSearchStart()
-
-    try {
-      if (!medicine.trim() && !condition.trim()) {
-        throw new Error("Please enter at least one search term (medicine or condition)")
-      }
-
-      const searchParams: SearchParameters = {
-        dateRange: {
-          start: startDate.toISOString().split('T')[0],
-          end: endDate.toISOString().split('T')[0],
-        },
-        journalNames: DEFAULT_SEARCH_PARAMS.journalNames,
-        keywords: {
-          medicine: medicine.trim().split(/[ ,]+/).filter(Boolean),
-          condition: condition.trim().split(/[ ,]+/).filter(Boolean),
-        },
-        articleTypes: selectedArticleTypes as typeof DEFAULT_SEARCH_PARAMS.articleTypes,
-      }
-
-      console.log("Submitting search with params:", searchParams)
-
-      const { data, error } = await supabase.functions.invoke('search-pubmed', {
-        body: { searchParams }
-      })
-
-      if (error) {
-        console.error("Supabase function error:", error)
-        throw new Error(error.message || "Failed to perform search")
-      }
-
-      if (!data || !Array.isArray(data.papers)) {
-        console.error("Invalid response format:", data)
-        throw new Error("Invalid response from search service")
-      }
-
-      // Save search to history
-      await saveSearchToHistory(medicine, condition)
-
-      console.log("Search results received:", data.papers)
-      onSearch(data.papers, searchParams)
-    } catch (error: any) {
-      console.error("Error performing search:", error)
-      onError(error)
+    if (!medicine && !condition) {
       toast({
         title: "Error",
-        description: error.message || "Failed to perform search",
+        description: "Please enter at least one search term",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const response = await fetch("/api/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          medicine,
+          condition,
+          patientCount: advancedMode ? patientCount : DEFAULT_SEARCH_PARAMS.patientCount,
+          trialType: advancedMode ? trialType : DEFAULT_SEARCH_PARAMS.trialType,
+          population: advancedMode ? population : DEFAULT_SEARCH_PARAMS.population,
+          workingMechanism: advancedMode ? workingMechanism : DEFAULT_SEARCH_PARAMS.workingMechanism,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Search failed")
+      }
+
+      const data = await response.json()
+      onSearch(data.papers, {
+        medicine,
+        condition,
+        patientCount,
+        trialType,
+        population,
+        workingMechanism,
+      })
+
+      await saveSearchToHistory(medicine, condition)
+    } catch (error) {
+      console.error("Search error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to perform search. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -94,42 +94,92 @@ export function SearchForm({ onSearch, onSearchStart, onError }: SearchFormProps
   }
 
   return (
-    <div className="space-y-6">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <DateRangeSelect
-          startDate={startDate}
-          endDate={endDate}
-          onStartDateChange={setStartDate}
-          onEndDateChange={setEndDate}
-          onQuickSelect={(days) => {
-            const end = new Date()
-            const start = new Date()
-            start.setDate(start.getDate() - days)
-            setStartDate(start)
-            setEndDate(end)
-          }}
-        />
+    <form onSubmit={handleSearch} className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="medicine">Medicine</Label>
+          <Input
+            id="medicine"
+            placeholder="Enter medicine name"
+            value={medicine}
+            onChange={(e) => setMedicine(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="condition">Medical Condition</Label>
+          <Input
+            id="condition"
+            placeholder="Enter medical condition"
+            value={condition}
+            onChange={(e) => setCondition(e.target.value)}
+          />
+        </div>
+      </div>
 
-        <SearchInputs
-          medicine={medicine}
-          condition={condition}
-          selectedArticleTypes={selectedArticleTypes}
-          onMedicineChange={setMedicine}
-          onConditionChange={setCondition}
-          onArticleTypesChange={setSelectedArticleTypes}
+      <div className="flex items-center space-x-2">
+        <Switch
+          id="advanced-mode"
+          checked={advancedMode}
+          onCheckedChange={setAdvancedMode}
         />
+        <Label htmlFor="advanced-mode">Advanced Search Options</Label>
+      </div>
 
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Searching...
-            </>
-          ) : (
-            "Search PubMed"
-          )}
-        </Button>
-      </form>
-    </div>
+      {advancedMode && (
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Label>Minimum Patient Count: {patientCount}</Label>
+            <Slider
+              value={[patientCount]}
+              onValueChange={(value) => setPatientCount(value[0])}
+              min={0}
+              max={1000}
+              step={50}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="trial-type">Trial Type</Label>
+            <Input
+              id="trial-type"
+              placeholder="e.g., Randomized Control Trial"
+              value={trialType}
+              onChange={(e) => setTrialType(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="population">Population</Label>
+            <Input
+              id="population"
+              placeholder="e.g., Adults, Children"
+              value={population}
+              onChange={(e) => setPopulation(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="mechanism">Working Mechanism</Label>
+            <Input
+              id="mechanism"
+              placeholder="e.g., Enzyme inhibitor"
+              value={workingMechanism}
+              onChange={(e) => setWorkingMechanism(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+
+      <Button type="submit" disabled={isLoading} className="w-full">
+        {isLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Searching...
+          </>
+        ) : (
+          "Search"
+        )}
+      </Button>
+    </form>
   )
 }

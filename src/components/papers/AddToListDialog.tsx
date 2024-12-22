@@ -27,62 +27,73 @@ export function AddToListDialog({ paper, isOpen, onClose, onSave }: AddToListDia
   }, [isOpen])
 
   const fetchLists = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to view lists",
+          variant: "destructive",
+        })
+        return
+      }
 
-    const { data, error } = await supabase
-      .from("lists")
-      .select("id, name")
-      .eq("user_id", session.user.id)
-      .order("created_at", { ascending: false })
+      const { data, error } = await supabase
+        .from("lists")
+        .select("id, name")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false })
 
-    if (error) {
+      if (error) throw error
+
+      setLists(data || [])
+    } catch (error) {
+      console.error("Error fetching lists:", error)
       toast({
         title: "Error",
         description: "Failed to fetch lists",
         variant: "destructive",
       })
-      return
     }
-
-    setLists(data || [])
   }
 
   const handleCreateList = async () => {
     if (!newListName.trim() || !paper) return
 
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to create a list",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("lists")
+        .insert({ name: newListName.trim(), user_id: session.user.id })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      onSave(paper, data.id)
+      setNewListName("")
+      onClose()
       toast({
-        title: "Error",
-        description: "You must be logged in to create a list",
-        variant: "destructive",
+        title: "Success",
+        description: "List created and paper added successfully",
       })
-      return
-    }
-
-    const { data, error } = await supabase
-      .from("lists")
-      .insert({ name: newListName.trim(), user_id: session.user.id })
-      .select()
-      .single()
-
-    if (error) {
+    } catch (error) {
+      console.error("Error creating list:", error)
       toast({
         title: "Error",
         description: "Failed to create list",
         variant: "destructive",
       })
-      return
     }
-
-    onSave(paper, data.id)
-    setNewListName("")
-    onClose()
-    toast({
-      title: "Success",
-      description: "List created and paper added successfully",
-    })
   }
 
   const handleSelectList = async (listId: string) => {
@@ -132,7 +143,7 @@ export function AddToListDialog({ paper, isOpen, onClose, onSave }: AddToListDia
                 value={newListName}
                 onChange={(e) => setNewListName(e.target.value)}
                 placeholder="Enter list name"
-                onClick={(e) => e.stopPropagation()} // Stop event propagation
+                onClick={(e) => e.stopPropagation()}
               />
               <Button onClick={handleCreateList}>
                 <Plus className="h-4 w-4 mr-2" />
