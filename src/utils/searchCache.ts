@@ -1,24 +1,25 @@
-import { type Paper } from "@/types/papers"
 import { supabase } from "@/integrations/supabase/client"
+import { type Paper } from "@/types/papers"
 
-export async function getSearchCache(key: string): Promise<Paper[] | null> {
-  const { data } = await supabase
+export async function getSearchCache(cacheKey: string): Promise<Paper[] | null> {
+  const { data, error } = await supabase
     .from('search_cache')
     .select('results')
-    .eq('cache_key', key)
+    .eq('cache_key', cacheKey)
     .single()
 
-  if (!data) return null
+  if (error || !data) {
+    return null
+  }
 
-  // Safely cast the results to Paper[]
-  return data.results as unknown as Paper[]
+  return data.results as Paper[]
 }
 
-export async function setSearchCache(key: string, results: Paper[]): Promise<void> {
+export async function setSearchCache(cacheKey: string, results: Paper[]): Promise<void> {
   await supabase
     .from('search_cache')
-    .upsert({ 
-      cache_key: key, 
-      results: results as unknown as JSON 
-    }, { onConflict: 'cache_key' })
+    .insert({
+      cache_key: cacheKey,
+      results: results as any
+    })
 }

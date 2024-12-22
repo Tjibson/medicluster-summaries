@@ -33,6 +33,11 @@ export default function Login() {
     return () => subscription.unsubscribe()
   }, [navigate])
 
+  const handleSignUpClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    window.location.href = 'https://mediscrape.nl/sign-up'
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
