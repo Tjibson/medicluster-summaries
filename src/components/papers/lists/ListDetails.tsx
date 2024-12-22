@@ -42,7 +42,7 @@ export function ListDetails({ listId, listName, papers: initialPapers }: ListDet
 
   const handleDownloadPaper = async (paperId: string) => {
     const paper = papers.find(p => p.id === paperId)
-    if (!paper?.pdf_url) {
+    if (!paper?.pdfUrl) {
       toast({
         title: "Error",
         description: "No PDF available for this paper",
@@ -51,8 +51,8 @@ export function ListDetails({ listId, listName, papers: initialPapers }: ListDet
       return
     }
 
-    // Trigger download using the pdf_url
-    window.open(paper.pdf_url, '_blank')
+    // Trigger download using the pdfUrl
+    window.open(paper.pdfUrl, '_blank')
   }
 
   return (

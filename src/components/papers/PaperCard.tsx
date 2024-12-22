@@ -20,11 +20,17 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
   useEffect(() => {
     const fetchCitations = async () => {
       try {
+        console.log('Invoking fetch-citations function for paper:', paper.id)
         const { data, error } = await supabase.functions.invoke('fetch-citations', {
           body: { paper }
         })
         
-        if (error) throw error
+        if (error) {
+          console.error('Error from fetch-citations function:', error)
+          throw error
+        }
+        
+        console.log('Citations response:', data)
         if (data?.citations !== undefined) {
           setCitations(data.citations)
         }
