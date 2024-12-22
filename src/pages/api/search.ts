@@ -10,8 +10,13 @@ export async function POST(req: Request) {
     const formattedParams: SearchParameters = {
       medicine: searchParams.medicine || "",
       condition: searchParams.condition || "",
-      dateRange: searchParams.dateRange,
-      articleTypes: searchParams.articleTypes || []
+      studyType: searchParams.studyType || "",
+      startDate: searchParams.startDate || "",
+      endDate: searchParams.endDate || "",
+      keywords: {
+        medicine: [],
+        condition: []
+      }
     }
 
     // Call the Supabase Edge Function for PubMed search

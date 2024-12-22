@@ -47,8 +47,15 @@ export function SearchForm({ onSearch }: SearchFormProps) {
     setIsLoading(false)
   }
 
+  const handleKeyPress = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      handleSearch()
+    }
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" onKeyDown={handleKeyPress}>
       <SearchInputs
         medicine={searchInputs.medicine}
         condition={searchInputs.condition}
