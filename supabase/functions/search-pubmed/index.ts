@@ -24,11 +24,20 @@ serve(async (req) => {
     const query = buildSearchQuery(searchParams)
     const offset = searchParams.offset || 0
     const limit = searchParams.limit || 25
-    console.log('PubMed query:', query, 'offset:', offset, 'limit:', limit)
+    const sort = searchParams.sort || 'relevance'
+    console.log('PubMed query:', query, 'offset:', offset, 'limit:', limit, 'sort:', sort)
 
     const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
-    // Add sort parameter to get most relevant results first
-    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&usehistory=y&retmax=0&sort=relevance`
+    
+    // Properly encode the search URL components
+    const searchUrlParams = new URLSearchParams({
+      db: 'pubmed',
+      term: query,
+      usehistory: 'y',
+      retmax: '0',
+      sort: sort
+    })
+    const searchUrl = `${baseUrl}/esearch.fcgi?${searchUrlParams.toString()}`
     console.log('Initial search URL:', searchUrl)
 
     const controller = new AbortController()
@@ -36,13 +45,16 @@ serve(async (req) => {
 
     try {
       const searchResponse = await fetch(searchUrl, {
-        headers: { 'Accept': 'application/xml' },
+        headers: { 
+          'Accept': 'application/xml',
+          'User-Agent': 'Mozilla/5.0' // Add user agent to prevent some API blocks
+        },
         signal: controller.signal
       })
       clearTimeout(timeout)
       
       if (!searchResponse.ok) {
-        throw new Error(`PubMed search failed: ${searchResponse.statusText}`)
+        throw new Error(`PubMed search failed: ${searchResponse.status} ${searchResponse.statusText}`)
       }
 
       const searchText = await searchResponse.text()
@@ -58,21 +70,33 @@ serve(async (req) => {
 
       console.log(`Total results: ${count}, fetching from offset ${offset} with limit ${limit}`)
 
-      // Add sort parameter to the fetch URL as well
-      const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&WebEnv=${webEnv}&query_key=${queryKey}&retstart=${offset}&retmax=${limit}&retmode=xml&sort=relevance`
+      // Properly encode the fetch URL components
+      const fetchUrlParams = new URLSearchParams({
+        db: 'pubmed',
+        WebEnv: webEnv,
+        query_key: queryKey,
+        retstart: offset.toString(),
+        retmax: limit.toString(),
+        retmode: 'xml',
+        sort: sort
+      })
+      const fetchUrl = `${baseUrl}/efetch.fcgi?${fetchUrlParams.toString()}`
       console.log('Fetch URL:', fetchUrl)
 
       const fetchController = new AbortController()
       const fetchTimeout = setTimeout(() => fetchController.abort(), TIMEOUT)
 
       const fetchResponse = await fetch(fetchUrl, {
-        headers: { 'Accept': 'application/xml' },
+        headers: { 
+          'Accept': 'application/xml',
+          'User-Agent': 'Mozilla/5.0'
+        },
         signal: fetchController.signal
       })
       clearTimeout(fetchTimeout)
 
       if (!fetchResponse.ok) {
-        throw new Error(`Failed to fetch results: ${fetchResponse.statusText}`)
+        throw new Error(`Failed to fetch results: ${fetchResponse.status} ${fetchResponse.statusText}`)
       }
 
       const articlesXml = await fetchResponse.text()
