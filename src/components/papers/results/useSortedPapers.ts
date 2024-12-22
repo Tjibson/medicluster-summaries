@@ -9,7 +9,6 @@ export function useSortedPapers(
   searchParams: any,
   isCitationsComplete: boolean
 ) {
-  // Set default sort to relevance and descending order
   const [sortBy, setSortBy] = useState<SortOption>("relevance")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
   const [sortedPapers, setSortedPapers] = useState<Paper[]>([])
@@ -32,10 +31,8 @@ export function useSortedPapers(
     }
   }, [papers, citationsMap, isCitationsComplete, searchParams]);
 
-  // Sort papers whenever relevance scores or sort criteria change
+  // Sort papers whenever sort criteria or papers change
   useEffect(() => {
-    console.log('Sorting papers with citations map:', citationsMap)
-    
     const papersToSort = papers.map(paper => ({
       ...paper,
       citations: citationsMap[paper.id] || paper.citations || 0,
@@ -43,42 +40,31 @@ export function useSortedPapers(
     }));
 
     papersToSort.sort((a, b) => {
-      const multiplier = sortDirection === "asc" ? -1 : 1; // Changed this line to invert the multiplier
+      const multiplier = sortDirection === "asc" ? 1 : -1;
       
       switch (sortBy) {
         case "citations": {
           const aCitations = Number(a.citations) || 0;
           const bCitations = Number(b.citations) || 0;
-          return (bCitations - aCitations) * multiplier;
+          return (aCitations - bCitations) * multiplier;
         }
         case "date":
-          return (b.year - a.year) * multiplier;
+          return (a.year - b.year) * multiplier;
         case "title": {
           const aTitle = String(a.title).toLowerCase();
           const bTitle = String(b.title).toLowerCase();
           return aTitle.localeCompare(bTitle) * multiplier;
         }
         case "relevance":
-        default: { // Make relevance the default sort
+        default: {
           const aScore = relevanceScores[a.id] || 0;
           const bScore = relevanceScores[b.id] || 0;
-          return (bScore - aScore) * multiplier;
+          return (aScore - bScore) * multiplier;
         }
       }
     });
 
-    console.log('Papers after sorting:', 
-      papersToSort.map(p => ({ 
-        id: p.id,
-        title: p.title, 
-        citations: p.citations,
-        year: p.year,
-        relevance_score: relevanceScores[p.id],
-        sortBy,
-        sortDirection 
-      }))
-    );
-    
+    console.log('Papers sorted by:', sortBy, 'in', sortDirection, 'order');
     setSortedPapers(papersToSort);
   }, [papers, citationsMap, sortBy, sortDirection, relevanceScores]);
 

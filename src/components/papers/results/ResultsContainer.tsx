@@ -9,9 +9,6 @@ import { useState } from "react"
 import { ArticleDetails } from "../ArticleDetails"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { supabase } from "@/integrations/supabase/client"
-import { useToast } from "@/hooks/use-toast"
 
 interface ResultsContainerProps {
   papers: Paper[]
@@ -26,7 +23,6 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
   const [progress, setProgress] = useState(0)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [resultsPerPage, setResultsPerPage] = useState<string>("25")
-  const { toast } = useToast()
   
   const { citationsMap, isCitationsLoading, isComplete, progress: citationsProgress } = useCitations(papers)
   const { 
@@ -53,7 +49,7 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
 
     setIsLoadingMore(true)
     try {
-      const { data, error } = await supabase.functions.invoke('search-pubmed', {
+      const { data: { papers: morePapers }, error } = await supabase.functions.invoke('search-pubmed', {
         body: { 
           searchParams: {
             ...searchCriteria,
@@ -65,20 +61,11 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
 
       if (error) throw error
 
-      if (data?.papers && Array.isArray(data.papers)) {
-        onLoadMore(data.papers)
-        toast({
-          title: "Success",
-          description: `Loaded ${data.papers.length} more papers`,
-        })
+      if (morePapers) {
+        onLoadMore(morePapers)
       }
     } catch (error) {
       console.error('Error loading more papers:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load more papers",
-        variant: "destructive",
-      })
     } finally {
       setIsLoadingMore(false)
     }
@@ -109,54 +96,30 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
     )
   }
 
-  // Get the top papers by citations and relevance
-  const displayPapers = sortedPapers
-    .sort((a, b) => {
-      // First sort by citations
-      const citationDiff = (citationsMap[b.id] || 0) - (citationsMap[a.id] || 0)
-      if (citationDiff !== 0) return citationDiff
-      
-      // Then by relevance score
-      return (b.relevance_score || 0) - (a.relevance_score || 0)
-    })
-
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">
-            Showing {displayPapers.length} articles from {sortedPapers.length} results
+            Showing {sortedPapers.length} articles
           </p>
           <p className="text-xs text-muted-foreground">
             Load time: {(loadTime / 1000).toFixed(2)}s
           </p>
         </div>
-        <div className="flex items-center gap-4">
-          <Select
-            value={resultsPerPage}
-            onValueChange={setResultsPerPage}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Results per page" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="25">25 results per page</SelectItem>
-              <SelectItem value="50">50 results per page</SelectItem>
-              <SelectItem value="100">100 results per page</SelectItem>
-            </SelectContent>
-          </Select>
-          <SortingControls
-            sortBy={sortBy}
-            sortDirection={sortDirection}
-            onSortChange={setSortBy}
-            onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
-            isRelevanceReady={isRelevanceReady}
-          />
-        </div>
+        <SortingControls
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+          onSortChange={setSortBy}
+          onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
+          isRelevanceReady={isRelevanceReady}
+          resultsPerPage={resultsPerPage}
+          onResultsPerPageChange={setResultsPerPage}
+        />
       </div>
       
       <div className="space-y-4">
-        {displayPapers.map((paper) => (
+        {sortedPapers.map((paper) => (
           <PaperCard
             key={paper.id}
             paper={paper}

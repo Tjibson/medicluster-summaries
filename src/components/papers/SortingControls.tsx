@@ -1,6 +1,6 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { ArrowUpDown, Loader2 } from "lucide-react"
+import { ArrowUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export type SortOption = "citations" | "date" | "relevance" | "title"
@@ -12,6 +12,8 @@ interface SortingControlsProps {
   onSortChange: (value: SortOption) => void
   onDirectionChange: () => void
   isRelevanceReady?: boolean
+  resultsPerPage: string
+  onResultsPerPageChange: (value: string) => void
 }
 
 export function SortingControls({ 
@@ -19,25 +21,35 @@ export function SortingControls({
   sortDirection, 
   onSortChange, 
   onDirectionChange,
-  isRelevanceReady = true
+  isRelevanceReady = true,
+  resultsPerPage,
+  onResultsPerPageChange
 }: SortingControlsProps) {
   return (
-    <div className="flex justify-end mb-4 gap-2 items-center">
+    <div className="flex items-center gap-2">
+      <Select
+        value={resultsPerPage}
+        onValueChange={onResultsPerPageChange}
+      >
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="Results per page" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="25">25 results per page</SelectItem>
+          <SelectItem value="50">50 results per page</SelectItem>
+          <SelectItem value="100">100 results per page</SelectItem>
+        </SelectContent>
+      </Select>
+
       <Select 
         value={sortBy} 
         onValueChange={(value) => onSortChange(value as SortOption)}
       >
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder="Sort by..." />
-          {sortBy === "relevance" && !isRelevanceReady && (
-            <Loader2 className="h-4 w-4 animate-spin ml-2" />
-          )}
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="relevance">
-            Relevance
-            {!isRelevanceReady && " (Loading...)"}
-          </SelectItem>
+          <SelectItem value="relevance">Relevance</SelectItem>
           <SelectItem value="citations">Citations</SelectItem>
           <SelectItem value="date">Date Published</SelectItem>
           <SelectItem value="title">Title</SelectItem>
