@@ -13,12 +13,16 @@ interface SearchFormProps {
 }
 
 export function SearchForm({ onSearch }: SearchFormProps) {
+  // Initialize with default dates
+  const defaultStartDate = new Date(1970, 0, 1) // January 1st, 1970
+  const defaultEndDate = new Date() // Today
+
   const [searchInputs, setSearchInputs] = useState<SearchParameters>({
     medicine: "",
     condition: "",
     studyType: "",
-    startDate: "",
-    endDate: "",
+    startDate: defaultStartDate.toISOString(),
+    endDate: defaultEndDate.toISOString(),
     keywords: {
       medicine: [],
       condition: []
