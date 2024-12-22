@@ -1,10 +1,14 @@
 export const JOURNAL_WEIGHTS = {
   "The New England Journal of Medicine": 5,
   "The Lancet": 5,
-  "Nature": 4,
+  "Nature": 5,
+  "Science": 5,
+  "JAMA": 5,
+  "Nature Medicine": 4,
   "Journal of the American College of Cardiology": 4,
   "Circulation": 4,
   "JAMA cardiology": 4,
+  "European Heart Journal": 4,
   "European journal of heart failure": 3,
   "ESC heart failure": 3,
   "JACC. Heart failure": 3,
@@ -13,25 +17,26 @@ export const JOURNAL_WEIGHTS = {
 } as const;
 
 export const KEYWORD_WEIGHTS = {
-  "Entresto": 5,
-  "Sacubitril": 4,
-  "ARNi": 4,
-  "LCZ696": 3,
-  "HFrEF": 3,
-  "heart failure": 2,
+  // Clinical trial related
+  "phase 3": 5,
+  "phase iii": 5,
+  "phase 2": 4,
+  "phase ii": 4,
+  "registration": 5,
+  "pivotal": 5,
+  "primary analysis": 4,
+  "primary results": 4,
+  // Study size related
+  "multicenter": 3,
+  "randomized": 3,
+  "double-blind": 3,
+  "placebo-controlled": 3,
+  // Outcome related
+  "efficacy": 2,
+  "safety": 2,
+  "significant": 2,
+  "improvement": 2,
 } as const;
-
-export const ARTICLE_TYPES = [
-  'Abstract',
-  'Clinical Study',
-  'Clinical Trial',
-  'Comparative Study',
-  'Meta-Analysis',
-  'Multicenter Study',
-  'Practice Guideline',
-  'Randomized Controlled Trial',
-  'Systematic Review',
-] as const;
 
 export interface SearchParameters {
   medicine?: string;
