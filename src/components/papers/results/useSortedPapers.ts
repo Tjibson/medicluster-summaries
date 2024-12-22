@@ -43,7 +43,7 @@ export function useSortedPapers(
     }));
 
     papersToSort.sort((a, b) => {
-      const multiplier = sortDirection === "asc" ? 1 : -1;
+      const multiplier = sortDirection === "asc" ? -1 : 1; // Changed this line to invert the multiplier
       
       switch (sortBy) {
         case "citations": {
