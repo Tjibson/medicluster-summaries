@@ -33,9 +33,9 @@ export function ResultsHeader({
         <div className="text-sm text-muted-foreground">
           {totalResults !== undefined ? (
             <>
-              Found <span className="font-medium">{totalResults}</span> articles
+              Found <span className="font-medium">{totalResults.toLocaleString()}</span> articles
               {loadedResults > 0 && (
-                <>, showing <span className="font-medium">{loadedResults}</span></>
+                <>, showing <span className="font-medium">{loadedResults.toLocaleString()}</span> {loadedResults === 1 ? 'article' : 'articles'}</>
               )}
             </>
           ) : (
