@@ -1,4 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { extractStructuredAbstract } from './utils/parsers/abstractParser.ts'
+import { extractArticleData, parseXML } from './utils/xmlParser.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -113,35 +115,13 @@ async function searchPubMed(query: string): Promise<any[]> {
       
       for (const articleXml of articleMatches) {
         try {
-          const id = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)?.[1] || ''
-          const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
+          const parsedData = await parseXML(articleXml)
+          const articleData = extractArticleData(parsedData)
           
-          // Enhanced abstract section handling
-          let abstract = extractStructuredAbstract(articleXml)
+          // Use the new structured abstract extraction
+          articleData.abstract = extractStructuredAbstract(articleXml)
           
-          const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
-          const authors = Array.from(authorMatches).map(match => {
-            const lastName = match[1] || ''
-            const foreName = match[2] || ''
-            return `${lastName} ${foreName}`.trim()
-          })
-
-          const journal = articleXml.match(/<Journal>[\s\S]*?<Title>(.*?)<\/Title>/)?.[1] ||
-                         articleXml.match(/<ISOAbbreviation>(.*?)<\/ISOAbbreviation>/)?.[1] ||
-                         'Unknown Journal'
-          
-          const yearMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(.*?)<\/Year>/)?.[1]
-          const year = yearMatch ? parseInt(yearMatch) : new Date().getFullYear()
-
-          articles.push({
-            id,
-            title: decodeXMLEntities(title),
-            authors,
-            journal: decodeXMLEntities(journal),
-            year,
-            abstract: decodeXMLEntities(abstract),
-            citations: 0
-          })
+          articles.push(articleData)
         } catch (error) {
           console.error('Error processing article:', error)
           continue
@@ -155,53 +135,4 @@ async function searchPubMed(query: string): Promise<any[]> {
     console.error('Error in searchPubMed:', error)
     throw error
   }
-}
-
-function extractStructuredAbstract(articleXml: string): string {
-  // First, try to get the complete Abstract section
-  const abstractSection = articleXml.match(/<Abstract>([\s\S]*?)<\/Abstract>/)?.[1] || ''
-  
-  if (!abstractSection) {
-    return 'No abstract available'
-  }
-
-  // Try to find all AbstractText elements with their sections
-  const abstractParts: string[] = []
-  const abstractTextRegex = /<AbstractText(?:\s+Label="([^"]*)")?\s*(?:NlmCategory="([^"]*)")?\s*>([\s\S]*?)<\/AbstractText>/g
-  
-  let match
-  let hasStructuredSections = false
-  
-  while ((match = abstractTextRegex.exec(abstractSection)) !== null) {
-    const [_, label, category, content] = match
-    if (label || category) {
-      hasStructuredSections = true
-      const sectionTitle = label || category || ''
-      abstractParts.push(`${sectionTitle}: ${content.trim()}`)
-    } else {
-      abstractParts.push(content.trim())
-    }
-  }
-
-  // If no structured sections were found, try simple extraction
-  if (!hasStructuredSections) {
-    const simpleAbstract = articleXml.match(/<AbstractText>([\s\S]*?)<\/AbstractText>/)?.[1]
-    if (simpleAbstract) {
-      return simpleAbstract.trim()
-    }
-  }
-
-  // Join all parts with proper spacing and formatting
-  return abstractParts.join('\n\n')
-}
-
-function decodeXMLEntities(text: string): string {
-  return text
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .replace(/&#xD;/g, '\r')
-    .replace(/&#xA;/g, '\n')
 }
