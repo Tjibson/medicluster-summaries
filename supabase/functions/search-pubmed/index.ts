@@ -5,8 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const BATCH_SIZE = 5 // Process papers in small batches
-const TIMEOUT = 5000 // 5 second timeout for fetch requests
+const BATCH_SIZE = 5
+const TIMEOUT = 5000
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -23,12 +23,12 @@ serve(async (req) => {
 
     const query = buildSearchQuery(searchParams)
     const offset = searchParams.offset || 0
-    const limit = searchParams.limit || 25 // Default to 25 if not specified
+    const limit = searchParams.limit || 25
     console.log('PubMed query:', query, 'offset:', offset, 'limit:', limit)
 
     const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
-    // First get the total count and WebEnv/QueryKey for subsequent requests
-    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&usehistory=y&retmax=0`
+    // Add sort parameter to get most relevant results first
+    const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&usehistory=y&retmax=0&sort=relevance`
     console.log('Initial search URL:', searchUrl)
 
     const controller = new AbortController()
@@ -48,7 +48,6 @@ serve(async (req) => {
       const searchText = await searchResponse.text()
       console.log('Search response received, length:', searchText.length)
 
-      // Extract total count, WebEnv, and QueryKey
       const count = searchText.match(/<Count>(\d+)<\/Count>/)?.[1]
       const webEnv = searchText.match(/<WebEnv>(\S+)<\/WebEnv>/)?.[1]
       const queryKey = searchText.match(/<QueryKey>(\d+)<\/QueryKey>/)?.[1]
@@ -59,8 +58,8 @@ serve(async (req) => {
 
       console.log(`Total results: ${count}, fetching from offset ${offset} with limit ${limit}`)
 
-      // Now fetch the actual results using WebEnv and QueryKey
-      const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&WebEnv=${webEnv}&query_key=${queryKey}&retstart=${offset}&retmax=${limit}&retmode=xml`
+      // Add sort parameter to the fetch URL as well
+      const fetchUrl = `${baseUrl}/efetch.fcgi?db=pubmed&WebEnv=${webEnv}&query_key=${queryKey}&retstart=${offset}&retmax=${limit}&retmode=xml&sort=relevance`
       console.log('Fetch URL:', fetchUrl)
 
       const fetchController = new AbortController()
@@ -79,7 +78,6 @@ serve(async (req) => {
       const articlesXml = await fetchResponse.text()
       console.log('Received articles XML, length:', articlesXml.length)
 
-      // Process articles in batches
       const articleMatches = articlesXml.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || []
       console.log(`Found ${articleMatches.length} articles to process`)
 
