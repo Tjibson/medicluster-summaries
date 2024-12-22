@@ -5,6 +5,8 @@ import { PaperCard } from "../PaperCard"
 import { type Paper } from "@/types/papers"
 import { type SearchParameters } from "@/constants/searchConfig"
 import { Loader2 } from "lucide-react"
+import { useState } from "react"
+import { ArticleDetails } from "../ArticleDetails"
 
 interface ResultsContainerProps {
   papers: Paper[]
@@ -22,6 +24,8 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
     setSortDirection,
     isRelevanceReady 
   } = useSortedPapers(papers, citationsMap, searchCriteria, isComplete)
+
+  const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
 
   // Show loading screen while any of the data is being fetched
   if (isLoading || isCitationsLoading || !isRelevanceReady) {
@@ -64,10 +68,16 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
             paper={paper}
             onSave={() => {}}
             onLike={() => {}}
-            onClick={() => {}}
+            onClick={(paper) => setSelectedPaper(paper)}
           />
         ))}
       </div>
+
+      <ArticleDetails
+        paper={selectedPaper}
+        isOpen={!!selectedPaper}
+        onClose={() => setSelectedPaper(null)}
+      />
     </div>
   )
 }
