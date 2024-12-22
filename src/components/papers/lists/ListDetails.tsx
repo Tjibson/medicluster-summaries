@@ -5,12 +5,11 @@ import { ArrowLeft } from "lucide-react"
 import { PapersList } from "@/components/papers/PapersList"
 import { type SavedPaper } from "@/types/papers"
 import { supabase } from "@/integrations/supabase/client"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
 interface ListDetailsProps {
   listId: string
   listName: string
-  papers: SavedPaper[]
 }
 
 export function ListDetails({ listId, listName }: ListDetailsProps) {
@@ -29,7 +28,6 @@ export function ListDetails({ listId, listName }: ListDetailsProps) {
         .from("saved_papers")
         .select(`
           id,
-          user_id,
           paper_id,
           title,
           authors,
