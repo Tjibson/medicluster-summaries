@@ -4,28 +4,10 @@ import { supabase } from "@/integrations/supabase/client"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Pill } from "lucide-react"
-import { Waitlist } from "@/components/Waitlist"
 
 export default function Login() {
   const navigate = useNavigate()
-  const [isEmailSignUpEnabled, setIsEmailSignUpEnabled] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    const checkEmailSignUp = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        const { data: authConfig } = await supabase.from('auth_config').select('enable_signup').single()
-        setIsEmailSignUpEnabled(authConfig?.enable_signup ?? true)
-      } catch (error) {
-        console.error("Error checking email signup status:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    checkEmailSignUp()
-  }, [])
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -34,6 +16,20 @@ export default function Login() {
       }
     })
 
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          navigate("/")
+        }
+      } catch (error) {
+        console.error("Error checking session:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    checkSession()
     return () => subscription.unsubscribe()
   }, [navigate])
 
@@ -87,7 +83,15 @@ export default function Login() {
           theme="default"
           providers={[]}
           redirectTo={window.location.origin}
-          view={isEmailSignUpEnabled ? "sign_in" : "magic_link"}
+          view="sign_in"
+          localization={{
+            variables: {
+              sign_up: {
+                link_text: "Don't have an account? Sign up",
+              },
+            },
+          }}
+          onlyThirdPartyProviders={false}
         />
       </div>
     </div>
