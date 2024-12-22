@@ -38,6 +38,16 @@ export const KEYWORD_WEIGHTS = {
   "improvement": 2,
 } as const;
 
+// Add ARTICLE_TYPES export
+export const ARTICLE_TYPES = [
+  "Clinical Trial",
+  "Randomized Controlled Trial",
+  "Observational Study",
+  "Meta-Analysis",
+  "Review",
+  "Case Report"
+];
+
 export interface SearchParameters {
   medicine?: string;
   condition?: string;
