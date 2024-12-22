@@ -16,7 +16,6 @@ interface SearchParameters {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -29,11 +28,9 @@ serve(async (req) => {
       throw new Error('No search parameters provided')
     }
 
-    // Construct PubMed search query
     const query = buildSearchQuery(searchParams)
     console.log('PubMed query:', query)
 
-    // Call PubMed API
     const papers = await searchPubMed(query)
     console.log(`Found ${papers.length} papers`)
 
@@ -84,12 +81,11 @@ function buildSearchQuery(params: SearchParameters): string {
 
 async function searchPubMed(query: string): Promise<any[]> {
   const baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
-  const retMax = 20 // Limit results to reduce resource usage
+  const retMax = 100 // Updated to fetch 100 articles
   
   try {
     console.log('Executing PubMed search with query:', query)
     
-    // Initial search to get PMIDs
     const searchUrl = `${baseUrl}/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${retMax}&usehistory=y`
     console.log('Search URL:', searchUrl)
     
@@ -101,7 +97,6 @@ async function searchPubMed(query: string): Promise<any[]> {
     const searchText = await searchResponse.text()
     console.log('Search response:', searchText)
     
-    // Extract PMIDs from search results
     const pmids = searchText.match(/<Id>(\d+)<\/Id>/g)?.map(id => id.replace(/<\/?Id>/g, '')) || []
     console.log('Found PMIDs:', pmids)
     
@@ -111,7 +106,7 @@ async function searchPubMed(query: string): Promise<any[]> {
     }
 
     // Fetch full article details in batches to reduce memory usage
-    const batchSize = 5
+    const batchSize = 10
     const articles = []
     
     for (let i = 0; i < pmids.length; i += batchSize) {

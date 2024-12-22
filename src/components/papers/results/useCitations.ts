@@ -6,6 +6,7 @@ export function useCitations(papers: Paper[]) {
   const [citationsMap, setCitationsMap] = useState<Record<string, number>>({})
   const [isCitationsLoading, setIsCitationsLoading] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
+  const [progress, setProgress] = useState(0)
 
   useEffect(() => {
     if (papers.length > 0) {
@@ -13,6 +14,7 @@ export function useCitations(papers: Paper[]) {
     } else {
       setCitationsMap({})
       setIsComplete(true)
+      setProgress(100)
     }
   }, [papers])
 
@@ -20,6 +22,7 @@ export function useCitations(papers: Paper[]) {
     console.log('Starting citations fetch for papers:', papersToFetch.length)
     setIsCitationsLoading(true)
     setIsComplete(false)
+    setProgress(0)
 
     try {
       const batchSize = 5
@@ -55,14 +58,17 @@ export function useCitations(papers: Paper[]) {
             }
           })
         )
+        // Update progress after each batch
+        setProgress(Math.min(100, ((i + batchSize) / papersToFetch.length) * 100))
       }
     } catch (error) {
       console.error('Error in fetchCitations:', error)
     } finally {
       setIsCitationsLoading(false)
       setIsComplete(true)
+      setProgress(100)
     }
   }
 
-  return { citationsMap, isCitationsLoading, isComplete }
+  return { citationsMap, isCitationsLoading, isComplete, progress }
 }
