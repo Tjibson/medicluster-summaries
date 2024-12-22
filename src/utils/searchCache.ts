@@ -11,12 +11,14 @@ export async function getSearchCache(key: string): Promise<Paper[] | null> {
   if (!data) return null
 
   // Safely cast the results to Paper[]
-  const results = data.results as Paper[]
-  return results
+  return data.results as unknown as Paper[]
 }
 
 export async function setSearchCache(key: string, results: Paper[]): Promise<void> {
   await supabase
     .from('search_cache')
-    .upsert({ cache_key: key, results }, { onConflict: 'cache_key' })
+    .upsert({ 
+      cache_key: key, 
+      results: results as unknown as JSON 
+    }, { onConflict: 'cache_key' })
 }

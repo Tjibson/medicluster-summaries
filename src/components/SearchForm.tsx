@@ -14,16 +14,23 @@ interface SearchFormProps {
 
 export function SearchForm({ onSearch }: SearchFormProps) {
   const [searchInputs, setSearchInputs] = useState<SearchParameters>({
-    keywords: "",
+    medicine: "",
+    condition: "",
     studyType: "",
     startDate: "",
     endDate: "",
+    keywords: {
+      medicine: [],
+      condition: []
+    }
   })
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSearch = async () => {
     setIsLoading(true)
-    const cachedResults = await getSearchCache(searchInputs.keywords)
+    const cacheKey = `${searchInputs.medicine}-${searchInputs.condition}`
+    const cachedResults = await getSearchCache(cacheKey)
+    
     if (cachedResults) {
       onSearch(cachedResults, searchInputs)
       setIsLoading(false)
@@ -32,19 +39,31 @@ export function SearchForm({ onSearch }: SearchFormProps) {
 
     const results = await searchPubMed(searchInputs)
     onSearch(results, searchInputs)
-    await setSearchCache(searchInputs.keywords, results)
+    await setSearchCache(cacheKey, results)
     setIsLoading(false)
   }
 
   return (
     <div className="space-y-4">
       <SearchInputs
-        searchInputs={searchInputs}
-        setSearchInputs={setSearchInputs}
+        medicine={searchInputs.medicine}
+        condition={searchInputs.condition}
+        selectedArticleTypes={[searchInputs.studyType]}
+        onMedicineChange={(value) => setSearchInputs(prev => ({ ...prev, medicine: value }))}
+        onConditionChange={(value) => setSearchInputs(prev => ({ ...prev, condition: value }))}
+        onArticleTypesChange={(value) => setSearchInputs(prev => ({ ...prev, studyType: value[0] }))}
       />
       <StudyDetailsInputs
-        searchInputs={searchInputs}
-        setSearchInputs={setSearchInputs}
+        disease={searchInputs.condition}
+        onDiseaseChange={(value) => setSearchInputs(prev => ({ ...prev, condition: value }))}
+        medicine={searchInputs.medicine}
+        onMedicineChange={(value) => setSearchInputs(prev => ({ ...prev, medicine: value }))}
+        workingMechanism=""
+        onWorkingMechanismChange={() => {}}
+        patientCount=""
+        onPatientCountChange={() => {}}
+        trialType={searchInputs.studyType}
+        onTrialTypeChange={(value) => setSearchInputs(prev => ({ ...prev, studyType: value }))}
       />
       <Button onClick={handleSearch} disabled={isLoading}>
         {isLoading ? <Loader2 className="animate-spin" /> : "Search"}
