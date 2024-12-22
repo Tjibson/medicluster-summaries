@@ -51,6 +51,16 @@ export function SearchForm({ onSearch }: SearchFormProps) {
     setIsLoading(true)
 
     try {
+      console.log('Sending search request with params:', {
+        medicine,
+        condition,
+        dateRange: startDate && endDate ? {
+          start: startDate.toISOString().split('T')[0],
+          end: endDate.toISOString().split('T')[0]
+        } : undefined,
+        articleTypes: selectedArticleTypes
+      })
+
       const response = await fetch("/api/search", {
         method: "POST",
         headers: {
@@ -68,10 +78,16 @@ export function SearchForm({ onSearch }: SearchFormProps) {
       })
 
       if (!response.ok) {
-        throw new Error("Search failed")
+        throw new Error(`Search failed with status: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log('Search response:', data)
+
+      if (!data || !Array.isArray(data.papers)) {
+        throw new Error('Invalid response format')
+      }
+
       onSearch(data.papers, {
         medicine,
         condition,
@@ -87,7 +103,7 @@ export function SearchForm({ onSearch }: SearchFormProps) {
       console.error("Search error:", error)
       toast({
         title: "Error",
-        description: "Failed to perform search. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to perform search. Please try again.",
         variant: "destructive",
       })
     } finally {
