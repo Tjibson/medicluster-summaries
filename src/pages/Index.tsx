@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ResultsList } from "@/components/ResultsList"
 import { SearchForm } from "@/components/SearchForm"
 import { type Paper } from "@/types/papers"

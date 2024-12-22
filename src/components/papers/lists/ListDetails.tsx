@@ -70,29 +70,22 @@ export function ListDetails({ listId, listName }: ListDetailsProps) {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="animate-pulse space-y-8">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 bg-gray-100 rounded-lg" />
-          ))}
-        </div>
-      </div>
-    )
+  const handleDownload = (paperId: string) => {
+    console.log("Downloading paper:", paperId)
+    // Implement download functionality
   }
 
   return (
     <div className="container mx-auto p-6">
       <ListsHeader title={listName} />
       <div className="mt-6">
-        {papers.length === 0 ? (
-          <div className="text-center p-6 bg-gray-50 rounded-lg">
-            <p className="text-gray-500">No papers in this list yet</p>
-          </div>
-        ) : (
-          <PapersList papers={papers} onRemove={handleRemovePaper} />
-        )}
+        <PapersList 
+          papers={papers}
+          isLoading={isLoading}
+          emptyMessage="No papers in this list yet"
+          onRemove={handleRemovePaper}
+          onDownload={handleDownload}
+        />
       </div>
     </div>
   )

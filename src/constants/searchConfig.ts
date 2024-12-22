@@ -41,6 +41,11 @@ export interface SearchParameters {
     end: string;
   };
   articleTypes?: string[];
+  journalNames?: string[];
+  keywords?: {
+    medicine: string[];
+    condition: string[];
+  };
 }
 
 export const DEFAULT_SEARCH_PARAMS: SearchParameters = {
