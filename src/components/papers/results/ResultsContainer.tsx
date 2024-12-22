@@ -107,6 +107,7 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
         onSortChange={setSortBy}
         onDirectionChange={() => setSortDirection(prev => prev === "asc" ? "desc" : "asc")}
         totalResults={totalResults}
+        loadedResults={papers.length}
         resultsPerPage={resultsPerPage}
         onResultsPerPageChange={setResultsPerPage}
       />
@@ -139,7 +140,7 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
                 Loading more...
               </>
             ) : (
-              "Load More Results"
+              `Load More (${papers.length} of ${totalResults})`
             )}
           </Button>
         </div>

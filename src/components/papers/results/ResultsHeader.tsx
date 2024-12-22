@@ -10,6 +10,7 @@ interface ResultsHeaderProps {
   onSortChange: (value: SortOption) => void
   onDirectionChange: () => void
   totalResults?: number
+  loadedResults?: number
   resultsPerPage: string
   onResultsPerPageChange: (value: string) => void
 }
@@ -21,6 +22,7 @@ export function ResultsHeader({
   onSortChange,
   onDirectionChange,
   totalResults,
+  loadedResults = 0,
   resultsPerPage,
   onResultsPerPageChange
 }: ResultsHeaderProps) {
@@ -30,7 +32,7 @@ export function ResultsHeader({
       <div className="flex justify-between items-center">
         {totalResults !== undefined && (
           <p className="text-sm text-muted-foreground">
-            Found {totalResults} results
+            Showing {loadedResults} of {totalResults} results
           </p>
         )}
         <SortingControls 
