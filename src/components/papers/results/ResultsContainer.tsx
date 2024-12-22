@@ -86,8 +86,8 @@ export function ResultsContainer({ papers, isLoading, searchCriteria, onLoadMore
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
         <div className="text-center space-y-2">
           <p className="text-lg font-medium">
-            {isLoading ? "Searching papers..." : 
-             isCitationsLoading ? "Loading citations..." : 
+            {isLoading ? "Loading articles..." : 
+             isCitationsLoading ? "Loading articles..." : 
              "Calculating relevance scores..."}
           </p>
           <p className="text-sm text-muted-foreground">
