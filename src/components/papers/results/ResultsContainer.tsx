@@ -8,6 +8,9 @@ import { Loader2 } from "lucide-react"
 import { useState } from "react"
 import { ArticleDetails } from "../ArticleDetails"
 import { Progress } from "@/components/ui/progress"
+import { Button } from "@/components/ui/button"
+import { supabase } from "@/integrations/supabase/client"
+import { useToast } from "@/hooks/use-toast"
 
 interface ResultsContainerProps {
   papers: Paper[]
@@ -19,6 +22,8 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
   const startTime = useState(() => Date.now())[0]
   const [loadTime, setLoadTime] = useState(0)
   const [progress, setProgress] = useState(0)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const { toast } = useToast()
   
   const { citationsMap, isCitationsLoading, isComplete, progress: citationsProgress } = useCitations(papers)
   const { 
@@ -38,6 +43,42 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
   // Update load time when everything is complete
   if (isComplete && isRelevanceReady && loadTime === 0) {
     setLoadTime(Date.now() - startTime)
+  }
+
+  const handleLoadMore = async () => {
+    if (!searchCriteria) return
+
+    setIsLoadingMore(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('search-pubmed', {
+        body: { 
+          searchParams: {
+            ...searchCriteria,
+            offset: papers.length // Add offset for pagination
+          }
+        }
+      })
+
+      if (error) throw error
+
+      if (data?.papers && Array.isArray(data.papers)) {
+        // Notify parent component about new papers
+        // We need to update the papers prop from the parent
+        toast({
+          title: "Success",
+          description: `Loaded ${data.papers.length} more papers`,
+        })
+      }
+    } catch (error) {
+      console.error('Error loading more papers:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load more papers",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingMore(false)
+    }
   }
 
   // Show loading screen while any of the data is being fetched
@@ -75,14 +116,13 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
       // Then by relevance score
       return (b.relevance_score || 0) - (a.relevance_score || 0)
     })
-    .slice(0, 25)
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">
-            Showing top 25 articles from {sortedPapers.length} results
+            Showing {displayPapers.length} articles from {sortedPapers.length} results
           </p>
           <p className="text-xs text-muted-foreground">
             Load time: {(loadTime / 1000).toFixed(2)}s
@@ -108,6 +148,25 @@ export function ResultsContainer({ papers, isLoading, searchCriteria }: ResultsC
           />
         ))}
       </div>
+
+      {papers.length >= 25 && (
+        <div className="flex justify-center pt-4">
+          <Button 
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+            className="w-full max-w-xs"
+          >
+            {isLoadingMore ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading more...
+              </>
+            ) : (
+              "Load More Results"
+            )}
+          </Button>
+        </div>
+      )}
 
       <ArticleDetails
         paper={selectedPaper}

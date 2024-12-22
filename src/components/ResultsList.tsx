@@ -9,9 +9,10 @@ interface ResultsListProps {
   isLoading: boolean
   searchCriteria?: SearchParameters | null
   error?: Error | null
+  onLoadMore: (papers: Paper[]) => void
 }
 
-export function ResultsList({ papers, isLoading, searchCriteria, error }: ResultsListProps) {
+export function ResultsList({ papers, isLoading, searchCriteria, error, onLoadMore }: ResultsListProps) {
   console.log("ResultsList received papers:", papers)
   
   if (error) {
@@ -40,6 +41,7 @@ export function ResultsList({ papers, isLoading, searchCriteria, error }: Result
       papers={papers}
       isLoading={isLoading}
       searchCriteria={searchCriteria}
+      onLoadMore={onLoadMore}
     />
   )
 }

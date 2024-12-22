@@ -25,16 +25,22 @@ export default function Index() {
     }
   }, [])
 
-  const handleSearch = async (papers: Paper[], criteria: SearchParameters) => {
-    console.log("Search results received:", papers)
-    setPapers(papers)
+  const handleSearch = async (newPapers: Paper[], criteria: SearchParameters) => {
+    console.log("Search results received:", newPapers)
+    setPapers(newPapers)
     setSearchCriteria(criteria)
     setIsLoading(false)
     setError(null)
 
     // Store the search results and criteria in session storage
-    sessionStorage.setItem(SEARCH_STORAGE_KEY, JSON.stringify(papers))
+    sessionStorage.setItem(SEARCH_STORAGE_KEY, JSON.stringify(newPapers))
     sessionStorage.setItem(SEARCH_CRITERIA_KEY, JSON.stringify(criteria))
+  }
+
+  const handleLoadMore = (additionalPapers: Paper[]) => {
+    const updatedPapers = [...papers, ...additionalPapers]
+    setPapers(updatedPapers)
+    sessionStorage.setItem(SEARCH_STORAGE_KEY, JSON.stringify(updatedPapers))
   }
 
   return (
@@ -45,6 +51,7 @@ export default function Index() {
         isLoading={isLoading} 
         searchCriteria={searchCriteria}
         error={error}
+        onLoadMore={handleLoadMore}
       />
     </div>
   )
