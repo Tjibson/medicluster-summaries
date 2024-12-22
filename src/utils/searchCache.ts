@@ -1,49 +1,46 @@
 import { supabase } from "@/integrations/supabase/client"
-import { type Paper } from "@/types/papers"
-import { type SearchParameters } from "@/constants/searchConfig"
-
-const CACHE_EXPIRY = 24 * 60 * 60 * 1000 // 24 hours
+import type { Paper } from "@/types/papers"
+import type { Json } from "@/integrations/supabase/types"
 
 interface SearchCacheEntry {
   cache_key: string
   results: Paper[]
-  created_at: string
+  created_at?: string
 }
 
-export async function getCachedSearch(params: SearchParameters): Promise<Paper[] | null> {
-  const cacheKey = generateCacheKey(params)
-  const { data: cache } = await supabase
-    .from('search_cache')
-    .select('*')
-    .eq('cache_key', cacheKey)
-    .returns<SearchCacheEntry>()
-    .single()
+export async function getFromCache(cacheKey: string): Promise<Paper[] | null> {
+  try {
+    const { data, error } = await supabase
+      .from('search_cache')
+      .select('*')
+      .eq('cache_key', cacheKey)
+      .single()
 
-  if (!cache || Date.now() - new Date(cache.created_at).getTime() > CACHE_EXPIRY) {
+    if (error) throw error
+
+    if (data && new Date(data.created_at).getTime() > Date.now() - 24 * 60 * 60 * 1000) {
+      return data.results as Paper[]
+    }
+
+    return null
+  } catch (error) {
+    console.error('Error fetching from cache:', error)
     return null
   }
-
-  return cache.results
 }
 
-export async function setCachedSearch(params: SearchParameters, results: Paper[]): Promise<void> {
-  const cacheKey = generateCacheKey(params)
-  const entry: SearchCacheEntry = {
-    cache_key: cacheKey,
-    results,
-    created_at: new Date().toISOString()
+export async function saveToCache(entry: SearchCacheEntry) {
+  try {
+    const { error } = await supabase
+      .from('search_cache')
+      .upsert({
+        cache_key: entry.cache_key,
+        results: entry.results as unknown as Json,
+        created_at: new Date().toISOString()
+      })
+
+    if (error) throw error
+  } catch (error) {
+    console.error('Error saving to cache:', error)
   }
-  
-  await supabase
-    .from('search_cache')
-    .upsert(entry)
-}
-
-function generateCacheKey(params: SearchParameters): string {
-  return JSON.stringify({
-    medicine: params.medicine || '',
-    condition: params.condition || '',
-    dateRange: params.dateRange || {},
-    articleTypes: params.articleTypes || []
-  })
 }
