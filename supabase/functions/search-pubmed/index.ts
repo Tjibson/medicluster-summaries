@@ -95,7 +95,6 @@ async function searchPubMed(query: string): Promise<any[]> {
       return []
     }
 
-    // Fetch full article details in batches to reduce memory usage
     const batchSize = 10
     const articles = []
     
@@ -117,28 +116,8 @@ async function searchPubMed(query: string): Promise<any[]> {
           const id = articleXml.match(/<PMID[^>]*>(.*?)<\/PMID>/)?.[1] || ''
           const title = articleXml.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] || 'No title'
           
-          // Enhanced abstract extraction
-          let abstract = ''
-          const abstractMatches = articleXml.match(/<Abstract>([\s\S]*?)<\/Abstract>/)?.[1] || ''
-          
-          if (abstractMatches) {
-            // Handle structured abstracts with multiple sections
-            const abstractTexts = abstractMatches.match(/<AbstractText[^>]*>([\s\S]*?)<\/AbstractText>/g) || []
-            
-            abstract = abstractTexts.map(text => {
-              // Extract label if present
-              const label = text.match(/Label="([^"]*)"/)
-              const content = text.match(/<AbstractText[^>]*>([\s\S]*?)<\/AbstractText>/)[1] || ''
-              
-              // If there's a label, format it with the content
-              return label ? `${label[1]}: ${content}` : content
-            }).join('\n\n')
-          }
-          
-          // If no structured abstract found, try simple extraction
-          if (!abstract) {
-            abstract = articleXml.match(/<AbstractText>(.*?)<\/AbstractText>/)?.[1] || 'No abstract available'
-          }
+          // Enhanced abstract section handling
+          let abstract = extractStructuredAbstract(articleXml)
           
           const authorMatches = articleXml.matchAll(/<Author[^>]*>[\s\S]*?<LastName>(.*?)<\/LastName>[\s\S]*?<ForeName>(.*?)<\/ForeName>[\s\S]*?<\/Author>/g)
           const authors = Array.from(authorMatches).map(match => {
@@ -176,6 +155,44 @@ async function searchPubMed(query: string): Promise<any[]> {
     console.error('Error in searchPubMed:', error)
     throw error
   }
+}
+
+function extractStructuredAbstract(articleXml: string): string {
+  // First, try to get the complete Abstract section
+  const abstractSection = articleXml.match(/<Abstract>([\s\S]*?)<\/Abstract>/)?.[1] || ''
+  
+  if (!abstractSection) {
+    return 'No abstract available'
+  }
+
+  // Try to find all AbstractText elements with their sections
+  const abstractParts: string[] = []
+  const abstractTextRegex = /<AbstractText(?:\s+Label="([^"]*)")?\s*(?:NlmCategory="([^"]*)")?\s*>([\s\S]*?)<\/AbstractText>/g
+  
+  let match
+  let hasStructuredSections = false
+  
+  while ((match = abstractTextRegex.exec(abstractSection)) !== null) {
+    const [_, label, category, content] = match
+    if (label || category) {
+      hasStructuredSections = true
+      const sectionTitle = label || category || ''
+      abstractParts.push(`${sectionTitle}: ${content.trim()}`)
+    } else {
+      abstractParts.push(content.trim())
+    }
+  }
+
+  // If no structured sections were found, try simple extraction
+  if (!hasStructuredSections) {
+    const simpleAbstract = articleXml.match(/<AbstractText>([\s\S]*?)<\/AbstractText>/)?.[1]
+    if (simpleAbstract) {
+      return simpleAbstract.trim()
+    }
+  }
+
+  // Join all parts with proper spacing and formatting
+  return abstractParts.join('\n\n')
 }
 
 function decodeXMLEntities(text: string): string {
