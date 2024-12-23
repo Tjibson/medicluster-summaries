@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Link } from "react-router-dom"
 import { Auth } from "@supabase/auth-ui-react"
 import { ThemeSupa } from "@supabase/auth-ui-shared"
 import { supabase } from "@/integrations/supabase/client"
-import { Waitlist } from "@/components/Waitlist"
+import { Button } from "@/components/ui/button"
 
 export default function Login() {
   const navigate = useNavigate()
@@ -38,63 +38,60 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl px-4 py-8">
-        {/* Login Section */}
-        <div className="w-full space-y-8">
-          <div className="flex flex-col items-center space-y-2 text-center">
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold text-foreground">Welcome back</h2>
-              <p className="text-sm text-muted-foreground">
-                Sign in to access your medical research portal
-              </p>
-            </div>
+      <div className="w-full max-w-md space-y-8 px-4 py-8">
+        <div className="flex flex-col items-center space-y-2 text-center">
+          <div className="space-y-2">
+            <h2 className="text-3xl font-bold text-foreground">Welcome back</h2>
+            <p className="text-sm text-muted-foreground">
+              Sign in to access your medical research portal
+            </p>
           </div>
-
-          <Auth
-            supabaseClient={supabase}
-            appearance={{ 
-              theme: ThemeSupa,
-              style: {
-                button: {
-                  background: 'hsl(var(--primary))',
-                  color: 'hsl(var(--primary-foreground))',
-                  borderRadius: '0.375rem',
-                },
-                anchor: {
-                  color: 'hsl(var(--primary))',
-                },
-                container: {
-                  color: 'hsl(var(--foreground))',
-                },
-                label: {
-                  color: 'hsl(var(--foreground))',
-                },
-                input: {
-                  backgroundColor: 'hsl(var(--background))',
-                  color: 'hsl(var(--foreground))',
-                  borderColor: 'hsl(var(--border))',
-                },
-              },
-            }}
-            theme="default"
-            providers={[]}
-            redirectTo={window.location.origin}
-            view="sign_in"
-            localization={{
-              variables: {
-                sign_up: {
-                  link_text: "",  // This removes the "Don't have an account? Sign up" link
-                },
-              },
-            }}
-          />
         </div>
 
-        {/* Waitlist Section */}
-        <div className="w-full flex items-center">
-          <div className="w-full max-w-sm mx-auto">
-            <Waitlist />
-          </div>
+        <Auth
+          supabaseClient={supabase}
+          appearance={{ 
+            theme: ThemeSupa,
+            style: {
+              button: {
+                background: 'hsl(var(--primary))',
+                color: 'hsl(var(--primary-foreground))',
+                borderRadius: '0.375rem',
+              },
+              anchor: {
+                color: 'hsl(var(--primary))',
+              },
+              container: {
+                color: 'hsl(var(--foreground))',
+              },
+              label: {
+                color: 'hsl(var(--foreground))',
+              },
+              input: {
+                backgroundColor: 'hsl(var(--background))',
+                color: 'hsl(var(--foreground))',
+                borderColor: 'hsl(var(--border))',
+              },
+            },
+          }}
+          theme="default"
+          providers={[]}
+          redirectTo={window.location.origin}
+          view="sign_in"
+          localization={{
+            variables: {
+              sign_up: {
+                link_text: "",  // This removes the "Don't have an account? Sign up" link
+              },
+            },
+          }}
+        />
+
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground mb-2">Don't have an account?</p>
+          <Button variant="outline" asChild>
+            <Link to="/signup">Join Waitlist</Link>
+          </Button>
         </div>
       </div>
     </div>

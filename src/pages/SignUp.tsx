@@ -1,10 +1,8 @@
-import { Auth } from "@supabase/auth-ui-react"
-import { ThemeSupa } from "@supabase/auth-ui-shared"
-import { supabase } from "@/integrations/supabase/client"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Pill } from "lucide-react"
+import { supabase } from "@/integrations/supabase/client"
 import { Waitlist } from "@/components/Waitlist"
+import { Pill } from "lucide-react"
 
 export default function SignUp() {
   const navigate = useNavigate()
