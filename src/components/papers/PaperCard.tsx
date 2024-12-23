@@ -67,7 +67,7 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
       <div className="space-y-4">
         <h3 className="font-semibold text-lg">{safeTitle}</h3>
         
-        <div className="flex items-center space-x-2 text-sm text-gray-600">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
           <p className="font-medium">
             Citations: {citations !== null ? citations : 'Loading...'}
           </p>
@@ -75,10 +75,10 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
           <p>{paper.year}</p>
           <span>•</span>
           <p>{paper.journal}</p>
-          {paper.relevance_score && (
+          {paper.relevance_score !== undefined && (
             <>
               <span>•</span>
-              <p className="text-primary">
+              <p className="text-primary font-medium">
                 Relevance: {Math.round(paper.relevance_score)}%
               </p>
             </>
