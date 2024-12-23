@@ -1,9 +1,10 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { calculateRelevanceScore } from './utils/scoring.ts'
 
 const PUBMED_BASE_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
 const TOOL_NAME = 'MediScrape'
 const TOOL_EMAIL = 'mediscrape@example.com'
-const TIMEOUT = 30000 // 30 seconds timeout
+const TIMEOUT = 30000
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,7 +12,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -24,43 +24,23 @@ serve(async (req) => {
       throw new Error('No search parameters provided')
     }
 
-    // Validate search parameters
-    if (!searchParams.medicine && !searchParams.condition) {
-      throw new Error('At least one search term (medicine or condition) is required')
-    }
-
-    // Build search query with proper URL encoding
+    // Build search query
     const queryParts = []
-    
     if (searchParams.medicine) {
       queryParts.push(`(${encodeURIComponent(searchParams.medicine)}[Title/Abstract])`)
     }
-    
     if (searchParams.condition) {
       queryParts.push(`(${encodeURIComponent(searchParams.condition)}[Title/Abstract])`)
-    }
-
-    if (searchParams.articleTypes?.length) {
-      const typeQuery = searchParams.articleTypes
-        .map(type => `"${encodeURIComponent(type)}"[Publication Type]`)
-        .join(" OR ")
-      queryParts.push(`(${typeQuery})`)
-    }
-
-    if (searchParams.dateRange) {
-      const dateQuery = `("${encodeURIComponent(searchParams.dateRange.start)}"[Date - Publication] : "${encodeURIComponent(searchParams.dateRange.end)}"[Date - Publication])`
-      queryParts.push(dateQuery)
     }
 
     const query = queryParts.join(" AND ")
     console.log('Built PubMed query:', query)
 
-    // Construct search URL with encoded parameters
+    // Execute search
     const params = new URLSearchParams({
       db: 'pubmed',
       term: query,
-      retstart: (searchParams.offset || 0).toString(),
-      retmax: (searchParams.limit || 25).toString(),
+      retmax: '100',
       usehistory: 'y',
       retmode: 'xml',
       tool: TOOL_NAME,
@@ -68,84 +48,71 @@ serve(async (req) => {
     })
 
     const searchUrl = `${PUBMED_BASE_URL}/esearch.fcgi?${params.toString()}`
-    console.log('PubMed search URL:', searchUrl)
-
-    // Execute search with timeout
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), TIMEOUT)
-
-    try {
-      const searchResponse = await fetch(searchUrl, {
-        headers: {
-          'Accept': 'application/xml',
-          'User-Agent': 'Mozilla/5.0'
-        },
-        signal: controller.signal
-      })
-
-      if (!searchResponse.ok) {
-        throw new Error(`PubMed search failed: ${searchResponse.status} ${searchResponse.statusText}`)
+    const searchResponse = await fetch(searchUrl, {
+      headers: {
+        'Accept': 'application/xml',
+        'User-Agent': 'Mozilla/5.0'
       }
+    })
 
-      const searchText = await searchResponse.text()
-      console.log('Search response received')
+    if (!searchResponse.ok) {
+      throw new Error(`PubMed search failed: ${searchResponse.status}`)
+    }
 
-      // Extract WebEnv and QueryKey
-      const webEnv = searchText.match(/<WebEnv>(\S+)<\/WebEnv>/)?.[1]
-      const queryKey = searchText.match(/<QueryKey>(\d+)<\/QueryKey>/)?.[1]
-      const count = searchText.match(/<Count>(\d+)<\/Count>/)?.[1]
+    const searchText = await searchResponse.text()
+    const pmids = searchText.match(/<Id>(\d+)<\/Id>/g)?.map(id => id.replace(/<\/?Id>/g, '')) || []
 
-      if (!webEnv || !queryKey) {
-        throw new Error('Failed to get WebEnv or QueryKey from PubMed')
-      }
-
-      // Fetch actual results
-      const fetchParams = new URLSearchParams({
-        db: 'pubmed',
-        WebEnv: webEnv,
-        query_key: queryKey,
-        retstart: (searchParams.offset || 0).toString(),
-        retmax: (searchParams.limit || 25).toString(),
-        retmode: 'xml',
-        tool: TOOL_NAME,
-        email: TOOL_EMAIL
-      })
-
-      const fetchUrl = `${PUBMED_BASE_URL}/efetch.fcgi?${fetchParams.toString()}`
-      console.log('Fetching articles from:', fetchUrl)
-
-      const fetchResponse = await fetch(fetchUrl, {
-        headers: {
-          'Accept': 'application/xml',
-          'User-Agent': 'Mozilla/5.0'
-        }
-      })
-
-      if (!fetchResponse.ok) {
-        throw new Error(`Failed to fetch results: ${fetchResponse.status} ${fetchResponse.statusText}`)
-      }
-
-      const articlesXml = await fetchResponse.text()
-      console.log('Articles XML received, length:', articlesXml.length)
-
-      // Parse articles from XML
-      const articles = parseArticles(articlesXml)
-      console.log(`Successfully processed ${articles.length} papers`)
-
+    if (pmids.length === 0) {
       return new Response(
-        JSON.stringify({ 
-          papers: articles,
-          total: parseInt(count || '0'),
-          offset: searchParams.offset || 0,
-          limit: searchParams.limit || 25
-        }),
+        JSON.stringify({ papers: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
-
-    } finally {
-      clearTimeout(timeout)
     }
-    
+
+    // Fetch article details
+    const fetchParams = new URLSearchParams({
+      db: 'pubmed',
+      id: pmids.join(','),
+      retmode: 'xml',
+      tool: TOOL_NAME,
+      email: TOOL_EMAIL
+    })
+
+    const fetchUrl = `${PUBMED_BASE_URL}/efetch.fcgi?${fetchParams.toString()}`
+    const fetchResponse = await fetch(fetchUrl, {
+      headers: {
+        'Accept': 'application/xml',
+        'User-Agent': 'Mozilla/5.0'
+      }
+    })
+
+    if (!fetchResponse.ok) {
+      throw new Error(`Failed to fetch results: ${fetchResponse.status}`)
+    }
+
+    const articlesXml = await fetchResponse.text()
+    const articles = parseArticles(articlesXml)
+
+    // Calculate relevance scores
+    const articlesWithScores = articles.map(article => ({
+      ...article,
+      relevance_score: calculateRelevanceScore(
+        article.title,
+        article.abstract || '',
+        { medicine: searchParams.medicine, condition: searchParams.condition }
+      )
+    }))
+
+    // Sort by relevance score
+    const sortedArticles = articlesWithScores.sort((a, b) => 
+      (b.relevance_score || 0) - (a.relevance_score || 0)
+    )
+
+    return new Response(
+      JSON.stringify({ papers: sortedArticles }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+
   } catch (error) {
     console.error('Error in search-pubmed function:', error)
     return new Response(
