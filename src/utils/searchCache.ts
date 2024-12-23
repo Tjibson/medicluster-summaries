@@ -3,24 +3,42 @@ import { supabase } from "@/integrations/supabase/client"
 import { type Json } from "@/integrations/supabase/types"
 
 export async function getSearchCache(cacheKey: string): Promise<Paper[] | null> {
-  const { data: cacheEntry } = await supabase
-    .from("search_cache")
-    .select()
-    .eq("cache_key", cacheKey)
-    .single()
+  try {
+    const { data: cacheEntry, error } = await supabase
+      .from("search_cache")
+      .select()
+      .eq("cache_key", cacheKey)
+      .maybeSingle()
 
-  if (cacheEntry) {
-    return cacheEntry.results as unknown as Paper[]
+    if (error) {
+      console.error("Error fetching from cache:", error)
+      return null
+    }
+
+    if (cacheEntry) {
+      return cacheEntry.results as unknown as Paper[]
+    }
+
+    return null
+  } catch (error) {
+    console.error("Error in getSearchCache:", error)
+    return null
   }
-
-  return null
 }
 
 export async function setSearchCache(cacheKey: string, results: Paper[]): Promise<void> {
-  await supabase
-    .from("search_cache")
-    .insert({
-      cache_key: cacheKey,
-      results: results as unknown as Json
-    })
+  try {
+    const { error } = await supabase
+      .from("search_cache")
+      .insert({
+        cache_key: cacheKey,
+        results: results as unknown as Json
+      })
+
+    if (error) {
+      console.error("Error setting cache:", error)
+    }
+  } catch (error) {
+    console.error("Error in setSearchCache:", error)
+  }
 }

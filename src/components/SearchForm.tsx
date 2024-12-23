@@ -7,12 +7,14 @@ import { type Paper } from "@/types/papers"
 import { Loader2 } from "lucide-react"
 import { type SearchParameters } from "@/constants/searchConfig"
 import { getSearchCache, setSearchCache } from "@/utils/searchCache"
+import { useToast } from "./ui/use-toast"
 
 interface SearchFormProps {
   onSearch: (papers: Paper[], criteria: SearchParameters) => void
 }
 
 export function SearchForm({ onSearch }: SearchFormProps) {
+  const { toast } = useToast()
   // Initialize with default dates
   const defaultStartDate = new Date(1970, 0, 1) // January 1st, 1970
   const defaultEndDate = new Date() // Today
@@ -31,20 +33,41 @@ export function SearchForm({ onSearch }: SearchFormProps) {
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSearch = async () => {
-    setIsLoading(true)
-    const cacheKey = `${searchInputs.medicine}-${searchInputs.condition}`
-    const cachedResults = await getSearchCache(cacheKey)
-    
-    if (cachedResults) {
-      onSearch(cachedResults, searchInputs)
-      setIsLoading(false)
+    if (!searchInputs.medicine && !searchInputs.condition) {
+      toast({
+        title: "Search Error",
+        description: "Please enter at least one search term",
+        variant: "destructive"
+      })
       return
     }
 
-    const results = await searchPubMed(searchInputs)
-    onSearch(results, searchInputs)
-    await setSearchCache(cacheKey, results)
-    setIsLoading(false)
+    setIsLoading(true)
+    try {
+      const cacheKey = `${searchInputs.medicine}-${searchInputs.condition}`
+      const cachedResults = await getSearchCache(cacheKey)
+      
+      if (cachedResults) {
+        console.log("Found cached results:", cachedResults.length)
+        onSearch(cachedResults, searchInputs)
+        setIsLoading(false)
+        return
+      }
+
+      console.log("No cache found, performing search")
+      const results = await searchPubMed(searchInputs)
+      onSearch(results, searchInputs)
+      await setSearchCache(cacheKey, results)
+    } catch (error) {
+      console.error("Search error:", error)
+      toast({
+        title: "Search Error",
+        description: "Failed to perform search. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleKeyPress = (event: React.KeyboardEvent) => {

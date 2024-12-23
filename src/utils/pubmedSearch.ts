@@ -5,25 +5,27 @@ import { supabase } from "@/integrations/supabase/client"
 export async function searchPubMed(searchParams: SearchParameters): Promise<Paper[]> {
   try {
     // Step 1: Construct search query with Boolean logic
-    const medicineQuery = searchParams.keywords.medicine.length > 0 
-      ? `(${searchParams.keywords.medicine.join(" OR ")})`
+    const medicineQuery = searchParams.medicine ? 
+      `(${searchParams.medicine})`
       : ""
     
-    const conditionQuery = searchParams.keywords.condition.length > 0
-      ? `(${searchParams.keywords.condition.join(" OR ")})`
+    const conditionQuery = searchParams.condition ?
+      `(${searchParams.condition})`
       : ""
     
-    const journalQuery = searchParams.journalNames.length > 0
+    const journalQuery = searchParams.journalNames?.length > 0
       ? `(${searchParams.journalNames.map(journal => `"${journal}"[Journal]`).join(" OR ")})`
       : ""
     
-    const articleTypesQuery = searchParams.articleTypes.length > 0
+    const articleTypesQuery = searchParams.articleTypes?.length > 0
       ? `(${searchParams.articleTypes.map(type => `"${type}"[Publication Type]`).join(" OR ")})`
       : ""
     
-    const dateQuery = `("${searchParams.dateRange.start}"[Date - Publication] : "${searchParams.dateRange.end}"[Date - Publication])`
+    const dateQuery = searchParams.dateRange ? 
+      `("${searchParams.dateRange.start}"[Date - Publication] : "${searchParams.dateRange.end}"[Date - Publication])`
+      : ""
     
-    // Combine all query parts
+    // Combine all query parts, filtering out empty strings
     const query = [
       medicineQuery,
       conditionQuery,
