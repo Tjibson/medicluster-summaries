@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react"
 import { supabase } from "@/integrations/supabase/client"
 import { type Paper } from "@/types/papers"
@@ -33,16 +34,20 @@ export function useCitations(papers: Paper[]) {
         await Promise.all(
           batch.map(async (paper) => {
             try {
+              // Add the anon key to ensure authentication works
               const { data, error } = await supabase.functions.invoke('fetch-citations', {
                 body: { paper }
               })
               
-              if (error) throw error
+              if (error) {
+                console.error('Error from fetch-citations function:', error)
+                throw error
+              }
               
+              console.log(`Fetched citations for paper ${paper.id}:`, data)
               const citations = Number(data?.citations) || 0
               newCitationsMap[paper.id] = citations
-              console.log(`Fetched citations for paper ${paper.id}:`, citations)
-
+              
               // Update the paper object directly
               paper.citations = citations
             } catch (error) {

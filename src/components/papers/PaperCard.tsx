@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { type Paper } from "@/types/papers"
@@ -15,6 +16,7 @@ interface PaperCardProps {
 
 export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
   const [citations, setCitations] = useState<number | null>(paper.citations || null)
+  const [citationError, setCitationError] = useState(false)
   const pubmedUrl = `https://pubmed.ncbi.nlm.nih.gov/${paper.id}/`
 
   useEffect(() => {
@@ -27,6 +29,7 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
         
         if (error) {
           console.error('Error from fetch-citations function:', error)
+          setCitationError(true)
           throw error
         }
         
@@ -36,13 +39,14 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
         }
       } catch (error) {
         console.error('Error fetching citations:', error)
+        setCitationError(true)
       }
     }
 
-    if (citations === null) {
+    if (citations === null && !citationError) {
       fetchCitations()
     }
-  }, [paper, citations])
+  }, [paper, citations, citationError])
 
   // Helper function to safely extract and render title
   const renderTitle = (title: any): string => {
@@ -69,7 +73,7 @@ export function PaperCard({ paper, onSave, onLike, onClick }: PaperCardProps) {
         
         <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
           <p className="font-medium">
-            Citations: {citations !== null ? citations : 'Loading...'}
+            Citations: {citations !== null ? citations : (citationError ? 'N/A' : 'Loading...')}
           </p>
           <span>•</span>
           <p>{paper.year}</p>
